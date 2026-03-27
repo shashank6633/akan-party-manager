@@ -627,7 +627,7 @@ router.put(
       // Auto-update Follow-up Tracking when status changes from Enquiry to Contacted/Tentative
       if (oldStatus === 'Enquiry' && (status === 'Contacted' || status === 'Tentative')) {
         const userName = req.user.name || req.user.username;
-        const timestamp = new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+        const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
         const followUpNote = req.body.followUpNote || req.body['Follow Up Note'] || '';
         const noteText = followUpNote ? followUpNote : 'Call follow-up';
         const autoNote = `[${timestamp} - ${userName}] Status: ${oldStatus} → ${status} | ${noteText}`;
@@ -878,7 +878,7 @@ router.put(
 
       const now = new Date().toISOString();
       const userName = req.user.name || req.user.username;
-      const timestamp = new Date().toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+      const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
       const newNote = `[${timestamp} - ${userName}] ${note}`;
 
       // Prepend new note to existing notes

@@ -12,6 +12,7 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import CashierBilling from './pages/CashierBilling';
+import CalendarView from './pages/CalendarView';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children, adminOnly = false, hideForRoles = [] }) {
@@ -90,6 +91,11 @@ export default function App() {
  }
  >
  <Route index element={<Dashboard />} />
+ <Route path="calendar" element={
+ <RoleGuard hideForRoles={['GRE']}>
+ <CalendarView />
+ </RoleGuard>
+ } />
  <Route path="add-party" element={
  <RoleGuard hideForRoles={['CASHIER']}>
  <AddParty />
