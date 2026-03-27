@@ -35,10 +35,10 @@ app.use(
   })
 );
 
-// Rate limiting - general API limit
+// Rate limiting - general API limit (generous for dashboard auto-refresh)
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // limit each IP to 200 requests per window
+  max: 1000, // limit each IP to 1000 requests per window
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests, please try again later.' },
@@ -48,7 +48,7 @@ app.use('/api/', generalLimiter);
 // Stricter rate limit for auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20, // 20 login attempts per 15 minutes
+  max: 30, // 30 login attempts per 15 minutes
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many login attempts, please try again later.' },
