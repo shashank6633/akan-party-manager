@@ -35,10 +35,10 @@ app.use(
   })
 );
 
-// Rate limiting - general API limit (generous for dashboard auto-refresh)
+// Rate limiting - general API limit (~20 users, 100 req/min each)
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per window
+  windowMs: 1 * 60 * 1000, // 1 minute window
+  max: 100, // 100 requests per minute per IP
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests, please try again later.' },
