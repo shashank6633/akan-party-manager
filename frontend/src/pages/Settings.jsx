@@ -45,11 +45,35 @@ export default function Settings() {
  });
  const [savingEmails, setSavingEmails] = useState(false);
  const [loadingEmails, setLoadingEmails] = useState(false);
+ const [paymentReminderEnabled, setPaymentReminderEnabled] = useState(false);
+ const [togglingReminder, setTogglingReminder] = useState(false);
 
  useEffect(() => {
  if (activeTab === 'users') fetchUsers();
  if (activeTab === 'emails' && isAdmin) fetchEmailSettings();
+ if (activeTab === 'notifications' && isAdmin) fetchReminderSetting();
  }, [activeTab]);
+
+ const fetchReminderSetting = async () => {
+ try {
+ const res = await api.get('/notifications/payment-reminder-setting');
+ setPaymentReminderEnabled(res.data.enabled ?? false);
+ } catch { /* ignore */ }
+ };
+
+ const togglePaymentReminder = async () => {
+ setTogglingReminder(true);
+ try {
+ const res = await api.post('/notifications/payment-reminder-setting', { enabled: !paymentReminderEnabled });
+ setPaymentReminderEnabled(res.data.enabled);
+ setSuccess(`Payment reminders ${res.data.enabled ? 'activated' : 'deactivated'}.`);
+ setTimeout(() => setSuccess(''), 3000);
+ } catch (err) {
+ setError('Failed to update payment reminder setting.');
+ } finally {
+ setTogglingReminder(false);
+ }
+ };
 
  const fetchUsers = async () => {
  setLoading(true);
@@ -303,6 +327,23 @@ export default function Settings() {
  <p className="text-xs text-gray-500">Sent at 10 PM daily to Admin</p>
  </div>
  </div>
+ {/* Payment Reminder Toggle */}
+ {isAdmin && (
+ <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-between">
+  <div>
+  <p className="text-xs font-semibold text-gray-700">Auto Payment Reminders</p>
+  <p className="text-xs text-gray-500 mt-0.5">Sends reminder emails to guests 2 days before, 1 day before, and on the due date at 8:00 AM</p>
+  </div>
+  <button
+  onClick={togglePaymentReminder}
+  disabled={togglingReminder}
+  className={`relative w-12 h-6 rounded-full transition-colors ${paymentReminderEnabled ? 'bg-green-500' : 'bg-gray-300'}`}
+  >
+  <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${paymentReminderEnabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+  </button>
+ </div>
+ )}
+
  <button
  onClick={handleTestEmail}
  disabled={testingEmail}

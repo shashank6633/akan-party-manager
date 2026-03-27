@@ -93,11 +93,11 @@ export default function AddParty() {
  return () => clearTimeout(timer);
  }, [form]);
 
- // Parse expected pax range (e.g. "40-60" → avg 50, "50" → 50)
+ // Parse expected pax range (e.g. "40-60" → minimum guarantee 40, "50" → 50)
  const parseExpectedPax = (val) => {
  if (!val) return 0;
  const rangeMatch = val.toString().match(/^(\d+)\s*[-–]\s*(\d+)$/);
- if (rangeMatch) return Math.round((parseInt(rangeMatch[1]) + parseInt(rangeMatch[2])) / 2);
+ if (rangeMatch) return parseInt(rangeMatch[1]); // minimum guarantee
  return parseFloat(val) || 0;
  };
 

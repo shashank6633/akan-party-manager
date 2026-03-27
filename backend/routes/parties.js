@@ -325,23 +325,57 @@ router.get(
       const rows = await sheetsService.getAllRows();
       const today = todayStr();
 
+      const todayDate = new Date(today);
+
       const pending = rows.filter((r) => {
-        const status = r['Status'];
+        const status = (r['Status'] || '').trim();
+        const partyDate = normalizeDate(r['Date']);
+
+        // Rule 1: Confirmed parties — show if party is within 2 days AND FP not issued
+        if (status === 'Confirmed') {
+          if (!partyDate) return false;
+          const pDate = new Date(partyDate);
+          const daysUntilParty = Math.floor((pDate - todayDate) / (1000 * 60 * 60 * 24));
+          if (daysUntilParty < 0) return false; // past parties excluded
+          if (daysUntilParty > 3) return false; // more than 3 days away
+          const fpIssued = (r['FP Issued'] || '').trim().toLowerCase();
+          return fpIssued !== 'yes'; // only show if FP not issued
+        }
+
+        // Rule 2: Enquiry/Contacted/Tentative — follow-up needed
         if (status !== 'Enquiry' && status !== 'Contacted' && status !== 'Tentative') return false;
+
+        // Only show parties with tomorrow or future dates
+        if (!partyDate || partyDate <= today) return false;
 
         const lastFollowUp = r['Last Follow Up Date'];
         if (!lastFollowUp) return true;
 
         const lastDate = new Date(lastFollowUp);
-        const todayDate = new Date(today);
         const diffDays = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24));
         return diffDays >= 2;
       });
 
+      // Sort by date ascending (nearest first)
+      pending.sort((a, b) => {
+        const dA = normalizeDate(a['Date']) || '9999-12-31';
+        const dB = normalizeDate(b['Date']) || '9999-12-31';
+        return dA.localeCompare(dB);
+      });
+
+      // Add fpAlert flag for confirmed parties needing FP
+      const mapped = pending.map((r) => {
+        const obj = toCamelCase(r);
+        if ((r['Status'] || '').trim() === 'Confirmed') {
+          obj._fpAlert = true;
+        }
+        return obj;
+      });
+
       res.json({
         success: true,
-        parties: pending.map(toCamelCase),
-        total: pending.length,
+        parties: mapped,
+        total: mapped.length,
       });
     } catch (err) {
       console.error('Pending followups error:', err);

@@ -68,7 +68,6 @@ export default function Layout() {
         <Header
           title={getTitle()}
           onMenuClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          onSearch={setGlobalSearch}
         />
 
         <main className="p-3 sm:p-4 lg:p-6 max-w-[1440px] mx-auto">

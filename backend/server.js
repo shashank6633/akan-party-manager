@@ -274,15 +274,18 @@ cron.schedule('0 9 * * *', async () => {
 // ---------------------------------------------------------------------------
 cron.schedule('30 2 * * *', async () => {
   console.log('Running payment reminder cron job (8:00 AM IST)...');
+  // Check if payment reminders are enabled in settings
+  if (process.env.PAYMENT_REMINDER_ENABLED !== 'true') {
+    console.log('Payment reminders are disabled. Skipping.');
+    return;
+  }
   try {
     const rows = await sheetsService.getAllRows();
     // Use IST for date calculations
     const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     const todayIST = nowIST.toISOString().split('T')[0];
-    const tomorrowIST = new Date(nowIST.getTime() + 1 * 86400000).toISOString().split('T')[0];
-    const dayAfterIST = new Date(nowIST.getTime() + 2 * 86400000).toISOString().split('T')[0];
 
-    // Filter parties with pending dues and a balance payment date
+    // Filter parties with dues on today's balance payment date
     const partiesWithDues = rows.filter((r) => {
       if ((r['Status'] || '').trim() === 'Cancelled') return false;
       const balanceDate = (r['Balance Payment Date'] || '').trim();
@@ -290,25 +293,16 @@ cron.schedule('30 2 * * *', async () => {
       const due = parseFloat(r['Due Amount']) || 0;
       if (due <= 0) return false;
       if (!r['Guest Email']) return false;
-      return true;
+      const normalizedDate = balanceDate.length === 10 ? balanceDate : new Date(balanceDate).toISOString().split('T')[0];
+      return normalizedDate === todayIST;
     });
 
     let sentCount = 0;
     for (const party of partiesWithDues) {
-      const balanceDate = (party['Balance Payment Date'] || '').trim();
-      const normalizedDate = balanceDate.length === 10 ? balanceDate : new Date(balanceDate).toISOString().split('T')[0];
-
-      let reminderType = null;
-      if (normalizedDate === dayAfterIST) reminderType = '2_days_before';
-      else if (normalizedDate === tomorrowIST) reminderType = '1_day_before';
-      else if (normalizedDate === todayIST) reminderType = 'due_today';
-
-      if (reminderType) {
-        emailService.sendPaymentReminderToGuest(party, reminderType).catch((err) => {
-          console.error(`Failed to send payment reminder for ${party['Host Name']}:`, err.message);
-        });
-        sentCount++;
-      }
+      emailService.sendPaymentReminderToGuest(party, 'due_today').catch((err) => {
+        console.error(`Failed to send payment reminder for ${party['Host Name']}:`, err.message);
+      });
+      sentCount++;
     }
 
     console.log(`Payment reminder cron complete: ${sentCount} reminders sent.`);

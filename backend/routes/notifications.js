@@ -257,4 +257,42 @@ router.get(
   }
 );
 
+// ---------------------------------------------------------------------------
+// Payment reminder auto-send toggle (persisted in .env)
+// ---------------------------------------------------------------------------
+router.get(
+  '/payment-reminder-setting',
+  roleCheck(ROLES.ADMIN),
+  async (req, res) => {
+    res.json({ success: true, enabled: process.env.PAYMENT_REMINDER_ENABLED === 'true' });
+  }
+);
+
+router.post(
+  '/payment-reminder-setting',
+  roleCheck(ROLES.ADMIN),
+  async (req, res) => {
+    try {
+      const enabled = !!req.body.enabled;
+      process.env.PAYMENT_REMINDER_ENABLED = String(enabled);
+
+      // Persist to .env
+      const envPath = path.join(__dirname, '..', '.env');
+      let envContent = fs.readFileSync(envPath, 'utf-8');
+      const regex = /^PAYMENT_REMINDER_ENABLED=.*$/m;
+      if (regex.test(envContent)) {
+        envContent = envContent.replace(regex, `PAYMENT_REMINDER_ENABLED=${enabled}`);
+      } else {
+        envContent += `\nPAYMENT_REMINDER_ENABLED=${enabled}`;
+      }
+      fs.writeFileSync(envPath, envContent, 'utf-8');
+
+      res.json({ success: true, enabled });
+    } catch (err) {
+      console.error('Toggle payment reminder error:', err);
+      res.status(500).json({ success: false, message: 'Failed to update setting.' });
+    }
+  }
+);
+
 module.exports = router;

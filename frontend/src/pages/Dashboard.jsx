@@ -20,7 +20,7 @@ function getTwoWeeksFromNow() {
 }
 
 export default function Dashboard() {
- const { globalSearch } = useOutletContext();
+ const outletContext = useOutletContext();
  const { user } = useAuth();
  const navigate = useNavigate();
  const isGRE = user?.role === 'GRE';
@@ -73,7 +73,6 @@ export default function Dashboard() {
  const params = { page, limit: PAGE_SIZE };
  if (statusFilter !== 'All') params.status = statusFilter;
  if (searchQuery) params.search = searchQuery;
- if (globalSearch) params.search = globalSearch;
  if (dateFrom) params.dateFrom = dateFrom;
  if (dateTo) params.dateTo = dateTo;
  const res = await partyAPI.getAll(params);
@@ -84,7 +83,7 @@ export default function Dashboard() {
  } finally {
  setLoading(false);
  }
- }, [page, statusFilter, searchQuery, dateFrom, dateTo, globalSearch]);
+ }, [page, statusFilter, searchQuery, dateFrom, dateTo]);
 
  const fetchStats = useCallback(async () => {
  setStatsLoading(true);
@@ -292,6 +291,19 @@ export default function Dashboard() {
  </div>
  </div>
  <div className="flex items-center gap-2 shrink-0">
+ {party.handledBy && (
+  <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{party.handledBy}</span>
+ )}
+ {party.phoneNumber && (
+  <a
+  href={`tel:${party.phoneNumber}`}
+  onClick={(e) => e.stopPropagation()}
+  className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+  title="Call Guest"
+  >
+  <Phone className="w-3.5 h-3.5" />
+  </a>
+ )}
  <span className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-full">
  <Timer className="w-3 h-3" />
  {party.hoursAgo}h
@@ -336,7 +348,23 @@ export default function Dashboard() {
  </div>
  </div>
  <div className="flex items-center gap-2 shrink-0">
+ {party.handledBy && (
+  <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{party.handledBy}</span>
+ )}
  <StatusBadge status={party.status} size="xs" />
+ {party._fpAlert && (
+  <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-200 animate-pulse">FP Needed</span>
+ )}
+ {party.phoneNumber && (
+  <a
+  href={`tel:${party.phoneNumber}`}
+  onClick={(e) => e.stopPropagation()}
+  className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+  title="Call Guest"
+  >
+  <Phone className="w-3.5 h-3.5" />
+  </a>
+ )}
  <MessageSquarePlus className="w-4 h-4 text-amber-500" />
  </div>
  </div>

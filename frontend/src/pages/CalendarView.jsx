@@ -151,8 +151,8 @@ export default function CalendarView() {
                       <div className={`text-xs sm:text-sm font-medium mb-1 ${isToday(cell.day) ? 'text-white bg-[#af4408] w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center' : 'text-gray-700'}`}>
                         {cell.day}
                       </div>
-                      <div className="space-y-0.5 sm:space-y-1">
-                        {cell.parties.slice(0, 3).map((p, pi) => {
+                      <div className="space-y-0.5 sm:space-y-1 max-h-[200px] overflow-y-auto">
+                        {cell.parties.map((p, pi) => {
                           const status = (p.status || '').trim();
                           const colors = STATUS_COLORS[status] || STATUS_COLORS.Enquiry;
                           return (
@@ -167,11 +167,6 @@ export default function CalendarView() {
                             </div>
                           );
                         })}
-                        {cell.parties.length > 3 && (
-                          <div className="text-[9px] sm:text-[10px] text-gray-500 font-medium pl-1">
-                            +{cell.parties.length - 3} more
-                          </div>
-                        )}
                       </div>
                     </>
                   )}

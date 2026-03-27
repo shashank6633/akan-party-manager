@@ -202,30 +202,25 @@ export default function PartyDetail() {
    setShowCancelModal(true);
    return;
   }
-  // Mandatory follow-up note when changing from Enquiry to Contacted/Tentative
+  // Mandatory follow-up note for ALL status changes (what was discussed with guest)
   const currentStatus = (party.status || '').trim();
-  if (currentStatus === 'Enquiry' && (newStatus === 'Contacted' || newStatus === 'Tentative')) {
-   setPendingStatus(newStatus);
-   setStatusFollowUpNote('');
-   setShowFollowUpModal(true);
-   return;
-  }
-  // Warn if confirming without Confirmed Pax & Final Rate
-  if (newStatus === 'Confirmed') {
-   const pax = party.confirmedPax || editData.confirmedPax;
-   const rate = party.finalRate || editData.finalRate;
-   if (!pax || !rate) {
-    const proceed = window.confirm(
-     'Confirmed Pax and Final Rate are not set yet. You can fill them later.\n\nProceed with confirmation?'
+  if (currentStatus !== newStatus) {
+   // Warn if confirming without Confirmed Pax & Final Rate
+   if (newStatus === 'Confirmed') {
+    const pax = party.confirmedPax || editData.confirmedPax;
+    const rate = party.finalRate || editData.finalRate;
+    if (!pax || !rate) {
+     const proceed = window.confirm(
+      'Confirmed Pax and Final Rate are not set yet. You can fill them later.\n\nProceed with confirmation?'
     );
     if (!proceed) return;
    }
   }
-  try {
-   await partyAPI.updateStatus(id, { status: newStatus });
-   await fetchParty();
-  } catch (err) {
-   setError(err.response?.data?.message || 'Failed to update status.');
+  // Always ask for follow-up note on status change
+  setPendingStatus(newStatus);
+  setStatusFollowUpNote('');
+  setShowFollowUpModal(true);
+  return;
   }
  };
 
@@ -810,9 +805,20 @@ export default function PartyDetail() {
      <div className="flex items-center gap-2 mb-4">
       <MessageSquarePlus className="w-4 h-4 text-[#af4408]" />
       <h3 className="text-sm font-semibold text-gray-800">Follow-Up Tracking</h3>
-      {party.lastFollowUpDate && (
-       <span className="text-[10px] text-gray-400 ml-auto">Last: {formatDate(party.lastFollowUpDate)}</span>
-      )}
+      <div className="flex items-center gap-2 ml-auto">
+       {party.phoneNumber && (
+        <a
+         href={`tel:${party.phoneNumber}`}
+         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+         title="Call Guest"
+        >
+         📞 Call
+        </a>
+       )}
+       {party.lastFollowUpDate && (
+        <span className="text-[10px] text-gray-400">Last: {formatDate(party.lastFollowUpDate)}</span>
+       )}
+      </div>
      </div>
 
      {/* Add follow-up note */}

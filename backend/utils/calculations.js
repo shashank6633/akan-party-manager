@@ -6,10 +6,13 @@
 /**
  * Parse Expected Pax which may be a range like "40-60" → avg 50, or a plain number.
  */
+/**
+ * Parse Expected Pax - for ranges like "40-60", returns the MINIMUM (40) as minimum guarantee.
+ */
 function parseExpectedPax(val) {
   if (!val) return 0;
   const rangeMatch = val.toString().match(/^(\d+)\s*[-–]\s*(\d+)$/);
-  if (rangeMatch) return Math.round((parseInt(rangeMatch[1]) + parseInt(rangeMatch[2])) / 2);
+  if (rangeMatch) return parseInt(rangeMatch[1]); // minimum guarantee
   return parseFloat(val) || 0;
 }
 

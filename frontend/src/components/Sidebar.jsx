@@ -15,7 +15,7 @@ import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/calendar', icon: CalendarDays, label: 'Calendar', hideFor: ['GRE'] },
+  { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
   { to: '/add-party', icon: PlusCircle, label: 'Add Party', hideFor: ['CASHIER'] },
   { to: '/cashier-billing', icon: Receipt, label: 'Billing', showFor: ['CASHIER', 'ADMIN', 'MANAGER'] },
   { to: '/reports', icon: BarChart3, label: 'Reports', hideFor: ['GRE', 'CASHIER'] },

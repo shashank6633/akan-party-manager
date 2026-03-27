@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import StatusBadge from '../Party/StatusBadge';
 import PartyCard from '../Party/PartyCard';
-import { formatCurrency, formatDate, getPaymentStatus, isTBCDate } from '../../utils/helpers';
+import { formatDate, isTBCDate } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 
 export default function PartyTable({ parties, loading, onQuickAction, page, totalPages, onPageChange }) {
@@ -22,7 +22,7 @@ export default function PartyTable({ parties, loading, onQuickAction, page, tota
  const { user } = useAuth();
  const isGRE = user?.role === 'GRE';
  const [sortField, setSortField] = useState('date');
- const [sortDir, setSortDir] = useState('desc');
+ const [sortDir, setSortDir] = useState('asc');
  const [viewMode, setViewMode] = useState('table');
  const [actionMenuId, setActionMenuId] = useState(null);
 
@@ -135,18 +135,12 @@ export default function PartyTable({ parties, loading, onQuickAction, page, tota
         <ThCell field="phoneNumber">Phone</ThCell>
         <ThCell field="status">Status</ThCell>
         <ThCell field="expectedPax">Pax</ThCell>
-        <ThCell field="packageSelected">Package</ThCell>
-        <ThCell field="finalTotalAmount">Amount</ThCell>
-        {!isGRE && <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment</th>}
+        <ThCell field="handledBy">Handled By</ThCell>
         {!isGRE && <th className="px-4 py-3 w-10" />}
        </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
        {sorted.map((party) => {
-        const payment = getPaymentStatus(
-         parseFloat(party.approxBillAmount) || parseFloat(party.finalTotalAmount) || 0,
-         parseFloat(party.totalAmountPaid) || 0
-        );
         return (
          <tr
           key={party.rowIndex}
@@ -187,26 +181,8 @@ export default function PartyTable({ parties, loading, onQuickAction, page, tota
            {party.expectedPax || '-'}
           </td>
           <td className="px-4 py-3 text-sm text-gray-600 truncate max-w-[160px] lg:max-w-[200px]">
-           {party.packageSelected || '-'}
+           {party.handledBy || '-'}
           </td>
-          <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
-           {party.finalTotalAmount ? formatCurrency(party.finalTotalAmount) : party.approxBillAmount ? formatCurrency(party.approxBillAmount) : '-'}
-          </td>
-          {!isGRE && (
-           <td className="px-4 py-3">
-            <div className="flex flex-col gap-1">
-             <span className={`text-xs font-semibold ${payment.color}`}>{payment.label}</span>
-             {party.paymentStatus && (
-              <span className={`inline-block w-fit text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-               party.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' :
-               party.paymentStatus === 'Partial' ? 'bg-amber-100 text-amber-700' :
-               party.paymentStatus === 'Refunded' ? 'bg-blue-100 text-blue-700' :
-               'bg-red-100 text-red-700'
-              }`}>{party.paymentStatus}</span>
-             )}
-            </div>
-           </td>
-          )}
           {!isGRE && (
            <td className="px-4 py-3 relative">
             <button
