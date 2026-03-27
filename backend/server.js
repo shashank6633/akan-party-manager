@@ -35,20 +35,20 @@ app.use(
   })
 );
 
-// Rate limiting - general API limit (~20 users, 100 req/min each)
+// Rate limiting - general API: 2000 req/min total (20 users × 100 each)
 const generalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute window
-  max: 100, // 100 requests per minute per IP
+  max: 2000, // 2000 requests per minute per IP (shared by all users behind same IP)
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests, please try again later.' },
 });
 app.use('/api/', generalLimiter);
 
-// Stricter rate limit for auth endpoints
+// Auth rate limit - prevent brute force login attacks only
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30, // 30 login attempts per 15 minutes
+  max: 50, // 50 login attempts per 15 minutes (enough for 20 users)
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many login attempts, please try again later.' },
