@@ -331,41 +331,48 @@ export default function Dashboard() {
  <div
  key={party.rowIndex}
  onClick={() => navigate(`/parties/${party.rowIndex}`)}
- className="flex items-center justify-between gap-3 p-2.5 bg-white rounded-lg border border-amber-100 cursor-pointer hover:border-amber-300 transition-colors"
+ className="p-3 bg-white rounded-lg border border-amber-100 cursor-pointer hover:border-amber-300 transition-colors"
  >
- <div className="min-w-0 flex-1">
- <p className="text-sm font-medium text-gray-900 truncate">{party.hostName}</p>
- <div className="flex items-center gap-2 mt-0.5">
- {party.phoneNumber && (
- <span className="flex items-center gap-1 text-[11px] text-gray-500">
- <Phone className="w-3 h-3" />{party.phoneNumber}
- </span>
- )}
- <span className="flex items-center gap-1 text-[11px] text-gray-500">
- <Clock className="w-3 h-3" />
- {isTBCDate(party.date) ? party.date.replace('TBC: ', '') : formatDate(party.date)}
- </span>
+ {/* Top row: Name + Status badges */}
+ <div className="flex items-start justify-between gap-2">
+  <p className="text-sm font-medium text-gray-900 truncate min-w-0 flex-1">{party.hostName}</p>
+  <div className="flex items-center gap-1.5 shrink-0">
+  <StatusBadge status={party.status} size="xs" />
+  {party._fpAlert && (
+   <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-200 animate-pulse">FP Needed</span>
+  )}
+  </div>
  </div>
- </div>
- <div className="flex items-center gap-2 shrink-0">
- {party.handledBy && (
+ {/* Info row: Phone, Date, Handler */}
+ <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+  {party.phoneNumber && (
+  <span className="flex items-center gap-1 text-[11px] text-gray-500">
+   <Phone className="w-3 h-3" />{party.phoneNumber}
+  </span>
+  )}
+  <span className="flex items-center gap-1 text-[11px] text-gray-500">
+  <Clock className="w-3 h-3" />
+  {isTBCDate(party.date) ? party.date.replace('TBC: ', '') : formatDate(party.date)}
+  </span>
+  {party.handledBy && (
   <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{party.handledBy}</span>
- )}
- <StatusBadge status={party.status} size="xs" />
- {party._fpAlert && (
-  <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full border border-red-200 animate-pulse">FP Needed</span>
- )}
- {party.phoneNumber && (
+  )}
+ </div>
+ {/* Action row: Call + Follow-up icon */}
+ <div className="flex items-center justify-end gap-2 mt-2">
+  {party.phoneNumber && (
   <a
-  href={`tel:${party.phoneNumber}`}
-  onClick={(e) => e.stopPropagation()}
-  className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
-  title="Call Guest"
+   href={`tel:${party.phoneNumber}`}
+   onClick={(e) => e.stopPropagation()}
+   className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors text-[11px] font-medium"
+   title="Call Guest"
   >
-  <Phone className="w-3.5 h-3.5" />
+   <Phone className="w-3 h-3" /> Call
   </a>
- )}
- <MessageSquarePlus className="w-4 h-4 text-amber-500" />
+  )}
+  <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-600 text-[11px] font-medium">
+  <MessageSquarePlus className="w-3 h-3" /> Follow Up
+  </span>
  </div>
  </div>
  ))}
