@@ -402,7 +402,7 @@ async function getAllUsers() {
     const sheets = getSheetsClient();
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: getSpreadsheetId(),
-      range: `${SHEET_NAMES.USERS}!A2:H`,
+      range: `${SHEET_NAMES.USERS}!A2:I`,
     });
     const rows = res.data.values || [];
     return rows.map((row, idx) => ({
@@ -414,6 +414,7 @@ async function getAllUsers() {
       createdAt: row[5] || '',
       lastLogin: row[6] || '',
       loginCount: row[7] || '0',
+      status: row[8] || 'Active',
       _rowIndex: idx + 2,
     }));
   });
@@ -430,7 +431,7 @@ async function updateUser(rowIndex, data) {
     // Read current row
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: getSpreadsheetId(),
-      range: `${SHEET_NAMES.USERS}!A${rowIndex}:H${rowIndex}`,
+      range: `${SHEET_NAMES.USERS}!A${rowIndex}:I${rowIndex}`,
     });
     const row = (res.data.values || [])[0] || [];
     const current = {
@@ -442,12 +443,13 @@ async function updateUser(rowIndex, data) {
       createdAt: row[5] || '',
       lastLogin: row[6] || '',
       loginCount: row[7] || '0',
+      status: row[8] || 'Active',
     };
     const merged = { ...current, ...data };
-    const values = [merged.username, merged.password, merged.role, merged.name, merged.email, merged.createdAt, merged.lastLogin, merged.loginCount];
+    const values = [merged.username, merged.password, merged.role, merged.name, merged.email, merged.createdAt, merged.lastLogin, merged.loginCount, merged.status];
     await sheets.spreadsheets.values.update({
       spreadsheetId: getSpreadsheetId(),
-      range: `${SHEET_NAMES.USERS}!A${rowIndex}:H${rowIndex}`,
+      range: `${SHEET_NAMES.USERS}!A${rowIndex}:I${rowIndex}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: [values] },
     });
@@ -497,6 +499,8 @@ async function appendUser(userData) {
  * Ensure the Users sheet tab and header row exist.
  * Creates the tab and header if missing.
  */
+const USER_COLUMNS = ['Username', 'Password', 'Role', 'Name', 'Email', 'CreatedAt', 'LastLogin', 'LoginCount', 'Status'];
+
 async function ensureUsersSheet() {
   return withRetry(async () => {
     const sheets = getSheetsClient();
@@ -519,14 +523,33 @@ async function ensureUsersSheet() {
         },
       });
       // Add header row
+      const endCol = indexToColumnLetter(USER_COLUMNS.length - 1);
       await sheets.spreadsheets.values.update({
         spreadsheetId: getSpreadsheetId(),
-        range: `${SHEET_NAMES.USERS}!A1:H1`,
+        range: `${SHEET_NAMES.USERS}!A1:${endCol}1`,
         valueInputOption: 'USER_ENTERED',
-        requestBody: {
-          values: [['Username', 'Password', 'Role', 'Name', 'Email', 'CreatedAt', 'LastLogin', 'LoginCount']],
-        },
+        requestBody: { values: [USER_COLUMNS] },
       });
+      console.log('Users: Created sheet with header row.');
+    } else {
+      // Sheet exists — check if new columns need to be added
+      const endCol = indexToColumnLetter(USER_COLUMNS.length - 1);
+      const res = await sheets.spreadsheets.values.get({
+        spreadsheetId: getSpreadsheetId(),
+        range: `${SHEET_NAMES.USERS}!A1:${endCol}1`,
+      });
+      const header = (res.data.values || [])[0] || [];
+      if (header.length < USER_COLUMNS.length) {
+        const newCols = USER_COLUMNS.slice(header.length);
+        const startCol = indexToColumnLetter(header.length);
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: getSpreadsheetId(),
+          range: `${SHEET_NAMES.USERS}!${startCol}1:${endCol}1`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [newCols] },
+        });
+        console.log(`Users: Added ${newCols.length} new column(s): ${newCols.join(', ')}`);
+      }
     }
   });
 }
@@ -543,12 +566,26 @@ async function ensurePartyBookingsHeader() {
     });
     const header = (res.data.values || [])[0];
     if (!header || header.length === 0) {
+      // No header at all — write the full header row
       await sheets.spreadsheets.values.update({
         spreadsheetId: getSpreadsheetId(),
         range: `${SHEET_NAMES.PARTY_BOOKINGS}!A1:${LAST_COL}1`,
         valueInputOption: 'USER_ENTERED',
         requestBody: { values: [COLUMNS] },
       });
+      console.log('Party Bookings: Created full header row.');
+    } else if (header.length < COLUMNS.length) {
+      // Header exists but has fewer columns — append the missing ones
+      const newCols = COLUMNS.slice(header.length);
+      const startCol = indexToColumnLetter(header.length);
+      const endCol = indexToColumnLetter(COLUMNS.length - 1);
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: getSpreadsheetId(),
+        range: `${SHEET_NAMES.PARTY_BOOKINGS}!${startCol}1:${endCol}1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [newCols] },
+      });
+      console.log(`Party Bookings: Added ${newCols.length} new column(s): ${newCols.join(', ')}`);
     }
   });
 }
@@ -590,12 +627,33 @@ async function ensureReminderLogSheet() {
         spreadsheetId,
         requestBody: { requests: [{ addSheet: { properties: { title: SHEET_NAMES.REMINDER_LOG } } }] },
       });
+      const endCol = indexToColumnLetter(REMINDER_LOG_COLUMNS.length - 1);
       await sheets.spreadsheets.values.update({
         spreadsheetId,
-        range: `'${SHEET_NAMES.REMINDER_LOG}'!A1:H1`,
+        range: `'${SHEET_NAMES.REMINDER_LOG}'!A1:${endCol}1`,
         valueInputOption: 'USER_ENTERED',
         requestBody: { values: [REMINDER_LOG_COLUMNS] },
       });
+      console.log('Payment Reminder Log: Created sheet with header row.');
+    } else {
+      // Sheet exists — check if new columns need to be added
+      const endCol = indexToColumnLetter(REMINDER_LOG_COLUMNS.length - 1);
+      const res = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'${SHEET_NAMES.REMINDER_LOG}'!A1:${endCol}1`,
+      });
+      const header = (res.data.values || [])[0] || [];
+      if (header.length < REMINDER_LOG_COLUMNS.length) {
+        const newCols = REMINDER_LOG_COLUMNS.slice(header.length);
+        const startCol = indexToColumnLetter(header.length);
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${SHEET_NAMES.REMINDER_LOG}'!${startCol}1:${endCol}1`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [newCols] },
+        });
+        console.log(`Payment Reminder Log: Added ${newCols.length} new column(s): ${newCols.join(', ')}`);
+      }
     }
   });
 }

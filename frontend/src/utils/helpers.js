@@ -64,10 +64,11 @@ export const formatPhoneDisplay = (phone) => {
  * @param {object} party - Party data
  * @param {string} [userName] - Name of the user sending the message
  */
-export const generateWhatsAppMessage = (party, userName) => {
+export const generateWhatsAppMessage = (party, userName, { isNew = false } = {}) => {
  const phone = formatPhoneDisplay(party.phoneNumber);
+ const heading = isNew ? '🎉 *New Party Enquiry*' : '📋 *Enquired Party Details*';
  const lines = [
- `🎉 *New Party Enquiry*`,
+ heading,
  ``,
  `📋 *ID:* ${party.uniqueId || '-'}`,
  `📅 *Date:* ${party.date || '-'}`,

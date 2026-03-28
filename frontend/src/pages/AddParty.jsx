@@ -188,7 +188,7 @@ export default function AddParty() {
 
  const handleCopyWhatsApp = async () => {
  if (!createdParty) return;
- const msg = generateWhatsAppMessage(createdParty, user?.name || user?.username);
+ const msg = generateWhatsAppMessage(createdParty, user?.name || user?.username, { isNew: true });
  await copyToClipboard(msg);
  setCopied(true);
  setTimeout(() => setCopied(false), 2000);
@@ -264,7 +264,7 @@ export default function AddParty() {
  <h3 className="text-sm font-semibold text-gray-800">Share on WhatsApp</h3>
  </div>
  <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-700 whitespace-pre-wrap font-mono max-h-60 overflow-y-auto mb-3">
- {createdParty ? generateWhatsAppMessage(createdParty) : ''}
+ {createdParty ? generateWhatsAppMessage(createdParty, null, { isNew: true }) : ''}
  </div>
  <button
  onClick={handleCopyWhatsApp}

@@ -48,6 +48,7 @@ export const authAPI = {
   createUser: (data) => api.post('/auth/register', data),
   updateUser: (id, data) => api.put(`/auth/users/${id}`, data),
   deleteUser: (id) => api.delete(`/auth/users/${id}`),
+  toggleUserStatus: (id) => api.put(`/auth/users/${id}/toggle-status`),
   changePassword: (data) => api.put('/auth/change-password', data),
 };
 

@@ -550,6 +550,17 @@ router.put(
         });
       }
 
+      // Auto-append current user's name to "Handled By" if not already present
+      const currentUserName = req.user.name || req.user.username;
+      if (currentUserName) {
+        const existingHandledBy = existing['Handled By'] || '';
+        const handlers = existingHandledBy.split(',').map(h => h.trim()).filter(Boolean);
+        if (!handlers.some(h => h.toLowerCase() === currentUserName.toLowerCase())) {
+          handlers.push(currentUserName);
+          allowed['Handled By'] = handlers.join(', ');
+        }
+      }
+
       // Merge with existing data for auto-calculations
       const merged = { ...existing, ...allowed };
       applyAutoCalculations(merged);

@@ -10,6 +10,9 @@ import {
  Send,
  CheckCircle,
  X,
+ Clock,
+ ShieldOff,
+ ShieldCheck,
 } from 'lucide-react';
 import { authAPI, notificationAPI, api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +20,21 @@ import { useAuth } from '../context/AuthContext';
 import { Mail, Save } from 'lucide-react';
 
 const ROLES = ['GRE', 'CASHIER', 'SALES', 'MANAGER', 'ADMIN'];
+
+function getTimeAgo(date) {
+ const now = new Date();
+ const diffMs = now - date;
+ const mins = Math.floor(diffMs / 60000);
+ const hrs = Math.floor(diffMs / 3600000);
+ const days = Math.floor(diffMs / 86400000);
+ const months = Math.floor(days / 30);
+ if (mins < 1) return 'Just now';
+ if (mins < 60) return `${mins}m ago`;
+ if (hrs < 24) return `${hrs}h ago`;
+ if (days < 30) return `${days}d ago`;
+ if (months < 12) return `${months}mo ago`;
+ return `${Math.floor(months / 12)}y ago`;
+}
 const TABS = [
  { id: 'users', label: 'Users', icon: Users },
  { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -117,6 +135,17 @@ export default function Settings() {
  setTimeout(() => setSuccess(''), 3000);
  } catch (err) {
  setError('Failed to delete user.');
+ }
+ };
+
+ const handleToggleStatus = async (userId) => {
+ try {
+ const res = await authAPI.toggleUserStatus(userId);
+ setSuccess(res.data.message);
+ fetchUsers();
+ setTimeout(() => setSuccess(''), 3000);
+ } catch (err) {
+ setError(err.response?.data?.message || 'Failed to update user status.');
  }
  };
 
@@ -261,38 +290,79 @@ export default function Settings() {
  <Loader2 className="w-6 h-6 animate-spin text-[#af4408] mx-auto" />
  </div>
  ) : (
- <div className="divide-y divide-gray-100 overflow-x-auto">
- {users.map((u, i) => (
- <div key={i} className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors min-w-0">
- <div className="flex items-center gap-3">
- <div className="w-9 h-9 rounded-full bg-[#af4408] flex items-center justify-center text-white text-sm font-bold">
- {u.name?.charAt(0)?.toUpperCase() || 'U'}
+ <div className="divide-y divide-gray-100">
+ {users.map((u, i) => {
+ const isInactive = u.status === 'Inactive';
+ const lastLoginDate = u.lastLogin ? new Date(u.lastLogin) : null;
+ const lastLoginAgo = lastLoginDate ? getTimeAgo(lastLoginDate) : 'Never';
+ return (
+ <div key={i} className={`p-4 hover:bg-gray-50 transition-colors ${isInactive ? 'opacity-60' : ''}`}>
+  {/* Row 1: Avatar + Name + Role + Status */}
+  <div className="flex items-center justify-between gap-2">
+  <div className="flex items-center gap-3 min-w-0 flex-1">
+   <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${isInactive ? 'bg-gray-400' : 'bg-[#af4408]'}`}>
+   {u.name?.charAt(0)?.toUpperCase() || 'U'}
+   </div>
+   <div className="min-w-0">
+   <div className="flex items-center gap-2">
+    <p className="text-sm font-medium text-gray-900 truncate">{u.name}</p>
+    {isInactive && (
+    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 shrink-0">INACTIVE</span>
+    )}
+   </div>
+   <p className="text-xs text-gray-500">@{u.username}</p>
+   </div>
+  </div>
+  <div className="flex items-center gap-2 shrink-0">
+   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+   u.role === 'ADMIN' ? 'bg-red-100 text-red-700' :
+   u.role === 'MANAGER' ? 'bg-purple-100 text-purple-700' :
+   u.role === 'SALES' ? 'bg-blue-100 text-blue-700' :
+   u.role === 'CASHIER' ? 'bg-amber-100 text-amber-700' :
+   'bg-green-100 text-green-700'
+   }`}>
+   {u.role}
+   </span>
+  </div>
+  </div>
+  {/* Row 2: Last login + Login count + Actions */}
+  <div className="flex items-center justify-between gap-2 mt-2 ml-12">
+  <div className="flex items-center gap-3 flex-wrap">
+   <span className="flex items-center gap-1 text-[11px] text-gray-400">
+   <Clock className="w-3 h-3" />
+   Last login: {lastLoginAgo}
+   </span>
+   {u.loginCount && parseInt(u.loginCount) > 0 && (
+   <span className="text-[11px] text-gray-400">
+    {u.loginCount} login{parseInt(u.loginCount) !== 1 ? 's' : ''}
+   </span>
+   )}
+  </div>
+  <div className="flex items-center gap-1.5 shrink-0">
+   {/* Toggle Active/Inactive */}
+   {u.username !== 'admin' && (
+   <button
+    onClick={() => handleToggleStatus(u._rowIndex || u.rowIndex || i + 2)}
+    className={`p-2 rounded-lg transition-colors ${isInactive ? 'text-green-600 hover:bg-green-50' : 'text-amber-500 hover:bg-amber-50'}`}
+    title={isInactive ? 'Reactivate user' : 'Deactivate user'}
+   >
+    {isInactive ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
+   </button>
+   )}
+   {/* Delete */}
+   {u.username !== 'admin' && (
+   <button
+    onClick={() => handleDeleteUser(u._rowIndex || u.rowIndex || i + 2)}
+    className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+   >
+    <Trash2 className="w-3.5 h-3.5" />
+   </button>
+   )}
+  </div>
+  </div>
  </div>
- <div>
- <p className="text-sm font-medium text-gray-900">{u.name}</p>
- <p className="text-xs text-gray-500">@{u.username}</p>
- </div>
- </div>
- <div className="flex items-center gap-3">
- <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
- u.role === 'ADMIN' ? 'bg-red-100 text-red-700' :
- u.role === 'MANAGER' ? 'bg-purple-100 text-purple-700' :
- u.role === 'SALES' ? 'bg-blue-100 text-blue-700' :
- 'bg-green-100 text-green-700'
- }`}>
- {u.role}
- </span>
- {u.username !== 'admin' && (
- <button
- onClick={() => handleDeleteUser(u.rowIndex || i + 2)}
- className="p-2.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
- >
- <Trash2 className="w-3.5 h-3.5" />
- </button>
- )}
- </div>
- </div>
- ))}
+ );
+ })}
  {users.length === 0 && (
  <p className="p-8 text-center text-sm text-gray-400">No users found.</p>
  )}

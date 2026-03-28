@@ -291,9 +291,9 @@ export default function Dashboard() {
  </div>
  </div>
  <div className="flex items-center gap-2 shrink-0">
- {party.handledBy && (
-  <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{party.handledBy}</span>
- )}
+ {party.handledBy && party.handledBy.split(',').map((name, i) => (
+  <span key={i} className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{name.trim()}</span>
+ ))}
  {party.phoneNumber && (
   <a
   href={`tel:${party.phoneNumber}`}
@@ -354,9 +354,9 @@ export default function Dashboard() {
   <Clock className="w-3 h-3" />
   {isTBCDate(party.date) ? party.date.replace('TBC: ', '') : formatDate(party.date)}
   </span>
-  {party.handledBy && (
-  <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{party.handledBy}</span>
-  )}
+  {party.handledBy && party.handledBy.split(',').map((name, i) => (
+  <span key={i} className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{name.trim()}</span>
+  ))}
  </div>
  {/* Action row: Call + Follow-up icon */}
  <div className="flex items-center justify-end gap-2 mt-2">
@@ -397,10 +397,9 @@ export default function Dashboard() {
  </div>
 
  {/* Filters bar */}
- <div className="bg-white rounded-xl border border-gray-200 p-4">
- <div className="flex flex-wrap items-center gap-2 sm:gap-3">
- {/* Search */}
- <div className="relative flex-1 min-w-0 w-full sm:w-auto">
+ <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3">
+ {/* Row 1: Search bar - full width */}
+ <div className="relative w-full">
  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
  <input
  type="text"
@@ -410,83 +409,94 @@ export default function Dashboard() {
  />
  </div>
 
- {/* Status filter */}
- <select
- value={statusFilter}
- onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
- className="px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
- >
+ {/* Row 2: Status pills - scrollable on mobile */}
+ <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
  {(isCashier ? CASHIER_STATUS_OPTIONS : STATUS_OPTIONS).map((s) => (
- <option key={s} value={s}>{s === 'All' ? 'All Statuses' : s}</option>
+ <button
+  key={s}
+  onClick={() => { setStatusFilter(s); setPage(1); }}
+  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+  statusFilter === s
+   ? s === 'Confirmed' ? 'bg-green-100 text-green-700 ring-1 ring-green-300'
+   : s === 'Cancelled' ? 'bg-red-100 text-red-700 ring-1 ring-red-300'
+   : s === 'Tentative' ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-300'
+   : s === 'Contacted' ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300'
+   : s === 'Enquiry' ? 'bg-purple-100 text-purple-700 ring-1 ring-purple-300'
+   : 'bg-[#af4408] text-white'
+  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+  }`}
+ >
+  {s === 'All' ? 'All' : s}
+ </button>
  ))}
- </select>
+ </div>
 
- {/* Quick date buttons - hidden for GRE and CASHIER */}
+ {/* Row 3: Quick dates + action buttons */}
+ <div className="flex items-center justify-between gap-2">
+ {/* Quick date buttons */}
  {!isGRE && !isCashier && (
- <div className="hidden sm:flex items-center gap-1">
- <button onClick={setToday} className="px-3 py-2.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">Today</button>
- <button onClick={setThisWeek} className="px-3 py-2.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">This Week</button>
- <button onClick={setThisMonth} className="px-3 py-2.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">This Month</button>
+ <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+  <button onClick={setToday} className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors whitespace-nowrap">Today</button>
+  <button onClick={setThisWeek} className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors whitespace-nowrap">This Week</button>
+  <button onClick={setThisMonth} className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors whitespace-nowrap">This Month</button>
  </div>
  )}
 
- {/* Toggle more filters - hidden for GRE and CASHIER */}
- {!isGRE && !isCashier && (
- <button
- onClick={() => setShowFilters(!showFilters)}
- className={`p-2.5 rounded-lg border transition-colors ${showFilters ? 'border-[#af4408] bg-[#af4408]/10 text-[#af4408]' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
- >
- <Filter className="w-4 h-4" />
- </button>
- )}
+ {/* Action buttons */}
+ <div className="flex items-center gap-1.5 shrink-0">
+  {/* Date filter toggle */}
+  {!isGRE && !isCashier && (
+  <button
+  onClick={() => setShowFilters(!showFilters)}
+  className={`p-2 rounded-lg border transition-colors ${showFilters ? 'border-[#af4408] bg-[#af4408]/10 text-[#af4408]' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+  title="Date Filter"
+  >
+  <Filter className="w-4 h-4" />
+  </button>
+  )}
 
- {/* Refresh */}
- <button
- onClick={() => { fetchParties(); fetchStats(); }}
- className="p-2.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
- title="Refresh"
- >
- <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
- </button>
+  {/* Refresh */}
+  <button
+  onClick={() => { fetchParties(); fetchStats(); }}
+  className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+  title="Refresh"
+  >
+  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+  </button>
 
- {/* Clear filters - hidden for GRE and CASHIER */}
- {!isGRE && !isCashier && hasActiveFilters && (
- <button
- onClick={clearFilters}
- className="flex items-center gap-1 px-3 py-2.5 rounded-lg text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
- >
- <X className="w-3 h-3" /> Clear
- </button>
- )}
+  {/* Clear all filters */}
+  {!isGRE && !isCashier && hasActiveFilters && (
+  <button
+  onClick={clearFilters}
+  className="flex items-center gap-1 px-2.5 py-2 rounded-lg text-[11px] font-medium text-red-600 bg-red-50 hover:bg-red-100 transition-colors whitespace-nowrap"
+  >
+  <X className="w-3 h-3" /> Reset
+  </button>
+  )}
+ </div>
  </div>
 
- {/* Expanded date filters - hidden for GRE and CASHIER */}
+ {/* Row 4: Expanded date range filters */}
  {!isGRE && !isCashier && showFilters && (
- <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-3 pt-3 border-t border-gray-100">
- <div className="flex items-center gap-2 w-full sm:w-auto">
- <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
- <label className="text-xs text-gray-500 shrink-0">From:</label>
- <input
- type="date"
- value={dateFrom}
- onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
- className="px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30 min-w-0 flex-1 sm:flex-none"
- />
+ <div className="flex flex-wrap items-center gap-2 sm:gap-3 pt-2 border-t border-gray-100">
+ <div className="flex items-center gap-2 flex-1 min-w-0">
+  <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+  <label className="text-xs text-gray-500 shrink-0">From</label>
+  <input
+  type="date"
+  value={dateFrom}
+  onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+  className="px-2 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30 min-w-0 flex-1"
+  />
  </div>
- <div className="flex items-center gap-2 w-full sm:w-auto">
- <label className="text-xs text-gray-500 shrink-0 ml-6 sm:ml-0">To:</label>
- <input
- type="date"
- value={dateTo}
- onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
- className="px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30 min-w-0 flex-1 sm:flex-none"
- />
- </div>
- {/* Mobile quick date buttons */}
- <div className="flex sm:hidden items-center gap-1">
- <button onClick={setToday} className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-600">Today</button>
- <button onClick={setThisWeek} className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-600">Week</button>
- <button onClick={setThisMonth} className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-600">Month</button>
+ <div className="flex items-center gap-2 flex-1 min-w-0">
+  <label className="text-xs text-gray-500 shrink-0">To</label>
+  <input
+  type="date"
+  value={dateTo}
+  onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+  className="px-2 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30 min-w-0 flex-1"
+  />
  </div>
  </div>
  )}

@@ -11,6 +11,9 @@ const router = express.Router();
 // JWT token expiry
 const TOKEN_EXPIRY = '24h';
 
+// Inactivity threshold: 2 months (in milliseconds)
+const INACTIVITY_THRESHOLD_MS = 2 * 30 * 24 * 60 * 60 * 1000; // ~60 days
+
 /**
  * POST /api/auth/login
  * Authenticate user and return JWT token.
@@ -49,10 +52,31 @@ router.post(
         });
       }
 
+      // Check if user is inactive (manually deactivated or auto-expired)
+      if (user.status === 'Inactive') {
+        return res.status(403).json({
+          success: false,
+          message: 'Your account has been deactivated due to inactivity. Please contact your administrator.',
+        });
+      }
+
+      // Auto-deactivate if last login was more than 2 months ago (skip for first-time users)
+      if (user.lastLogin) {
+        const lastLoginDate = new Date(user.lastLogin);
+        const now = new Date();
+        if (now - lastLoginDate > INACTIVITY_THRESHOLD_MS) {
+          await sheetsService.updateUser(user._rowIndex, { status: 'Inactive' });
+          return res.status(403).json({
+            success: false,
+            message: 'Your account has been deactivated due to inactivity (no login for 2+ months). Please contact your administrator.',
+          });
+        }
+      }
+
       // Record last login
       const loginCount = parseInt(user.loginCount || '0', 10) + 1;
       const lastLogin = new Date().toISOString();
-      sheetsService.updateUser(user._rowIndex, { lastLogin, loginCount: String(loginCount) }).catch((err) => {
+      sheetsService.updateUser(user._rowIndex, { lastLogin, loginCount: String(loginCount), status: 'Active' }).catch((err) => {
         console.error('Failed to update last login:', err.message);
       });
 
@@ -251,6 +275,47 @@ router.get(
     } catch (err) {
       console.error('List users error:', err);
       res.status(500).json({ success: false, message: 'Server error.' });
+    }
+  }
+);
+
+/**
+ * PUT /api/auth/users/:id/toggle-status
+ * Toggle user active/inactive status (ADMIN only).
+ */
+router.put(
+  '/users/:id/toggle-status',
+  authenticate,
+  roleCheck(ROLES.ADMIN),
+  async (req, res) => {
+    try {
+      const rowIndex = parseInt(req.params.id, 10);
+      if (isNaN(rowIndex) || rowIndex < 2) {
+        return res.status(400).json({ success: false, message: 'Invalid user ID.' });
+      }
+
+      const users = await sheetsService.getAllUsers();
+      const targetUser = users.find(u => u._rowIndex === rowIndex);
+      if (!targetUser) {
+        return res.status(404).json({ success: false, message: 'User not found.' });
+      }
+
+      // Prevent deactivating the admin account
+      if (targetUser.username === 'admin') {
+        return res.status(403).json({ success: false, message: 'Cannot deactivate the default admin account.' });
+      }
+
+      const newStatus = targetUser.status === 'Active' ? 'Inactive' : 'Active';
+      await sheetsService.updateUser(rowIndex, { status: newStatus });
+
+      res.json({
+        success: true,
+        message: `User ${targetUser.name || targetUser.username} is now ${newStatus}.`,
+        status: newStatus,
+      });
+    } catch (err) {
+      console.error('Toggle user status error:', err);
+      res.status(500).json({ success: false, message: 'Failed to update user status.' });
     }
   }
 );

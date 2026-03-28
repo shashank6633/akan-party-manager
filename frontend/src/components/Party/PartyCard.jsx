@@ -1,15 +1,43 @@
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Users, Phone, MapPin, IndianRupee } from 'lucide-react';
+import { Calendar, Users, Phone, MapPin } from 'lucide-react';
 import StatusBadge from './StatusBadge';
-import { formatCurrency, formatDate, getPaymentStatus, isTBCDate } from '../../utils/helpers';
+import { formatDate, isTBCDate } from '../../utils/helpers';
 
 export default function PartyCard({ party, onQuickAction }) {
  const navigate = useNavigate();
- const payment = getPaymentStatus(
-  parseFloat(party.approxBillAmount) || parseFloat(party.finalTotalAmount) || 0,
-  parseFloat(party.totalAmountPaid) || 0
- );
+ const isCancelled = party.status === 'Cancelled';
 
+ // Cancelled parties on mobile: minimal compact card
+ if (isCancelled) {
+  return (
+   <div
+    onClick={() => navigate(`/parties/${party.rowIndex}`)}
+    className="bg-white rounded-xl border border-gray-200 p-3 hover:shadow-md transition-all cursor-pointer opacity-70"
+   >
+    <div className="flex items-center justify-between gap-2">
+     <div className="min-w-0 flex-1">
+      <h3 className="text-sm font-medium text-gray-700 truncate">{party.hostName || 'Untitled'}</h3>
+      <div className="flex items-center gap-3 mt-1">
+       {party.company && (
+        <span className="text-xs text-gray-400 truncate">{party.company}</span>
+       )}
+       {party.expectedPax && (
+        <span className="flex items-center gap-1 text-xs text-gray-400">
+         <Users className="w-3 h-3" />{party.expectedPax}
+        </span>
+       )}
+       {party.handledBy && party.handledBy.split(',').map((name, i) => (
+        <span key={i} className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{name.trim()}</span>
+       ))}
+      </div>
+     </div>
+     <StatusBadge status={party.status} size="xs" />
+    </div>
+   </div>
+  );
+ }
+
+ // Normal party card
  return (
   <div
    onClick={() => navigate(`/parties/${party.rowIndex}`)}
@@ -27,7 +55,7 @@ export default function PartyCard({ party, onQuickAction }) {
     <StatusBadge status={party.status} size="xs" />
    </div>
 
-   <div className="space-y-2 text-sm text-gray-600">
+   <div className="space-y-1.5 text-sm text-gray-600">
     <div className="flex items-center gap-2">
      <Calendar className="w-3.5 h-3.5 shrink-0" />
      {isTBCDate(party.date) ? (
@@ -47,7 +75,13 @@ export default function PartyCard({ party, onQuickAction }) {
     {party.phoneNumber && (
      <div className="flex items-center gap-2">
       <Phone className="w-3.5 h-3.5 shrink-0" />
-      <span>{party.phoneNumber}</span>
+      <a
+       href={`tel:${party.phoneNumber}`}
+       onClick={(e) => e.stopPropagation()}
+       className="text-[#af4408] hover:underline"
+      >
+       {party.phoneNumber}
+      </a>
      </div>
     )}
     {party.place && (
@@ -56,43 +90,34 @@ export default function PartyCard({ party, onQuickAction }) {
       <span className="truncate">{party.place}</span>
      </div>
     )}
-    <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
-     {party.expectedPax && (
-      <div className="flex items-center gap-1">
-       <Users className="w-3.5 h-3.5" />
-       <span>{party.expectedPax} pax</span>
-      </div>
-     )}
-     {(party.finalTotalAmount || party.approxBillAmount) && (
-      <div className="flex items-center gap-1">
-       <IndianRupee className="w-3.5 h-3.5" />
-       <span>{formatCurrency(party.finalTotalAmount || party.approxBillAmount)}</span>
-      </div>
-     )}
-    </div>
-   </div>
-
-   <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
-    <div className="flex items-center gap-2 shrink-0">
-     <span className={`text-xs font-medium ${payment.color}`}>{payment.label}</span>
-     {party.paymentStatus && (
-      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-       party.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' :
-       party.paymentStatus === 'Partial' ? 'bg-amber-100 text-amber-700' :
-       party.paymentStatus === 'Refunded' ? 'bg-blue-100 text-blue-700' :
-       'bg-red-100 text-red-700'
-      }`}>{party.paymentStatus}</span>
-     )}
-    </div>
-    {party.packageSelected && (
-     <span className="text-xs text-gray-500 truncate min-w-0">
-      {party.packageSelected}
-     </span>
+    {party.expectedPax && (
+     <div className="flex items-center gap-2">
+      <Users className="w-3.5 h-3.5 shrink-0" />
+      <span>{party.expectedPax} pax</span>
+     </div>
     )}
    </div>
 
+   {/* Footer: package + handled by */}
+   {(party.packageSelected || party.handledBy) && (
+    <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between gap-2">
+     {party.handledBy && (
+      <div className="flex items-center gap-1 flex-wrap">
+       {party.handledBy.split(',').map((name, i) => (
+        <span key={i} className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{name.trim()}</span>
+       ))}
+      </div>
+     )}
+     {party.packageSelected && (
+      <span className="text-xs text-gray-500 truncate min-w-0">
+       {party.packageSelected}
+      </span>
+     )}
+    </div>
+   )}
+
    {/* Quick actions */}
-   {onQuickAction && party.status !== 'Cancelled' && (
+   {onQuickAction && (
     <div className="mt-2 flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
      {party.status !== 'Confirmed' && (
       <button
