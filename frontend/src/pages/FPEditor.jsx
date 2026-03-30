@@ -393,7 +393,10 @@ export default function FPEditor() {
         await fetchRecord();
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save F&P record.');
+      const msg = err.response?.data?.message || err.message || 'Failed to save F&P record.';
+      const validationErrs = err.response?.data?.errors;
+      const detail = validationErrs ? validationErrs.map((e) => e.msg || e.message).join(', ') : '';
+      setError(detail ? `${msg} (${detail})` : msg);
     } finally {
       setSaving(false);
     }
@@ -416,7 +419,8 @@ export default function FPEditor() {
       setSuccess(`F&P email sent to ${emailTo}`);
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send email.');
+      const msg = err.response?.data?.message || err.message || 'Failed to send email.';
+      setError(msg);
     } finally {
       setSendingEmail(false);
     }
@@ -580,7 +584,16 @@ export default function FPEditor() {
         </div>
       )}
       {success && <div className="mb-4 p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-700 flex items-center gap-2"><Check className="w-4 h-4" />{success}</div>}
-      {error && <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">{error}</div>}
+      {error && (
+        <div className="mb-4 p-3 rounded-lg bg-red-50 border-2 border-red-300 text-sm text-red-700 flex items-start gap-2">
+          <span className="text-red-500 font-bold shrink-0 mt-0.5">⚠</span>
+          <div className="flex-1">
+            <p className="font-semibold">Error</p>
+            <p className="mt-0.5">{error}</p>
+          </div>
+          <button onClick={() => setError('')} className="text-red-400 hover:text-red-600 shrink-0 ml-2 text-lg leading-none">&times;</button>
+        </div>
+      )}
 
       {/* Status + Package */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">

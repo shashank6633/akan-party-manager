@@ -268,7 +268,7 @@ router.post(
       });
     } catch (err) {
       console.error('POST /api/fp error:', err.message);
-      res.status(500).json({ success: false, message: 'Failed to create F&P record.' });
+      res.status(500).json({ success: false, message: `Failed to create F&P record: ${err.message}` });
     }
   }
 );
@@ -309,7 +309,7 @@ router.put(
       if (err.message.includes('not found')) {
         return res.status(404).json({ success: false, message: 'F&P record not found.' });
       }
-      res.status(500).json({ success: false, message: 'Failed to update F&P record.' });
+      res.status(500).json({ success: false, message: `Failed to update F&P record: ${err.message}` });
     }
   }
 );
@@ -421,7 +421,12 @@ router.post(
       res.json({ success: true, message: `F&P email sent to ${to}` });
     } catch (err) {
       console.error('POST /api/fp/:id/send-email error:', err.message);
-      res.status(500).json({ success: false, message: 'Failed to send email.' });
+      const detail = err.code === 'EAUTH' ? 'SMTP authentication failed. Check SMTP_USER / SMTP_PASS in .env.'
+        : err.code === 'ESOCKET' ? 'Cannot connect to SMTP server. Check SMTP_HOST / SMTP_PORT in .env.'
+        : err.code === 'EENVELOPE' ? `Invalid recipient email address.`
+        : err.responseCode ? `SMTP error ${err.responseCode}: ${err.response || 'Rejected by mail server.'}`
+        : err.message || 'Unknown email error.';
+      res.status(500).json({ success: false, message: `Failed to send email: ${detail}` });
     }
   }
 );
