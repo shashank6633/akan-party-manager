@@ -66,6 +66,7 @@ export default function Dashboard() {
 
  // Stale enquiry alerts
  const [staleEnquiries, setStaleEnquiries] = useState([]);
+ const [showStalePopup, setShowStalePopup] = useState(false);
 
  const fetchParties = useCallback(async () => {
  setLoading(true);
@@ -136,6 +137,11 @@ export default function Dashboard() {
  useEffect(() => {
  fetchStaleEnquiries();
  }, [fetchStaleEnquiries]);
+
+ // Auto-show popup when stale enquiries are detected
+ useEffect(() => {
+ if (staleEnquiries.length > 0) setShowStalePopup(true);
+ }, [staleEnquiries]);
 
  // Auto-refresh every 30 seconds
  useEffect(() => {
@@ -258,62 +264,88 @@ export default function Dashboard() {
  </>
  )}
 
- {/* URGENT: Stale enquiry alerts */}
- {canFollowUp && staleEnquiries.length > 0 && (
- <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 animate-pulse-subtle">
- <div className="flex items-center gap-2 mb-3">
- <AlertOctagon className="w-5 h-5 text-red-600" />
- <h3 className="text-sm font-bold text-red-800">
- URGENT: {staleEnquiries.length} Enquir{staleEnquiries.length === 1 ? 'y' : 'ies'} Pending Status Update
- </h3>
- <span className="text-[10px] text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full font-bold">Action Required</span>
+ {/* URGENT: Stale enquiry popup modal */}
+ {canFollowUp && showStalePopup && staleEnquiries.length > 0 && (
+ <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={() => setShowStalePopup(false)}>
+ <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-in" onClick={(e) => e.stopPropagation()}>
+ {/* Header */}
+ <div className="bg-red-600 rounded-t-2xl px-5 py-4 flex items-center justify-between">
+  <div className="flex items-center gap-3">
+  <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+   <AlertOctagon className="w-6 h-6 text-white" />
+  </div>
+  <div>
+   <h3 className="text-base font-bold text-white">
+   {staleEnquiries.length} Enquir{staleEnquiries.length === 1 ? 'y' : 'ies'} Pending
+   </h3>
+   <p className="text-xs text-red-100 mt-0.5">Not updated for over 1 hour</p>
+  </div>
+  </div>
+  <button onClick={() => setShowStalePopup(false)} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
+  <X className="w-5 h-5 text-white" />
+  </button>
  </div>
- <p className="text-xs text-red-600 mb-3">These enquiries have not been updated for over 1 hour. Please change status to Confirmed / Tentative / Cancelled.</p>
- <div className="space-y-2 max-h-48 overflow-y-auto">
- {staleEnquiries.slice(0, 5).map((party) => (
- <div
- key={party.rowIndex}
- onClick={() => navigate(`/parties/${party.rowIndex}`)}
- className="flex items-center justify-between gap-3 p-3 bg-white rounded-lg border border-red-200 cursor-pointer hover:border-red-400 hover:shadow-sm transition-all"
- >
- <div className="min-w-0 flex-1">
- <p className="text-sm font-semibold text-gray-900 truncate">{party.hostName}</p>
- <div className="flex items-center gap-3 mt-1">
- {party.phoneNumber && (
- <span className="flex items-center gap-1 text-[11px] text-gray-500">
- <Phone className="w-3 h-3" />{party.phoneNumber}
- </span>
- )}
- <span className="flex items-center gap-1 text-[11px] text-gray-500">
- <Calendar className="w-3 h-3" />
- {isTBCDate(party.date) ? party.date.replace('TBC: ', '') : formatDate(party.date)}
- </span>
+
+ {/* Body */}
+ <div className="p-5">
+  <p className="text-sm text-gray-600 mb-4">
+  These enquiries need a status update. Please change to <span className="font-semibold text-green-600">Contacted</span>, <span className="font-semibold text-amber-600">Tentative</span>, <span className="font-semibold text-green-700">Confirmed</span>, or <span className="font-semibold text-red-600">Cancelled</span>.
+  </p>
+
+  <div className="space-y-2 max-h-64 overflow-y-auto">
+  {staleEnquiries.map((party) => (
+   <div
+   key={party.rowIndex}
+   onClick={() => { setShowStalePopup(false); navigate(`/parties/${party.rowIndex}`); }}
+   className="flex items-center justify-between gap-3 p-3 bg-red-50 rounded-xl border border-red-200 cursor-pointer hover:bg-red-100 hover:border-red-400 transition-all"
+   >
+   <div className="min-w-0 flex-1">
+    <p className="text-sm font-semibold text-gray-900 truncate">{party.hostName}</p>
+    <div className="flex items-center gap-3 mt-1">
+    {party.phoneNumber && (
+     <span className="flex items-center gap-1 text-[11px] text-gray-500">
+     <Phone className="w-3 h-3" />{party.phoneNumber}
+     </span>
+    )}
+    <span className="flex items-center gap-1 text-[11px] text-gray-500">
+     <Calendar className="w-3 h-3" />
+     {isTBCDate(party.date) ? party.date.replace('TBC: ', '') : formatDate(party.date)}
+    </span>
+    {party.handledBy && (
+     <span className="text-[10px] text-gray-500 bg-white px-1.5 py-0.5 rounded">{party.handledBy}</span>
+    )}
+    </div>
+   </div>
+   <div className="flex items-center gap-2 shrink-0">
+    {party.phoneNumber && (
+    <a
+     href={`tel:${party.phoneNumber}`}
+     onClick={(e) => e.stopPropagation()}
+     className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+     title="Call Guest"
+    >
+     <Phone className="w-3.5 h-3.5" />
+    </a>
+    )}
+    <span className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full">
+    <Timer className="w-3 h-3" />
+    {party.hoursAgo}h ago
+    </span>
+   </div>
+   </div>
+  ))}
+  </div>
  </div>
- </div>
- <div className="flex items-center gap-2 shrink-0">
- {party.handledBy && party.handledBy.split(',').map((name, i) => (
-  <span key={i} className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{name.trim()}</span>
- ))}
- {party.phoneNumber && (
-  <a
-  href={`tel:${party.phoneNumber}`}
-  onClick={(e) => e.stopPropagation()}
-  className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
-  title="Call Guest"
+
+ {/* Footer */}
+ <div className="border-t border-gray-100 px-5 py-3 flex justify-end">
+  <button
+  onClick={() => setShowStalePopup(false)}
+  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors"
   >
-  <Phone className="w-3.5 h-3.5" />
-  </a>
- )}
- <span className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-full">
- <Timer className="w-3 h-3" />
- {party.hoursAgo}h
- </span>
+  Got it
+  </button>
  </div>
- </div>
- ))}
- {staleEnquiries.length > 5 && (
- <p className="text-xs text-red-600 text-center pt-1 font-medium">+{staleEnquiries.length - 5} more pending</p>
- )}
  </div>
  </div>
  )}
