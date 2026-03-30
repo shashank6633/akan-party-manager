@@ -382,30 +382,34 @@ export function generateFpPdf(data) {
     y = doc.lastAutoTable.finalY + gap;
   }
 
-  // ===== DRINKS — Full width, NO underlines for bar time =====
+  // ===== DRINKS — Full width, bar times beside Includes/Serving =====
   if (hasDrinks) {
     const dRows = [];
-    if (pkg && pkg.drinks.length > 0) dRows.push(['Brands', pkg.drinks.join(',  ')]);
+    if (pkg && pkg.drinks.length > 0) dRows.push(['Brands', pkg.drinks.join(',  '), '', '']);
     if (pkg) {
       const extras2 = [pkg.cocktails, pkg.mocktails, pkg.softDrinks].filter(Boolean).join('  |  ');
-      if (extras2) dRows.push(['Includes', extras2]);
-      dRows.push(['Serving', pkg.serving]);
+      if (extras2) dRows.push(['Includes', extras2, 'Bar Start', data.drinksStartTime || '']);
+      dRows.push(['Serving', pkg.serving, 'Bar End', data.drinksEndTime || '']);
     }
-    // No underlines — just show time or empty
-    dRows.push(['Bar Start', data.drinksStartTime || '']);
-    dRows.push(['Bar End', data.drinksEndTime || '']);
-    if (data.barNotes) dRows.push(['Notes', data.barNotes]);
+    if (data.barNotes) dRows.push(['Notes', data.barNotes, '', '']);
+
+    const drinkLabelW = 22;
+    const timeLabW = 18;
+    const timeValW = 22;
+    const mainValW = CW - drinkLabelW - timeLabW - timeValW;
 
     autoTable(doc, {
       startY: y,
-      head: [['DRINKS & BAR', '']],
+      head: [['DRINKS & BAR', '', '', '']],
       body: dRows,
       theme: 'grid',
       headStyles: { fillColor: [120, 60, 120], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5 },
       bodyStyles: { fontSize: fs + 0.5, cellPadding: cp, overflow: 'linebreak', fontStyle: 'bold', textColor: [10, 10, 10] },
       columnStyles: {
-        0: { fontStyle: 'bold', cellWidth: 22, fillColor: [240, 230, 245], textColor: [80, 40, 80], fontSize: fs },
-        1: { fillColor: C.cream },
+        0: { fontStyle: 'bold', cellWidth: drinkLabelW, fillColor: [240, 230, 245], textColor: [80, 40, 80], fontSize: fs },
+        1: { fillColor: C.cream, cellWidth: mainValW },
+        2: { fontStyle: 'bold', cellWidth: timeLabW, fillColor: [240, 230, 245], textColor: [80, 40, 80], fontSize: fs },
+        3: { fillColor: C.cream, cellWidth: timeValW, fontStyle: 'bold' },
       },
       margin: { left: M, right: M },
     });
