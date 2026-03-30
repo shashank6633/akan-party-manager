@@ -5,6 +5,7 @@ const SHEET_NAMES = {
   PARTY_BOOKINGS: 'Party Bookings',
   USERS: 'Users',
   REMINDER_LOG: 'Payment Reminder Log',
+  FP_RECORDS: 'F&P Records',
 };
 
 /**

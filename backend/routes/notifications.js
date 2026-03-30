@@ -295,4 +295,155 @@ router.post(
   }
 );
 
+// ---------------------------------------------------------------------------
+// Email Routing — Configurable notification recipients per type
+// Persisted as JSON in backend/data/email-routing.json
+// ---------------------------------------------------------------------------
+
+const EMAIL_ROUTING_PATH = path.join(__dirname, '..', 'data', 'email-routing.json');
+
+const DEFAULT_EMAIL_ROUTING = {
+  newParty:      ['SALES', 'MANAGER'],
+  statusChange:  ['MANAGER', 'SALES'],
+  cancellation:  ['MANAGER', 'ADMIN'],
+  staleEnquiry:  ['SALES', 'MANAGER'],
+  criticalAlert: ['ADMIN'],
+  dailyFollowUp: ['SALES', 'MANAGER', 'ADMIN'],
+  dailyReport:   ['MANAGER', 'ADMIN'],
+  billingUpdate: ['MANAGER', 'ADMIN'],
+};
+
+function loadEmailRouting() {
+  try {
+    if (fs.existsSync(EMAIL_ROUTING_PATH)) {
+      const data = JSON.parse(fs.readFileSync(EMAIL_ROUTING_PATH, 'utf-8'));
+      // Merge with defaults so new keys are always present
+      return { ...DEFAULT_EMAIL_ROUTING, ...data };
+    }
+  } catch { /* ignore */ }
+  return { ...DEFAULT_EMAIL_ROUTING };
+}
+
+function saveEmailRouting(routing) {
+  const dir = path.dirname(EMAIL_ROUTING_PATH);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(EMAIL_ROUTING_PATH, JSON.stringify(routing, null, 2), 'utf-8');
+}
+
+// Expose loader for emailService
+router._loadEmailRouting = loadEmailRouting;
+
+/**
+ * GET /api/notifications/email-routing
+ * Returns current email notification routing config.
+ */
+router.get(
+  '/email-routing',
+  roleCheck(ROLES.ADMIN),
+  async (req, res) => {
+    try {
+      const routing = loadEmailRouting();
+      res.json({ success: true, routing });
+    } catch (err) {
+      console.error('GET email-routing error:', err.message);
+      res.status(500).json({ success: false, message: 'Failed to load email routing.' });
+    }
+  }
+);
+
+/**
+ * PUT /api/notifications/email-routing
+ * Body: { newParty: ['SALES','MANAGER'], statusChange: ['MANAGER'], ... }
+ * Admin can configure which roles receive each notification type.
+ */
+router.put(
+  '/email-routing',
+  roleCheck(ROLES.ADMIN),
+  async (req, res) => {
+    try {
+      const routing = req.body;
+      // Validate: each value must be an array of valid role strings
+      const validRoles = ['GRE', 'CASHIER', 'SALES', 'MANAGER', 'ADMIN'];
+      const existing = loadEmailRouting();
+      const merged = { ...existing };
+      for (const [key, roles] of Object.entries(routing)) {
+        if (DEFAULT_EMAIL_ROUTING.hasOwnProperty(key) && Array.isArray(roles)) {
+          merged[key] = roles.filter((r) => validRoles.includes(r.toUpperCase())).map((r) => r.toUpperCase());
+        }
+      }
+      saveEmailRouting(merged);
+      res.json({ success: true, routing: merged });
+    } catch (err) {
+      console.error('PUT email-routing error:', err.message);
+      res.status(500).json({ success: false, message: 'Failed to save email routing.' });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// F&P Settings — Override category item limits
+// Persisted as JSON in backend/data/fp-settings.json
+// ---------------------------------------------------------------------------
+
+const FP_SETTINGS_PATH = path.join(__dirname, '..', 'data', 'fp-settings.json');
+
+function loadFpSettings() {
+  try {
+    if (fs.existsSync(FP_SETTINGS_PATH)) {
+      return JSON.parse(fs.readFileSync(FP_SETTINGS_PATH, 'utf-8'));
+    }
+  } catch { /* ignore */ }
+  return { overrides: {} };
+}
+
+function saveFpSettings(settings) {
+  const dir = path.dirname(FP_SETTINGS_PATH);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(FP_SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
+}
+
+/**
+ * GET /api/notifications/fp-settings
+ * Returns F&P category limit overrides.
+ */
+router.get(
+  '/fp-settings',
+  async (req, res) => {
+    try {
+      const settings = loadFpSettings();
+      res.json({ success: true, settings });
+    } catch (err) {
+      console.error('GET fp-settings error:', err.message);
+      res.status(500).json({ success: false, message: 'Failed to load F&P settings.' });
+    }
+  }
+);
+
+/**
+ * PUT /api/notifications/fp-settings
+ * Body: { overrides: { vegStarters: 4, ... }, customTc: ["term1", "term2", ...] }
+ * Admin can set custom category limits and T&C.
+ */
+router.put(
+  '/fp-settings',
+  roleCheck(ROLES.ADMIN),
+  async (req, res) => {
+    try {
+      const { overrides, customTc, liquorOverrides, menuOverrides } = req.body;
+      const existing = loadFpSettings();
+      const settings = {
+        overrides: overrides || existing.overrides || {},
+        customTc: customTc !== undefined ? customTc : existing.customTc,
+        liquorOverrides: liquorOverrides !== undefined ? liquorOverrides : existing.liquorOverrides,
+        menuOverrides: menuOverrides !== undefined ? menuOverrides : existing.menuOverrides,
+      };
+      saveFpSettings(settings);
+      res.json({ success: true, settings });
+    } catch (err) {
+      console.error('PUT fp-settings error:', err.message);
+      res.status(500).json({ success: false, message: 'Failed to save F&P settings.' });
+    }
+  }
+);
+
 module.exports = router;

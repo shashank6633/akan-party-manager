@@ -64,7 +64,7 @@ export const formatPhoneDisplay = (phone) => {
  * @param {object} party - Party data
  * @param {string} [userName] - Name of the user sending the message
  */
-export const generateWhatsAppMessage = (party, userName, { isNew = false } = {}) => {
+export const generateWhatsAppMessage = (party, userName, { isNew = false, greName = '' } = {}) => {
  const phone = formatPhoneDisplay(party.phoneNumber);
  const heading = isNew ? '🎉 *New Party Enquiry*' : '📋 *Enquired Party Details*';
  const lines = [
@@ -84,6 +84,7 @@ export const generateWhatsAppMessage = (party, userName, { isNew = false } = {})
  if (party.packageSelected) lines.push(`📦 *Package:* ${party.packageSelected}`);
  if (party.specialRequirements) lines.push(`⚡ *Special Requirements:* ${party.specialRequirements}`);
  if (party.remarks) lines.push(`📝 *Remarks:* ${party.remarks}`);
+ if (greName) lines.push(`🧑‍💼 *Enquiry Taken By:* ${greName}`);
  lines.push(``, `🔖 *Status:* ${party.status || 'Enquiry'}`);
 
  // Follow-up Tracking Info

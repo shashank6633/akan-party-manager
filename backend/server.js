@@ -11,6 +11,7 @@ const { ensureDefaultAdmin } = require('./routes/auth');
 const partyRoutes = require('./routes/parties');
 const reportRoutes = require('./routes/reports');
 const notificationRoutes = require('./routes/notifications');
+const fpRoutes = require('./routes/fp');
 const reportService = require('./services/reportService');
 const emailService = require('./services/emailService');
 const sheetsService = require('./services/sheetsService');
@@ -57,6 +58,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/parties', partyRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/fp', fpRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -174,9 +176,14 @@ cron.schedule('*/15 * * * *', async () => {
         }
       }
 
-      // Send email alert (non-blocking)
+      // Send stale enquiry alert to Sales & Manager (non-blocking)
       emailService.sendStaleEnquiryAlert(staleParties).catch((err) => {
         console.error('Failed to send stale enquiry alert email:', err.message);
+      });
+
+      // Send critical alert to Admin only (non-blocking)
+      emailService.sendCriticalAlert(staleParties).catch((err) => {
+        console.error('Failed to send critical alert email:', err.message);
       });
     } else {
       console.log('No stale enquiries found.');
@@ -301,6 +308,7 @@ async function startServer() {
     // Ensure sheets are set up and default admin exists
     console.log('Initializing Google Sheets...');
     await sheetsService.ensurePartyBookingsHeader();
+    await sheetsService.ensureFpSheet();
     await ensureDefaultAdmin();
     console.log('Google Sheets initialized.');
 

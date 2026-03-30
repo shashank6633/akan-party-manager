@@ -5,7 +5,6 @@ import {
  Clock,
  XCircle,
  IndianRupee,
- AlertTriangle,
  PhoneCall,
  HelpCircle,
 } from 'lucide-react';
@@ -19,7 +18,6 @@ const cards = [
  { key: 'cancelled', label: 'Cancelled', icon: XCircle, color: 'text-red-500', bg: 'bg-red-50' },
  { key: 'unknown', label: 'Unknown', icon: HelpCircle, color: 'text-gray-500', bg: 'bg-gray-100' },
  { key: 'totalRevenue', label: 'Total Revenue', icon: IndianRupee, color: 'text-[#af4408]', bg: 'bg-[#af4408]/10', isCurrency: true, revenueOnly: true },
- { key: 'pendingDues', label: 'Pending Dues', icon: AlertTriangle, color: 'text-orange-500', bg: 'bg-orange-50', isCurrency: true, revenueOnly: true },
 ];
 
 function AnimatedNumber({ value, isCurrency }) {
@@ -47,7 +45,6 @@ function AnimatedNumber({ value, isCurrency }) {
 const cashierCards = [
  { key: 'confirmed', label: 'Confirmed', icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50' },
  { key: 'totalRevenue', label: 'Total Revenue', icon: IndianRupee, color: 'text-[#af4408]', bg: 'bg-[#af4408]/10', isCurrency: true },
- { key: 'pendingDues', label: 'Pending Dues', icon: AlertTriangle, color: 'text-orange-500', bg: 'bg-orange-50', isCurrency: true },
 ];
 
 export default function StatsCards({ stats, loading, cashierView = false, showRevenue = true }) {
@@ -55,7 +52,7 @@ export default function StatsCards({ stats, loading, cashierView = false, showRe
  const displayCards = showRevenue ? allCards : allCards.filter((c) => !c.revenueOnly);
  if (loading) {
   return (
-   <div className={`grid grid-cols-2 ${cashierView ? 'md:grid-cols-3' : showRevenue ? 'md:grid-cols-4 xl:grid-cols-8' : 'md:grid-cols-3 xl:grid-cols-6'} gap-3 sm:gap-4`}>
+   <div className={`grid grid-cols-2 ${cashierView ? 'md:grid-cols-3' : showRevenue ? 'md:grid-cols-4 xl:grid-cols-7' : 'md:grid-cols-3 xl:grid-cols-6'} gap-3 sm:gap-4`}>
     {Array.from({ length: displayCards.length }).map((_, i) => (
      <div key={i} className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 animate-pulse">
       <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-200 rounded-lg mb-2 sm:mb-3" />
@@ -68,7 +65,7 @@ export default function StatsCards({ stats, loading, cashierView = false, showRe
  }
 
  return (
-  <div className={`grid grid-cols-2 ${cashierView ? 'md:grid-cols-3' : showRevenue ? 'md:grid-cols-4 xl:grid-cols-8' : 'md:grid-cols-3 xl:grid-cols-6'} gap-3 sm:gap-4`}>
+  <div className={`grid grid-cols-2 ${cashierView ? 'md:grid-cols-3' : showRevenue ? 'md:grid-cols-4 xl:grid-cols-7' : 'md:grid-cols-3 xl:grid-cols-6'} gap-3 sm:gap-4`}>
    {displayCards.map((card) => (
     <div
      key={card.key}

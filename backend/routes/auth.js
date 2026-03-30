@@ -48,7 +48,7 @@ router.post(
       if (!isMatch) {
         return res.status(401).json({
           success: false,
-          message: 'Invalid username or password.',
+          message: 'Wrong password. Please try again.',
         });
       }
 
@@ -270,7 +270,7 @@ router.get(
   async (req, res) => {
     try {
       const users = await sheetsService.getAllUsers();
-      const sanitized = users.map(({ password, _rowIndex, ...rest }) => rest);
+      const sanitized = users.map(({ password, _rowIndex, ...rest }) => ({ ...rest, rowIndex: _rowIndex }));
       res.json({ success: true, users: sanitized });
     } catch (err) {
       console.error('List users error:', err);
@@ -316,6 +316,55 @@ router.put(
     } catch (err) {
       console.error('Toggle user status error:', err);
       res.status(500).json({ success: false, message: 'Failed to update user status.' });
+    }
+  }
+);
+
+/**
+ * PUT /api/auth/users/:id/reset-password
+ * Admin resets a user's password (ADMIN only). No current password needed.
+ */
+router.put(
+  '/users/:id/reset-password',
+  authenticate,
+  roleCheck(ROLES.ADMIN),
+  [
+    body('newPassword')
+      .notEmpty()
+      .withMessage('New password is required')
+      .isLength({ min: 6 })
+      .withMessage('New password must be at least 6 characters'),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+      }
+
+      const rowIndex = parseInt(req.params.id, 10);
+      if (isNaN(rowIndex) || rowIndex < 2) {
+        return res.status(400).json({ success: false, message: 'Invalid user ID.' });
+      }
+
+      const users = await sheetsService.getAllUsers();
+      const targetUser = users.find(u => u._rowIndex === rowIndex);
+      if (!targetUser) {
+        return res.status(404).json({ success: false, message: 'User not found.' });
+      }
+
+      const { newPassword } = req.body;
+      const salt = await bcrypt.genSalt(12);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+      await sheetsService.updateUser(rowIndex, { password: hashedPassword });
+
+      res.json({
+        success: true,
+        message: `Password for ${targetUser.name || targetUser.username} has been reset successfully.`,
+      });
+    } catch (err) {
+      console.error('Admin reset password error:', err);
+      res.status(500).json({ success: false, message: 'Failed to reset password.' });
     }
   }
 );

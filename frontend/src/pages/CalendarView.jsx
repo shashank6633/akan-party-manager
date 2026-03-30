@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { partyAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { isTBCDate } from '../utils/helpers';
 
 const STATUS_COLORS = {
@@ -17,6 +18,8 @@ const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function CalendarView() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isViewOnly = user?.role === 'GRE' || user?.role === 'CASHIER';
   const [currentDate, setCurrentDate] = useState(new Date());
   const [parties, setParties] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -158,8 +161,8 @@ export default function CalendarView() {
                           return (
                             <div
                               key={pi}
-                              onClick={(e) => { e.stopPropagation(); navigate(`/parties/${p.rowIndex}`); }}
-                              className={`${colors.bg} ${colors.text} ${colors.border} border rounded px-1 py-0.5 text-[9px] sm:text-[11px] font-medium truncate cursor-pointer hover:opacity-80 transition-opacity`}
+                              onClick={(e) => { e.stopPropagation(); if (!isViewOnly) navigate(`/parties/${p.rowIndex}`); }}
+                              className={`${colors.bg} ${colors.text} ${colors.border} border rounded px-1 py-0.5 text-[9px] sm:text-[11px] font-medium truncate ${isViewOnly ? '' : 'cursor-pointer hover:opacity-80'} transition-opacity`}
                               title={`${p.hostName} - ${status}`}
                             >
                               <span className="hidden sm:inline">{p.hostName}</span>
@@ -191,8 +194,8 @@ export default function CalendarView() {
                   return (
                     <div
                       key={i}
-                      onClick={() => navigate(`/parties/${p.rowIndex}`)}
-                      className={`flex items-center justify-between p-3 rounded-lg border ${colors.border} ${colors.bg} cursor-pointer hover:opacity-90 transition-opacity`}
+                      onClick={() => !isViewOnly && navigate(`/parties/${p.rowIndex}`)}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${colors.border} ${colors.bg} ${isViewOnly ? '' : 'cursor-pointer hover:opacity-90'} transition-opacity`}
                     >
                       <div className="min-w-0 flex-1">
                         <p className={`text-sm font-semibold ${colors.text}`}>{p.hostName}</p>

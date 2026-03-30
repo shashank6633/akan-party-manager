@@ -50,6 +50,7 @@ export const authAPI = {
   deleteUser: (id) => api.delete(`/auth/users/${id}`),
   toggleUserStatus: (id) => api.put(`/auth/users/${id}/toggle-status`),
   changePassword: (data) => api.put('/auth/change-password', data),
+  resetUserPassword: (id, data) => api.put(`/auth/users/${id}/reset-password`, data),
 };
 
 export const notificationAPI = {
@@ -59,6 +60,20 @@ export const notificationAPI = {
   getStaleEnquiries: () => api.get('/notifications/stale-enquiries'),
   getEmailSettings: () => api.get('/notifications/email-settings'),
   updateEmailSettings: (data) => api.put('/notifications/email-settings', data),
+  getFpSettings: () => api.get('/notifications/fp-settings'),
+  updateFpSettings: (data) => api.put('/notifications/fp-settings', data),
+  getEmailRouting: () => api.get('/notifications/email-routing'),
+  updateEmailRouting: (data) => api.put('/notifications/email-routing', data),
+};
+
+export const fpAPI = {
+  getAll: (params) => api.get('/fp', { params }),
+  getByParty: (partyUniqueId) => api.get(`/fp/by-party/${encodeURIComponent(partyUniqueId)}`),
+  getById: (id) => api.get(`/fp/${id}`),
+  create: (data) => api.post('/fp', data),
+  update: (id, data) => api.put(`/fp/${id}`, data),
+  delete: (id) => api.delete(`/fp/${id}`),
+  sendEmail: (id, data) => api.post(`/fp/${id}/send-email`, data),
 };
 
 export const reportAPI = {

@@ -1,4 +1,40 @@
 const nodemailer = require('nodemailer');
+const fs = require('fs');
+const path = require('path');
+
+// ---------------------------------------------------------------------------
+// Email routing config — reads admin-configurable roles per notification type
+// ---------------------------------------------------------------------------
+const EMAIL_ROUTING_PATH = path.join(__dirname, '..', 'data', 'email-routing.json');
+
+const DEFAULT_EMAIL_ROUTING = {
+  newParty:      ['SALES', 'MANAGER'],
+  statusChange:  ['MANAGER', 'SALES'],
+  cancellation:  ['MANAGER', 'ADMIN'],
+  staleEnquiry:  ['SALES', 'MANAGER'],
+  criticalAlert: ['ADMIN'],
+  dailyFollowUp: ['SALES', 'MANAGER', 'ADMIN'],
+  dailyReport:   ['MANAGER', 'ADMIN'],
+  billingUpdate: ['MANAGER', 'ADMIN'],
+};
+
+/**
+ * Get the configured roles for a notification type.
+ * Falls back to defaults if config file is missing.
+ * @param {string} notifType - e.g. 'newParty', 'statusChange'
+ * @returns {string[]} Array of role strings
+ */
+function getRoutingRoles(notifType) {
+  try {
+    if (fs.existsSync(EMAIL_ROUTING_PATH)) {
+      const data = JSON.parse(fs.readFileSync(EMAIL_ROUTING_PATH, 'utf-8'));
+      if (data[notifType] && Array.isArray(data[notifType]) && data[notifType].length > 0) {
+        return data[notifType];
+      }
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_EMAIL_ROUTING[notifType] || [];
+}
 
 /**
  * Create a reusable SMTP transporter from environment config.
@@ -76,8 +112,8 @@ async function sendEmail(to, subject, html) {
  * @param {object} partyData - Party booking data
  */
 async function sendNewPartyNotification(partyData) {
-  // GRE creates enquiry → email goes to ALL roles (GRE, SALES, MANAGER, ADMIN)
-  const emails = await getEmailsByRoles(['GRE', 'CASHIER', 'SALES', 'MANAGER', 'ADMIN']);
+  // New Party → configurable (default: Sales, Manager)
+  const emails = await getEmailsByRoles(getRoutingRoles('newParty'));
   const to = [...new Set(emails)].join(',');
   if (!to) return;
 
@@ -141,8 +177,8 @@ async function sendNewPartyNotification(partyData) {
  * @param {string} newStatus - New status
  */
 async function sendStatusChangeNotification(partyData, oldStatus, newStatus) {
-  // Status change → email to Sales, Manager, Admin
-  const emails = await getEmailsByRoles(['SALES', 'MANAGER', 'ADMIN']);
+  // Status Change → configurable (default: Manager, Sales)
+  const emails = await getEmailsByRoles(getRoutingRoles('statusChange'));
   const to = [...new Set(emails)].join(',');
   if (!to) return;
 
@@ -188,8 +224,8 @@ async function sendStatusChangeNotification(partyData, oldStatus, newStatus) {
  * @param {object} partyData - Party data with Lost Reason populated
  */
 async function sendCancellationNotification(partyData) {
-  // Cancellation → email to Sales, Manager, Admin
-  const emails = await getEmailsByRoles(['SALES', 'MANAGER', 'ADMIN']);
+  // Cancellations → configurable (default: Manager, Admin)
+  const emails = await getEmailsByRoles(getRoutingRoles('cancellation'));
   const to = [...new Set(emails)].join(',');
   if (!to) return;
 
@@ -243,8 +279,8 @@ async function sendDailyReport(reportHtml, date, userEmail) {
     // Manual send from UI → send only to the requesting user's email
     recipients = [userEmail];
   } else {
-    // Automated cron → send to Manager & Admin
-    const emails = await getEmailsByRoles(['MANAGER', 'ADMIN']);
+    // Automated cron → configurable (default: Manager & Admin)
+    const emails = await getEmailsByRoles(getRoutingRoles('dailyReport'));
     recipients = emails.length > 0 ? emails
       : [process.env.MANAGER_EMAIL, process.env.ADMIN_EMAIL].filter(Boolean);
   }
@@ -262,8 +298,8 @@ async function sendDailyReport(reportHtml, date, userEmail) {
  */
 async function sendStaleEnquiryAlert(staleParties) {
   if (staleParties.length === 0) return;
-  // Stale enquiry alerts → Sales, Manager, Admin
-  const emails = await getEmailsByRoles(['SALES', 'MANAGER', 'ADMIN']);
+  // Stale Enquiry alerts → configurable (default: Sales, Manager)
+  const emails = await getEmailsByRoles(getRoutingRoles('staleEnquiry'));
   const recipients = emails.length > 0 ? emails
     : [process.env.SALES_EMAIL, process.env.MANAGER_EMAIL].filter(Boolean);
 
@@ -327,8 +363,8 @@ async function sendStaleEnquiryAlert(staleParties) {
  * @param {Array} upcomingParties - Parties happening in next 3 days
  */
 async function sendDailyFollowUpReminder(followUps, pendingPayments, upcomingParties) {
-  // Follow-up & payment alerts → Sales, Manager, Admin
-  const emails = await getEmailsByRoles(['SALES', 'MANAGER', 'ADMIN']);
+  // Follow-up & payment alerts → configurable (default: Sales, Manager, Admin)
+  const emails = await getEmailsByRoles(getRoutingRoles('dailyFollowUp'));
   const recipients = emails.length > 0 ? emails
     : [process.env.SALES_EMAIL, process.env.MANAGER_EMAIL].filter(Boolean);
 
@@ -626,8 +662,8 @@ async function sendPaymentReminderToGuest(partyData, reminderType = 'manual', se
  * @param {object} paymentEntry - New payment entry
  */
 async function sendBillingUpdateNotification(partyData, paymentEntry) {
-  // Cashier billing update → Manager & Admin
-  const emails = await getEmailsByRoles(['MANAGER', 'ADMIN']);
+  // Cashier billing update → configurable (default: Manager & Admin)
+  const emails = await getEmailsByRoles(getRoutingRoles('billingUpdate'));
   const to = [...new Set(emails)].join(',');
   if (!to) return;
 
@@ -669,6 +705,71 @@ async function sendBillingUpdateNotification(partyData, paymentEntry) {
   return sendEmail(to, subject, html);
 }
 
+/**
+ * Send critical alert to Admin ONLY when enquiries have no update for 1+ hours.
+ * Separate from stale enquiry alert (which goes to Sales, Manager).
+ * @param {Array} criticalParties - Parties with no status update for 1+ hours
+ */
+async function sendCriticalAlert(criticalParties) {
+  if (criticalParties.length === 0) return;
+  // Critical alerts → configurable (default: Admin only)
+  const emails = await getEmailsByRoles(getRoutingRoles('criticalAlert'));
+  const recipients = emails.length > 0 ? emails
+    : [process.env.ADMIN_EMAIL].filter(Boolean);
+
+  if (recipients.length === 0) return;
+
+  const rows = criticalParties.map((p, i) => {
+    const bg = i % 2 === 0 ? '#f8f9fa' : '#ffffff';
+    const enquiredAt = p['Enquired At'] ? new Date(p['Enquired At']).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'N/A';
+    const hoursAgo = p._hoursAgo ? `${p._hoursAgo}h ago` : '';
+    return `
+      <tr style="background: ${bg};">
+        <td style="padding: 8px 12px; border: 1px solid #dee2e6;">${p['Host Name'] || '-'}</td>
+        <td style="padding: 8px 12px; border: 1px solid #dee2e6;">${p['Phone Number'] || '-'}</td>
+        <td style="padding: 8px 12px; border: 1px solid #dee2e6;">${p['Date'] || '-'}</td>
+        <td style="padding: 8px 12px; border: 1px solid #dee2e6;">${p['Handled By'] || '-'}</td>
+        <td style="padding: 8px 12px; border: 1px solid #dee2e6;">${enquiredAt}</td>
+        <td style="padding: 8px 12px; border: 1px solid #dee2e6; color: #dc3545; font-weight: bold;">${hoursAgo}</td>
+      </tr>`;
+  }).join('');
+
+  const subject = `🚨 CRITICAL: ${criticalParties.length} Enquir${criticalParties.length === 1 ? 'y' : 'ies'} Unattended for 1+ Hour`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
+      <div style="background: #7b1fa2; color: white; padding: 15px 20px; border-radius: 8px 8px 0 0;">
+        <h2 style="margin: 0;">🚨 Critical Alert — Admin</h2>
+        <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">
+          ${criticalParties.length} enquir${criticalParties.length === 1 ? 'y has' : 'ies have'} been unattended for over 1 hour
+        </p>
+      </div>
+      <div style="background: #f3e5f5; padding: 12px 20px; border: 1px solid #ce93d8;">
+        <strong>Immediate Escalation Required:</strong> The following enquiries have not been acted upon. Please follow up with the assigned team member.
+      </div>
+      <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+        <thead>
+          <tr style="background: #343a40; color: white;">
+            <th style="padding: 10px 12px; text-align: left; border: 1px solid #dee2e6;">Event / Host</th>
+            <th style="padding: 10px 12px; text-align: left; border: 1px solid #dee2e6;">Phone</th>
+            <th style="padding: 10px 12px; text-align: left; border: 1px solid #dee2e6;">Date</th>
+            <th style="padding: 10px 12px; text-align: left; border: 1px solid #dee2e6;">Handled By</th>
+            <th style="padding: 10px 12px; text-align: left; border: 1px solid #dee2e6;">Enquired At</th>
+            <th style="padding: 10px 12px; text-align: left; border: 1px solid #dee2e6;">Pending</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+      <p style="color: #7f8c8d; font-size: 12px; margin-top: 20px;">
+        This is an automated critical alert from AKAN Party Manager — sent only to Admin.
+      </p>
+    </div>
+  `;
+
+  return sendEmail(recipients.join(','), subject, html);
+}
+
 module.exports = {
   sendEmail,
   sendNewPartyNotification,
@@ -676,6 +777,7 @@ module.exports = {
   sendCancellationNotification,
   sendDailyReport,
   sendStaleEnquiryAlert,
+  sendCriticalAlert,
   sendDailyFollowUpReminder,
   sendPaymentReminderToGuest,
   sendBillingUpdateNotification,

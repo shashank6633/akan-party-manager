@@ -11,7 +11,7 @@ import {
  Copy,
  Share2,
 } from 'lucide-react';
-import { partyAPI } from '../services/api';
+import { partyAPI, authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { validatePhone, formatCurrency, generateWhatsAppMessage, copyToClipboard } from '../utils/helpers';
 
@@ -76,13 +76,17 @@ export default function AddParty() {
  const [phoneError, setPhoneError] = useState('');
  const [showBilling, setShowBilling] = useState(true);
  const [showAdditional, setShowAdditional] = useState(false);
+ const [handlerUsers, setHandlerUsers] = useState([]);
 
- // Auto-fill handledBy with logged-in user's name
+ // Fetch SALES/MANAGER/ADMIN users for "Handled By" dropdown
  useEffect(() => {
- if (user?.name && !form.handledBy) {
-  setForm((prev) => ({ ...prev, handledBy: user.name }));
- }
- }, [user]);
+ authAPI.getUsers().then((res) => {
+  const users = (res.data.users || [])
+   .filter((u) => ['SALES', 'MANAGER', 'ADMIN'].includes(u.role) && u.isActive !== false)
+   .map((u) => u.name || u.username);
+  setHandlerUsers(users);
+ }).catch(() => {});
+ }, []);
 
  // Auto-save draft
  useEffect(() => {
@@ -188,7 +192,8 @@ export default function AddParty() {
 
  const handleCopyWhatsApp = async () => {
  if (!createdParty) return;
- const msg = generateWhatsAppMessage(createdParty, user?.name || user?.username, { isNew: true });
+ const greName = user?.role === 'GRE' ? (user?.name || user?.username) : '';
+ const msg = generateWhatsAppMessage(createdParty, user?.name || user?.username, { isNew: true, greName });
  await copyToClipboard(msg);
  setCopied(true);
  setTimeout(() => setCopied(false), 2000);
@@ -264,7 +269,7 @@ export default function AddParty() {
  <h3 className="text-sm font-semibold text-gray-800">Share on WhatsApp</h3>
  </div>
  <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-700 whitespace-pre-wrap font-mono max-h-60 overflow-y-auto mb-3">
- {createdParty ? generateWhatsAppMessage(createdParty, null, { isNew: true }) : ''}
+ {createdParty ? generateWhatsAppMessage(createdParty, null, { isNew: true, greName: user?.role === 'GRE' ? (user?.name || user?.username) : '' }) : ''}
  </div>
  <button
  onClick={handleCopyWhatsApp}
@@ -409,7 +414,7 @@ export default function AddParty() {
  </div>
  {renderInput('Company', 'company', { required: true, placeholder: 'Company name' })}
  {renderInput('Alt Contact', 'altContact', { placeholder: 'Alt person / phone (e.g. John - 9876543210)' })}
- {renderInput('Handled By', 'handledBy', { placeholder: 'e.g. Nihal / Shashank' })}
+ {renderSelect('Handled By', 'handledBy', handlerUsers)}
  {renderSelect('Occasion Type', 'occasionType', ['Corporate', 'Family', 'Others'])}
  {renderSelect('Guest Visited', 'guestVisited', ['Yes', 'No'])}
  {renderSelect('Status', 'status', ['Enquiry'], { required: true })}
@@ -453,7 +458,7 @@ export default function AddParty() {
  </div>
  {renderInput('Company', 'company', { required: true, placeholder: 'Company name' })}
  {renderInput('Alt Contact', 'altContact', { placeholder: 'Alt person / phone (e.g. John - 9876543210)' })}
- {renderInput('Handled By', 'handledBy', { placeholder: 'e.g. Nihal / Shashank' })}
+ {renderSelect('Handled By', 'handledBy', handlerUsers)}
  {renderInput('Guest Email', 'guestEmail', { type: 'email', placeholder: 'guest@example.com' })}
  {renderInput('Place', 'place', { placeholder: 'Venue / Hall' })}
  {renderSelect('Status', 'status', ['Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled'], { required: true })}

@@ -608,6 +608,333 @@ function indexToColumnLetter(index) {
 }
 
 // ---------------------------------------------------------------------------
+// F&P Records
+// ---------------------------------------------------------------------------
+
+/**
+ * Column mapping for the F&P Records sheet.
+ * 49 columns (A through AW).
+ */
+const FP_COLUMNS = [
+  'FP ID',                  // A
+  'Party Unique ID',        // B
+  'Created At',             // C
+  'Updated At',             // D
+  'Created By',             // E
+  'Status',                 // F  (Draft/Issued/Revised)
+  'Date of Booking',        // G
+  'Date of Event',          // H
+  'Day of Event',           // I
+  'Time of Event',          // J
+  'Advance Payment',        // K
+  'Allocated Area',         // L
+  'Rate Per Head',          // M
+  'Company',                // N
+  'Minimum Guarantee',      // O
+  'Contact Person',         // P
+  'Pax Expected',           // Q
+  'Phone',                  // R
+  'Package Type',           // S
+  'Reference',              // T
+  'Mode of Payment',        // U
+  'Veg Starters',           // V  (JSON array)
+  'Non-Veg Starters',       // W  (JSON array)
+  'Veg Main Course',        // X  (JSON array)
+  'Non-Veg Main Course',    // Y  (JSON array)
+  'Rice',                   // Z  (JSON array)
+  'Dal',                    // AA (JSON array)
+  'Salad',                  // AB (JSON array)
+  'Accompaniments',         // AC (JSON array)
+  'Desserts',               // AD (JSON array)
+  'Addon Mutton Starters',  // AE (JSON array)
+  'Addon Mutton Main Course', // AF (JSON array)
+  'Addon Prawns Starters',  // AG (JSON array)
+  'Addon Prawns Main Course', // AH (JSON array)
+  'Addon Extras',           // AI (JSON array)
+  'DJ',                     // AJ
+  'MC',                     // AK
+  'Mics',                   // AL
+  'Decor',                  // AM
+  'Seating Arrangements',   // AN
+  'Bar Notes',              // AO
+  'Manager Name',           // AP
+  'Guest Name',             // AQ
+  'Drinks Start Time',      // AR
+  'Drinks End Time',        // AS
+  'FP Made By',             // AT
+  'Kitchen Dept',           // AU
+  'Service Dept',           // AV
+  'Bar Dept',               // AW
+  'Stores Dept',            // AX
+  'Maintenance',            // AY
+  'Front Office',           // AZ
+  'Preset Menu Text',       // BA (JSON - write-in menu for preset menus)
+  'Other Items',            // BB (guest-requested items not in package)
+  'Approx Bill Amount',     // BC (auto-calculated: min guarantee × rate per head)
+  'Show Spice Levels',      // BD (boolean)
+  'Spice Level',            // BE (Mild/Medium/Spicy/Extra Spicy)
+  'Jain Food',              // BF (boolean)
+  'Jain Food Pax',          // BG (number)
+  'Vegan Food',             // BH (boolean)
+  'Vegan Food Pax',         // BI (number)
+];
+
+const FP_COLUMN_MAP = {};
+FP_COLUMNS.forEach((name, idx) => {
+  FP_COLUMN_MAP[name] = idx;
+});
+
+const FP_LAST_COL = 'BI';
+
+/**
+ * Generate a unique ID for a new F&P record.
+ * Format: FP-YYYYMMDD-XXXX (date + 4 random alphanumeric chars)
+ */
+function generateFpId() {
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let rand = '';
+  for (let i = 0; i < 4; i++) {
+    rand += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `FP-${dateStr}-${rand}`;
+}
+
+/**
+ * Ensure the F&P Records sheet tab and header row exist.
+ * Creates the tab and header if missing; adds missing columns if tab exists.
+ */
+async function ensureFpSheet() {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const spreadsheetId = getSpreadsheetId();
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets.properties.title,sheets.properties.sheetId,sheets.properties.gridProperties',
+    });
+    const fpSheet = meta.data.sheets.find(
+      (s) => s.properties.title === SHEET_NAMES.FP_RECORDS
+    );
+    const exists = !!fpSheet;
+
+    if (!exists) {
+      // Create the F&P Records tab with enough columns
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            { addSheet: { properties: { title: SHEET_NAMES.FP_RECORDS, gridProperties: { columnCount: Math.max(FP_COLUMNS.length, 52) } } } },
+          ],
+        },
+      });
+      // Add header row
+      const endCol = indexToColumnLetter(FP_COLUMNS.length - 1);
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `'${SHEET_NAMES.FP_RECORDS}'!A1:${endCol}1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [FP_COLUMNS] },
+      });
+      console.log('F&P Records: Created sheet with header row.');
+    } else {
+      // Sheet exists — expand grid if needed before writing new columns
+      const currentCols = fpSheet.properties.gridProperties?.columnCount || 26;
+      if (currentCols < FP_COLUMNS.length) {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId,
+          requestBody: {
+            requests: [{
+              appendDimension: {
+                sheetId: fpSheet.properties.sheetId,
+                dimension: 'COLUMNS',
+                length: FP_COLUMNS.length - currentCols,
+              },
+            }],
+          },
+        });
+        console.log(`F&P Records: Expanded grid from ${currentCols} to ${FP_COLUMNS.length} columns.`);
+      }
+
+      // Check if new columns need to be added to header
+      const endCol = indexToColumnLetter(FP_COLUMNS.length - 1);
+      const res = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'${SHEET_NAMES.FP_RECORDS}'!A1:${endCol}1`,
+      });
+      const header = (res.data.values || [])[0] || [];
+      if (header.length < FP_COLUMNS.length) {
+        const newCols = FP_COLUMNS.slice(header.length);
+        const startCol = indexToColumnLetter(header.length);
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${SHEET_NAMES.FP_RECORDS}'!${startCol}1:${endCol}1`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [newCols] },
+        });
+        console.log(`F&P Records: Added ${newCols.length} new column(s): ${newCols.join(', ')}`);
+      }
+    }
+  });
+}
+
+/**
+ * Read all data rows from the F&P Records sheet (excluding header row).
+ * Returns an array of objects keyed by column name.
+ */
+async function getAllFpRows() {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: getSpreadsheetId(),
+      range: `'${SHEET_NAMES.FP_RECORDS}'!A2:${FP_LAST_COL}`,
+    });
+    const rows = res.data.values || [];
+    return rows.map((row, idx) => {
+      const obj = {};
+      FP_COLUMNS.forEach((col, colIdx) => {
+        obj[col] = row[colIdx] !== undefined ? row[colIdx] : '';
+      });
+      obj._rowIndex = idx + 2;
+      return obj;
+    });
+  });
+}
+
+/**
+ * Read a single F&P row by its 1-based sheet row index.
+ * @param {number} rowIndex - 1-based row number in the sheet (header = row 1)
+ */
+async function getFpRow(rowIndex) {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: getSpreadsheetId(),
+      range: `'${SHEET_NAMES.FP_RECORDS}'!A${rowIndex}:${FP_LAST_COL}${rowIndex}`,
+    });
+    const row = (res.data.values || [])[0];
+    if (!row) return null;
+    const obj = {};
+    FP_COLUMNS.forEach((col, colIdx) => {
+      obj[col] = row[colIdx] !== undefined ? row[colIdx] : '';
+    });
+    obj._rowIndex = rowIndex;
+    return obj;
+  });
+}
+
+/**
+ * Append a new row to the F&P Records sheet.
+ * @param {object} data - Object keyed by column name
+ * @returns {object} The appended data with _rowIndex
+ */
+async function appendFpRow(data) {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+
+    // Auto-generate FP ID if not provided
+    if (!data['FP ID']) {
+      data['FP ID'] = generateFpId();
+    }
+
+    const values = FP_COLUMNS.map((col) => {
+      const val = data[col];
+      return val !== undefined && val !== null ? String(val) : '';
+    });
+
+    const res = await sheets.spreadsheets.values.append({
+      spreadsheetId: getSpreadsheetId(),
+      range: `'${SHEET_NAMES.FP_RECORDS}'!A:${FP_LAST_COL}`,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [values] },
+    });
+
+    const updatedRange = res.data.updates.updatedRange || '';
+    const match = updatedRange.match(/!A(\d+):/);
+    const rowIndex = match ? parseInt(match[1], 10) : null;
+
+    return { ...data, _rowIndex: rowIndex };
+  });
+}
+
+/**
+ * Update an existing F&P row.
+ * Only updates the columns present in `data`; preserves others.
+ * @param {number} rowIndex - 1-based sheet row index
+ * @param {object} data - Partial object keyed by column name
+ */
+async function updateFpRow(rowIndex, data) {
+  return withRetry(async () => {
+    // First read the current row to merge
+    const current = await getFpRow(rowIndex);
+    if (!current) throw new Error(`F&P row ${rowIndex} not found`);
+
+    // Merge: incoming data overwrites current values
+    const merged = { ...current };
+    Object.keys(data).forEach((key) => {
+      if (FP_COLUMN_MAP[key] !== undefined) {
+        merged[key] = data[key];
+      }
+    });
+
+    const values = FP_COLUMNS.map((col) => {
+      const val = merged[col];
+      return val !== undefined && val !== null ? String(val) : '';
+    });
+
+    const sheets = getSheetsClient();
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: getSpreadsheetId(),
+      range: `'${SHEET_NAMES.FP_RECORDS}'!A${rowIndex}:${FP_LAST_COL}${rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [values] },
+    });
+
+    return { ...merged, _rowIndex: rowIndex };
+  });
+}
+
+/**
+ * Delete a row from the F&P Records sheet.
+ * @param {number} rowIndex - 1-based sheet row index
+ */
+async function deleteFpRow(rowIndex) {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId: getSpreadsheetId(),
+      fields: 'sheets.properties',
+    });
+    const sheet = meta.data.sheets.find(
+      (s) => s.properties.title === SHEET_NAMES.FP_RECORDS
+    );
+    if (!sheet) throw new Error('F&P Records sheet not found');
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: getSpreadsheetId(),
+      requestBody: {
+        requests: [
+          {
+            deleteDimension: {
+              range: {
+                sheetId: sheet.properties.sheetId,
+                dimension: 'ROWS',
+                startIndex: rowIndex - 1, // 0-based
+                endIndex: rowIndex,
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    return true;
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Payment Reminder Log
 // ---------------------------------------------------------------------------
 
@@ -755,4 +1082,14 @@ module.exports = {
   hasReminderBeenSent,
   getReminderLogs,
   ensureReminderLogSheet,
+  // F&P Records
+  FP_COLUMNS,
+  FP_COLUMN_MAP,
+  generateFpId,
+  ensureFpSheet,
+  getAllFpRows,
+  getFpRow,
+  appendFpRow,
+  updateFpRow,
+  deleteFpRow,
 };

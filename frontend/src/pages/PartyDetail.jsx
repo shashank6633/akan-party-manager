@@ -16,9 +16,10 @@ import {
  History,
  Copy,
  Clock,
+ FileText,
 } from 'lucide-react';
 import StatusBadge from '../components/Party/StatusBadge';
-import { partyAPI } from '../services/api';
+import { partyAPI, fpAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import {
  formatCurrency,
@@ -88,7 +89,6 @@ const FIELD_LABELS = {
  guestEmail: 'Guest Email',
  balancePaymentDate: 'Balance Payment Date',
  billOrderId: 'Bill Order ID',
- handledBy: 'Handled By',
 };
 
 const READ_ONLY_FIELDS = [
@@ -130,6 +130,7 @@ export default function PartyDetail() {
  const [sendingReminder, setSendingReminder] = useState(false);
  const [reminderLog, setReminderLog] = useState([]);
  const [showReminderLog, setShowReminderLog] = useState(false);
+ const [fpRecords, setFpRecords] = useState([]);
 
  const isCashier = user?.role === 'CASHIER';
  const canFollowUp = ['SALES', 'MANAGER', 'ADMIN'].includes(user?.role);
@@ -146,10 +147,21 @@ export default function PartyDetail() {
    const data = res.data;
    setParty(data);
    setEditData(data);
+   fetchFpRecords(data.uniqueId);
   } catch (err) {
    setError('Failed to load party details.');
   } finally {
    setLoading(false);
+  }
+ };
+
+ const fetchFpRecords = async (uniqueId) => {
+  if (!uniqueId) return;
+  try {
+   const res = await fpAPI.getByParty(uniqueId);
+   setFpRecords(res.data.data || []);
+  } catch {
+   setFpRecords([]);
   }
  };
 
@@ -478,6 +490,23 @@ export default function PartyDetail() {
     }`}>{value}</span>
    );
   }
+  if (field === 'fpIssued') {
+   if (fpRecords.length > 0) {
+    const fpStatus = fpRecords[0].status || 'Draft';
+    return (
+     <span className="inline-flex items-center gap-1.5">
+      <span className="text-xs font-semibold text-green-700">Yes</span>
+      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+       fpStatus === 'Approved' ? 'bg-green-100 text-green-700' :
+       fpStatus === 'Issued' ? 'bg-blue-100 text-blue-700' :
+       fpStatus === 'Revised' ? 'bg-amber-100 text-amber-700' :
+       'bg-gray-100 text-gray-600'
+      }`}>{fpStatus}</span>
+     </span>
+    );
+   }
+   return <span className="text-xs text-gray-400">{value || 'No'}</span>;
+  }
   if (isCurrencyField(field) && value) {
    return formatCurrency(value);
   }
@@ -531,6 +560,31 @@ export default function PartyDetail() {
      >
       <Copy className="w-4 h-4" /> {copied ? 'Copied!' : 'WhatsApp'}
      </button>
+
+     {/* F&P - SALES/MANAGER/ADMIN - only for Confirmed or Tentative */}
+     {['SALES', 'MANAGER', 'ADMIN'].includes(user?.role) && ['Confirmed', 'Tentative'].includes((party.status || '').trim()) && (
+      fpRecords.length > 0 ? (
+       <button
+        onClick={() => navigate(`/fp/${fpRecords[0].rowIndex}`)}
+        className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors min-h-[44px]"
+       >
+        <FileText className="w-4 h-4" /> View F&P
+        <span className={`ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+         fpRecords[0].status === 'Approved' ? 'bg-green-100 text-green-700' :
+         fpRecords[0].status === 'Issued' ? 'bg-blue-100 text-blue-700' :
+         fpRecords[0].status === 'Revised' ? 'bg-amber-100 text-amber-700' :
+         'bg-gray-100 text-gray-600'
+        }`}>{fpRecords[0].status || 'Draft'}</span>
+       </button>
+      ) : (
+       <button
+        onClick={() => navigate(`/fp/new?partyId=${encodeURIComponent(party.uniqueId)}`)}
+        className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors min-h-[44px]"
+       >
+        <FileText className="w-4 h-4" /> Create F&P
+       </button>
+      )
+     )}
 
      {/* Send Payment Reminder - SALES/MANAGER/ADMIN only, when dues exist */}
      {['SALES', 'MANAGER', 'ADMIN'].includes(user?.role) && parseFloat(party.dueAmount) > 0 && (

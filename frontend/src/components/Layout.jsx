@@ -6,6 +6,7 @@ import Header from './Header';
 const pageTitles = {
   '/': 'Dashboard',
   '/add-party': 'Add New Party',
+  '/fp': 'Function & Prospectus',
   '/reports': 'Reports',
   '/settings': 'Settings',
   '/profile': 'My Profile',
@@ -19,6 +20,8 @@ export default function Layout() {
 
   const getTitle = () => {
     if (location.pathname.startsWith('/party/')) return 'Party Details';
+    if (location.pathname === '/fp/new') return 'New F&P';
+    if (location.pathname.startsWith('/fp/')) return 'Edit F&P';
     return pageTitles[location.pathname] || 'AKAN Party Manager';
   };
 

@@ -13,6 +13,8 @@ import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import CashierBilling from './pages/CashierBilling';
 import CalendarView from './pages/CalendarView';
+import FPList from './pages/FPList';
+import FPEditor from './pages/FPEditor';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children, adminOnly = false, hideForRoles = [] }) {
@@ -91,17 +93,28 @@ export default function App() {
  }
  >
  <Route index element={<Dashboard />} />
- <Route path="calendar" element={
- <RoleGuard hideForRoles={['GRE']}>
- <CalendarView />
- </RoleGuard>
- } />
+ <Route path="calendar" element={<CalendarView />} />
  <Route path="add-party" element={
  <RoleGuard hideForRoles={['CASHIER']}>
  <AddParty />
  </RoleGuard>
  } />
  <Route path="parties/:id" element={<PartyDetail />} />
+ <Route path="fp" element={
+  <RoleGuard hideForRoles={['GRE', 'CASHIER']}>
+   <FPList />
+  </RoleGuard>
+ } />
+ <Route path="fp/new" element={
+  <RoleGuard hideForRoles={['GRE', 'CASHIER']}>
+   <FPEditor />
+  </RoleGuard>
+ } />
+ <Route path="fp/:id" element={
+  <RoleGuard hideForRoles={['GRE', 'CASHIER']}>
+   <FPEditor />
+  </RoleGuard>
+ } />
  <Route path="cashier-billing" element={<CashierBilling />} />
  <Route path="profile" element={<Profile />} />
  <Route path="reports" element={

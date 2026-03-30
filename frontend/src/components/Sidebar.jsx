@@ -10,6 +10,7 @@ import {
   X,
   Receipt,
   CalendarDays,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -18,6 +19,7 @@ const navItems = [
   { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
   { to: '/add-party', icon: PlusCircle, label: 'Add Party', hideFor: ['CASHIER'] },
   { to: '/cashier-billing', icon: Receipt, label: 'Billing', showFor: ['CASHIER', 'ADMIN', 'MANAGER'] },
+  { to: '/fp', icon: FileText, label: 'F&P', hideFor: ['GRE', 'CASHIER'] },
   { to: '/reports', icon: BarChart3, label: 'Reports', hideFor: ['GRE', 'CASHIER'] },
   { to: '/settings', icon: Settings, label: 'Settings', hideFor: ['GRE', 'SALES', 'MANAGER', 'CASHIER'] },
 ];
