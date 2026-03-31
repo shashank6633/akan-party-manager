@@ -622,6 +622,7 @@ export default function FPEditor() {
                     form.packageType === key ? 'bg-[#af4408] text-white border-[#af4408] shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-[#af4408]/40 hover:bg-[#af4408]/5'
                   }`}>
                   <div className="font-semibold">{pkg.label}</div>
+                  <div className="opacity-70 text-[10px]">{pkg.price}</div>
                 </button>
               ))}
             </div>
