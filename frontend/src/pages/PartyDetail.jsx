@@ -466,10 +466,12 @@ export default function PartyDetail() {
     </select>
    );
   }
+  const isDateField = field.toLowerCase().includes('date') || field === 'date';
   return (
    <input
-    type={field.toLowerCase().includes('date') || field === 'date' ? 'date' : 'text'}
+    type={isDateField ? 'date' : 'text'}
     value={editData[field] || ''}
+    min={field === 'date' ? new Date().toISOString().split('T')[0] : undefined}
     onChange={(e) => setEditData((prev) => ({ ...prev, [field]: e.target.value }))}
     className="w-full px-3 py-2 rounded-lg border border-[#af4408]/30 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
    />
@@ -647,12 +649,14 @@ export default function PartyDetail() {
        </button>
       </>
      ) : (
+      user?.role !== 'GRE' && (
       <button
        onClick={() => setEditing(true)}
        className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-[#af4408]/10 text-[#af4408] hover:bg-[#af4408]/20 transition-colors"
       >
        <Edit3 className="w-3.5 h-3.5" /> Edit
       </button>
+      )
      )}
 
      {user?.role === 'ADMIN' && (

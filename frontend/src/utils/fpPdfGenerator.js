@@ -134,7 +134,7 @@ export function generateFpPdf(data) {
   doc.setTextColor(0, 0, 0);
 
   // ===== BOOKING & GUEST DETAILS =====
-  const pkgDisplay = isPreset ? 'Preset Menu' : (pkg ? `${pkg.label} | ${pkg.price}` : (data.packageType || '-'));
+  const pkgDisplay = isPreset ? 'Preset Menu' : (pkg ? pkg.label : (data.packageType || '-'));
   // Build food preference string
   const foodPrefs = [];
   if (data.spiceLevel && data.showSpiceLevels) foodPrefs.push(`Spice: ${data.spiceLevel}`);
