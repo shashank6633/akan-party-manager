@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AKAN Party Booking - Process Flowchart</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8f9fa; padding: 30px; }
+  .title { text-align: center; margin-bottom: 30px; }
+  .title h1 { font-size: 28px; color: #af4408; }
+  .title p { color: #666; font-size: 14px; margin-top: 5px; }
+
+  .flowchart { display: flex; flex-direction: column; align-items: center; gap: 0; max-width: 900px; margin: 0 auto; }
+
+  /* Role Lane */
+  .role-lane {
+    width: 100%;
+    border: 2px solid #ddd;
+    border-radius: 12px;
+    padding: 20px 25px;
+    margin-bottom: 0;
+    position: relative;
+    background: white;
+  }
+  .role-lane + .arrow-down { margin: 0; }
+  .role-lane .role-badge {
+    position: absolute;
+    top: -14px;
+    left: 25px;
+    padding: 4px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: white;
+  }
+  .role-gre { border-color: #f59e0b; }
+  .role-gre .role-badge { background: #f59e0b; }
+  .role-sales { border-color: #3b82f6; }
+  .role-sales .role-badge { background: #3b82f6; }
+  .role-manager { border-color: #8b5cf6; }
+  .role-manager .role-badge { background: #8b5cf6; }
+  .role-cashier { border-color: #10b981; }
+  .role-cashier .role-badge { background: #10b981; }
+  .role-accounts { border-color: #6366f1; }
+  .role-accounts .role-badge { background: #6366f1; }
+  .role-system { border-color: #ef4444; border-style: dashed; }
+  .role-system .role-badge { background: #ef4444; }
+
+  .lane-content { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; padding-top: 8px; }
+
+  /* Nodes */
+  .node {
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 13px;
+    text-align: center;
+    min-width: 140px;
+    line-height: 1.4;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  .node-start {
+    background: linear-gradient(135deg, #af4408, #d4550a);
+    color: white;
+    border-radius: 30px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .node-process {
+    background: #e8f4fd;
+    border: 1.5px solid #90cdf4;
+    color: #1a365d;
+  }
+  .node-decision {
+    background: #fef3c7;
+    border: 1.5px solid #f59e0b;
+    color: #78350f;
+    transform: rotate(0deg);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    width: 150px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .node-diamond {
+    background: #fef3c7;
+    border: 2px solid #f59e0b;
+    color: #78350f;
+    font-weight: 600;
+    font-size: 12px;
+    padding: 10px 14px;
+    border-radius: 4px;
+    position: relative;
+  }
+  .node-diamond::before { content: "\25C6 "; color: #f59e0b; }
+  .node-status {
+    font-weight: 700;
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+  }
+  .status-enquiry { background: #fef3c7; color: #92400e; border: 1.5px solid #f59e0b; }
+  .status-contacted { background: #ede9fe; color: #5b21b6; border: 1.5px solid #8b5cf6; }
+  .status-tentative { background: #dbeafe; color: #1e40af; border: 1.5px solid #3b82f6; }
+  .status-confirmed { background: #d1fae5; color: #065f46; border: 1.5px solid #10b981; }
+  .status-cancelled { background: #fee2e2; color: #991b1b; border: 1.5px solid #ef4444; }
+  .node-action {
+    background: #f0fdf4;
+    border: 1.5px solid #86efac;
+    color: #14532d;
+    font-size: 12px;
+  }
+  .node-email {
+    background: #fdf2f8;
+    border: 1.5px solid #f9a8d4;
+    color: #831843;
+    font-size: 11px;
+    padding: 8px 12px;
+  }
+  .node-end {
+    background: linear-gradient(135deg, #065f46, #10b981);
+    color: white;
+    border-radius: 30px;
+    font-weight: 700;
+  }
+
+  /* Arrows */
+  .arrow-down {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px 0;
+  }
+  .arrow-down .line { width: 2px; height: 20px; background: #94a3b8; }
+  .arrow-down .head { width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 10px solid #94a3b8; }
+  .arrow-down .label { font-size: 10px; color: #64748b; font-weight: 600; margin-bottom: 2px; }
+
+  .arrow-right {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+  .arrow-right .line { width: 30px; height: 2px; background: #94a3b8; }
+  .arrow-right .head { width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 9px solid #94a3b8; }
+  .arrow-right .label { font-size: 10px; color: #64748b; font-weight: 600; margin: 0 4px; }
+
+  /* Fields list */
+  .fields { font-size: 11px; color: #475569; margin-top: 6px; line-height: 1.6; }
+  .fields strong { color: #1e293b; }
+
+  /* Side note */
+  .side-note {
+    font-size: 11px;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border-left: 3px solid #94a3b8;
+    max-width: 200px;
+  }
+
+  /* Branch container */
+  .branch { display: flex; gap: 20px; align-items: flex-start; justify-content: center; width: 100%; }
+  .branch-path { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 30px;
+    padding: 15px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 8px 0;
+  }
+
+  @media print {
+    body { padding: 10px; }
+    .role-lane { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<div class="title">
+  <h1>AKAN Party Manager - Booking Process Flowchart</h1>
+  <p>End-to-end flow from Guest Enquiry to Payment Completion</p>
+</div>
+
+<div class="flowchart">
+
+  <!-- START -->
+  <div class="node node-start">Guest Enquiry (Walk-in / Call / Referral)</div>
+
+  <div class="arrow-down"><div class="line"></div><div class="head"></div></div>
+
+  <!-- GRE LANE -->
+  <div class="role-lane role-gre">
+    <div class="role-badge">GRE (Guest Relations Executive)</div>
+    <div class="lane-content">
+      <div class="node node-process">
+        <strong>Create New Party</strong>
+        <div class="fields">
+          <strong>Required:</strong> Date, Host Name, Phone,<br>
+          Company, Expected Pax *<br>
+          <strong>Optional:</strong> Meal Type, Occasion,<br>
+          Place, Special Requirements,<br>
+          Alt Contact, Handled By
+        </div>
+      </div>
+      <div class="arrow-right"><div class="line"></div><div class="head"></div></div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:center">
+        <div class="node node-status status-enquiry">Status: ENQUIRY</div>
+        <div class="node node-email">Auto Email: New Enquiry Notification sent to Sales</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down"><div class="line"></div><div class="head"></div></div>
+
+  <!-- SYSTEM ALERT -->
+  <div class="role-lane role-system">
+    <div class="role-badge">SYSTEM (Automated)</div>
+    <div class="lane-content">
+      <div class="node node-email">Stale Enquiry Alert (if no action for 1+ hour)<br>Check every 15 min</div>
+      <div class="arrow-right"><div class="line"></div><div class="head"></div></div>
+      <div class="node node-email">Popup shown to SALES / MANAGER / ADMIN on Dashboard</div>
+    </div>
+  </div>
+
+  <div class="arrow-down"><div class="line"></div><div class="head"></div></div>
+
+  <!-- SALES LANE -->
+  <div class="role-lane role-sales">
+    <div class="role-badge">SALES</div>
+    <div class="lane-content" style="flex-direction:column;gap:15px;">
+
+      <!-- Step 1: Contact -->
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;">
+        <div class="node node-process">
+          <strong>Contact Guest</strong>
+          <div class="fields">Call / WhatsApp / Email<br>Discuss requirements & packages</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="head"></div></div>
+        <div class="node node-status status-contacted">Status: CONTACTED</div>
+      </div>
+
+      <!-- Step 2: Decision -->
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;">
+        <div class="node node-diamond">Guest Interested?</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:11px;color:#10b981;font-weight:700;">YES</span>
+            <div class="arrow-right"><div class="line"></div><div class="head"></div></div>
+            <div class="node node-status status-tentative">Status: TENTATIVE</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:11px;color:#ef4444;font-weight:700;">NO</span>
+            <div class="arrow-right"><div class="line"></div><div class="head"></div></div>
+            <div class="node node-status status-cancelled">Status: CANCELLED</div>
+            <div class="side-note">Lost Reason recorded. Flow ends here.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: F&P -->
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;">
+        <div class="node node-action">
+          <strong>Create F&P (Food & Programme)</strong>
+          <div class="fields">Select Package, Menu Items,<br>Addons, Drinks, Bar Timing,<br>Rate/Head, Programme Schedule</div>
+        </div>
+        <div class="arrow-right"><div class="line"></div><div class="head"></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">
+          <div class="node node-action">Generate PDF</div>
+          <div class="node node-email">Email F&P PDF to Guest</div>
+        </div>
+      </div>
+
+      <!-- Step 4: Confirm -->
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;">
+        <div class="node node-diamond">Guest Confirms Booking?</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;color:#10b981;font-weight:700;">YES</span>
+          <div class="arrow-right"><div class="line"></div><div class="head"></div></div>
+          <div class="node node-status status-confirmed">Status: CONFIRMED</div>
+        </div>
+      </div>
+
+      <!-- Fields on confirm -->
+      <div class="node node-process" style="max-width:400px;">
+        <strong>Update Confirmed Details</strong>
+        <div class="fields">
+          Confirmed Pax, Final Rate/Head,<br>
+          Final Total Amount (auto-calculated),<br>
+          Advance Payment, Payment Status,<br>
+          Guest Email, Balance Payment Date
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="arrow-down"><div class="line"></div><div class="head"></div></div>
+
+  <!-- MANAGER LANE -->
+  <div class="role-lane role-manager">
+    <div class="role-badge">MANAGER (Oversight)</div>
+    <div class="lane-content">
+      <div class="node node-process">
+        <strong>Review & Oversee</strong>
+        <div class="fields">Full access to all parties<br>Can modify any field<br>Approves special requests</div>
+      </div>
+      <div class="arrow-right"><div class="line"></div><div class="head"></div></div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div class="node node-email">Daily Follow-up Reminders (9 AM IST)</div>
+        <div class="node node-email">Daily Report Email (10 PM IST)</div>
+        <div class="node node-email">Stale Enquiry Alerts (every 15 min)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">
+    <div class="label">Confirmed Parties Only</div>
+    <div class="line"></div><div class="head"></div>
+  </div>
+
+  <!-- CASHIER LANE -->
+  <div class="role-lane role-cashier">
+    <div class="role-badge">CASHIER (Billing)</div>
+    <div class="lane-content">
+      <div class="node node-process">
+        <strong>Process Billing</strong>
+        <div class="fields">
+          Total Bill Amount<br>
+          Advance / Payments Received<br>
+          Amount Paid, Due Amount<br>
+          Payment Status (Pending/Partial/Paid)<br>
+          Bill Order ID
+        </div>
+      </div>
+      <div class="arrow-right"><div class="line"></div><div class="head"></div></div>
+      <div class="node node-diamond">Payment Complete?</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-left:10px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;color:#f59e0b;font-weight:700;">PARTIAL</span>
+          <div class="arrow-right"><div class="line"></div><div class="head"></div></div>
+          <div class="node node-status" style="background:#fef3c7;color:#92400e;border:1.5px solid #f59e0b;">Balance Due</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;color:#10b981;font-weight:700;">FULL</span>
+          <div class="arrow-right"><div class="line"></div><div class="head"></div></div>
+          <div class="node node-status status-confirmed">Paid in Full</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">
+    <div class="label">Payment Tracking</div>
+    <div class="line"></div><div class="head"></div>
+  </div>
+
+  <!-- ACCOUNTS LANE -->
+  <div class="role-lane role-accounts">
+    <div class="role-badge">ACCOUNTS</div>
+    <div class="lane-content">
+      <div class="node node-process">
+        <strong>Payment Tracking & Reconciliation</strong>
+        <div class="fields">
+          View: Party ID, Name, Contact<br>
+          Total Bill, Amount Paid, Balance<br>
+          Balance Payment Date, Bill Order ID<br>
+          Payment Status
+        </div>
+      </div>
+      <div class="arrow-right"><div class="line"></div><div class="head"></div></div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div class="node node-email">Daily Pending Payments Report<br>(9:30 AM IST)</div>
+        <div class="node node-email">Payment Reminder to Guest<br>(8:00 AM IST on due date)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down"><div class="line"></div><div class="head"></div></div>
+
+  <!-- END -->
+  <div class="node node-end">Party Complete - Payment Settled</div>
+
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b;"></div> GRE - Creates Enquiry</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#3b82f6;"></div> Sales - Manages Booking</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6;"></div> Manager - Oversight</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#10b981;"></div> Cashier - Billing</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#6366f1;"></div> Accounts - Payment Tracking</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ef4444;border-radius:2px;"></div> System - Automated Alerts</div>
+</div>
+
+<div style="text-align:center;margin-top:20px;font-size:12px;color:#94a3b8;">
+  AKAN Party Manager v3.0 | corporate.akanhyd.com | Generated March 31, 2026
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AKAN Party Manager - Detailed Process Flowchart</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; color: #1e293b; }
+
+  .page-header { text-align: center; margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, #af4408, #d4550a); border-radius: 16px; color: white; }
+  .page-header h1 { font-size: 26px; margin-bottom: 4px; }
+  .page-header p { font-size: 13px; opacity: 0.85; }
+
+  /* Navigation */
+  .nav { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 25px; position: sticky; top: 0; background: #f0f2f5; padding: 10px 0; z-index: 10; }
+  .nav a { padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 600; color: white; transition: transform 0.15s; }
+  .nav a:hover { transform: translateY(-2px); }
+
+  /* Section */
+  .section { background: white; border-radius: 16px; margin-bottom: 20px; overflow: hidden; border: 2px solid #e2e8f0; }
+  .section-header { padding: 16px 24px; color: white; display: flex; align-items: center; gap: 12px; }
+  .section-header h2 { font-size: 18px; }
+  .section-header .badge { background: rgba(255,255,255,0.25); padding: 3px 10px; border-radius: 12px; font-size: 11px; }
+  .section-body { padding: 24px; }
+
+  /* Flow Row */
+  .flow-row { display: flex; align-items: stretch; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+  .flow-step { flex: 1; min-width: 220px; }
+
+  /* Cards */
+  .card { border-radius: 10px; padding: 14px 16px; font-size: 13px; line-height: 1.5; box-shadow: 0 1px 4px rgba(0,0,0,0.06); height: 100%; }
+  .card h4 { font-size: 13px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .card h4 .step-num { background: rgba(0,0,0,0.1); width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; }
+  .card ul { margin: 0; padding-left: 16px; font-size: 12px; }
+  .card ul li { margin-bottom: 3px; }
+  .card .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin: 2px 2px; }
+
+  /* Card types */
+  .card-action { background: #eff6ff; border: 1.5px solid #93c5fd; color: #1e3a5f; }
+  .card-action h4 { color: #1d4ed8; }
+  .card-trigger { background: #fefce8; border: 1.5px solid #fbbf24; color: #78350f; }
+  .card-trigger h4 { color: #b45309; }
+  .card-email { background: #fdf2f8; border: 1.5px solid #f9a8d4; color: #831843; }
+  .card-email h4 { color: #be185d; }
+  .card-status { background: #f0fdf4; border: 1.5px solid #86efac; color: #14532d; }
+  .card-status h4 { color: #15803d; }
+  .card-calc { background: #f5f3ff; border: 1.5px solid #c4b5fd; color: #3b0764; }
+  .card-calc h4 { color: #7c3aed; }
+  .card-system { background: #fff1f2; border: 1.5px solid #fca5a5; color: #7f1d1d; }
+  .card-system h4 { color: #dc2626; }
+  .card-data { background: #f8fafc; border: 1.5px solid #cbd5e1; color: #334155; }
+  .card-data h4 { color: #475569; }
+  .card-decision { background: #fef3c7; border: 2px solid #f59e0b; color: #78350f; }
+  .card-decision h4 { color: #b45309; }
+  .card-page { background: #ecfdf5; border: 1.5px solid #6ee7b7; color: #064e3b; }
+  .card-page h4 { color: #059669; }
+
+  /* Connector arrows */
+  .connector { display: flex; align-items: center; justify-content: center; min-width: 40px; flex-shrink: 0; }
+  .arrow-r { font-size: 20px; color: #94a3b8; }
+  .arrow-d { text-align: center; padding: 6px 0; color: #94a3b8; font-size: 20px; }
+  .arrow-label { font-size: 10px; color: #64748b; font-weight: 600; display: block; }
+
+  /* Sub-section */
+  .sub-section { margin-bottom: 20px; }
+  .sub-title { font-size: 14px; font-weight: 700; color: #475569; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px dashed #e2e8f0; display: flex; align-items: center; gap: 8px; }
+  .sub-title .icon { font-size: 16px; }
+
+  /* Status badges */
+  .s-enquiry { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; }
+  .s-contacted { background: #ede9fe; color: #5b21b6; border: 1px solid #8b5cf6; }
+  .s-tentative { background: #dbeafe; color: #1e40af; border: 1px solid #3b82f6; }
+  .s-confirmed { background: #d1fae5; color: #065f46; border: 1px solid #10b981; }
+  .s-cancelled { background: #fee2e2; color: #991b1b; border: 1px solid #ef4444; }
+
+  /* Cron table */
+  .cron-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cron-table th { background: #f1f5f9; padding: 8px 12px; text-align: left; font-weight: 700; border-bottom: 2px solid #e2e8f0; }
+  .cron-table td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; }
+  .cron-table tr:hover { background: #f8fafc; }
+
+  /* Role colors */
+  .bg-gre { background: #f59e0b; }
+  .bg-sales { background: #3b82f6; }
+  .bg-manager { background: #8b5cf6; }
+  .bg-cashier { background: #10b981; }
+  .bg-accounts { background: #6366f1; }
+  .bg-admin { background: #ef4444; }
+  .bg-system { background: #64748b; }
+
+  .border-gre { border-color: #f59e0b !important; }
+  .border-sales { border-color: #3b82f6 !important; }
+  .border-manager { border-color: #8b5cf6 !important; }
+  .border-cashier { border-color: #10b981 !important; }
+  .border-accounts { border-color: #6366f1 !important; }
+  .border-admin { border-color: #ef4444 !important; }
+
+  /* Grid layouts */
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+
+  /* Permission matrix */
+  .perm-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .perm-table th, .perm-table td { padding: 6px 8px; border: 1px solid #e2e8f0; text-align: center; }
+  .perm-table th { background: #f8fafc; font-weight: 700; }
+  .perm-table td:first-child { text-align: left; font-weight: 600; }
+  .check { color: #10b981; font-weight: 700; }
+  .cross { color: #ef4444; }
+
+  .divider { height: 1px; background: #e2e8f0; margin: 16px 0; }
+
+  @media print {
+    .nav { display: none; }
+    .section { page-break-inside: avoid; }
+    body { padding: 10px; }
+  }
+  @media (max-width: 768px) {
+    .flow-row { flex-direction: column; }
+    .connector { transform: rotate(90deg); min-width: auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="page-header">
+  <h1>AKAN Party Manager - Complete Process Flowchart</h1>
+  <p>Every Action, Feature, Automation & Workflow Documented</p>
+</div>
+
+<!-- NAVIGATION -->
+<div class="nav">
+  <a href="#sec-gre" style="background:#f59e0b">1. GRE</a>
+  <a href="#sec-system" style="background:#64748b">2. System Alerts</a>
+  <a href="#sec-sales" style="background:#3b82f6">3. Sales</a>
+  <a href="#sec-fp" style="background:#0ea5e9">4. F&P</a>
+  <a href="#sec-manager" style="background:#8b5cf6">5. Manager</a>
+  <a href="#sec-cashier" style="background:#10b981">6. Cashier</a>
+  <a href="#sec-accounts" style="background:#6366f1">7. Accounts</a>
+  <a href="#sec-admin" style="background:#ef4444">8. Admin</a>
+  <a href="#sec-auto" style="background:#0d9488">9. Auto-Calculations</a>
+  <a href="#sec-cron" style="background:#7c3aed">10. Cron Jobs</a>
+  <a href="#sec-emails" style="background:#be185d">11. Emails</a>
+  <a href="#sec-status" style="background:#ca8a04">12. Status Flow</a>
+  <a href="#sec-perms" style="background:#374151">13. Permissions</a>
+  <a href="#sec-pages" style="background:#059669">14. All Pages</a>
+</div>
+
+<!-- ============================================================ -->
+<!-- 1. GRE SECTION -->
+<!-- ============================================================ -->
+<div class="section border-gre" id="sec-gre">
+  <div class="section-header bg-gre">
+    <h2>1. GRE (Guest Relations Executive)</h2>
+    <span class="badge">First Point of Contact</span>
+  </div>
+  <div class="section-body">
+
+    <div class="sub-section">
+      <div class="sub-title"><span class="icon">&#128222;</span> Guest Enquiry Arrives (Walk-in / Call / Referral)</div>
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="card card-action">
+            <h4><span class="step-num">1</span> Open Add Party Page</h4>
+            <ul>
+              <li>Route: <code>/add-party</code></li>
+              <li>GRE sees simplified form</li>
+              <li>Auto-loads draft from localStorage</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-data">
+            <h4><span class="step-num">2</span> Fill Required Fields</h4>
+            <ul>
+              <li><strong>Date</strong> (or TBC: Month Year) <span class="tag s-enquiry">*</span></li>
+              <li><strong>Host Name</strong> <span class="tag s-enquiry">*</span></li>
+              <li><strong>Phone Number</strong> (Indian: 10 digits) <span class="tag s-enquiry">*</span></li>
+              <li><strong>Company Name</strong> <span class="tag s-enquiry">*</span></li>
+              <li><strong>Expected Pax</strong> (e.g. 50 or 40-60) <span class="tag s-enquiry">* GRE only</span></li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-data">
+            <h4><span class="step-num">3</span> Fill Optional Fields</h4>
+            <ul>
+              <li>Occasion Type (Corporate/Family/Others)</li>
+              <li>Guest Visited (Yes/No)</li>
+              <li>Place / Venue</li>
+              <li>Meal Type (e.g. Lunch 12:30 PM)</li>
+              <li>Alt Contact</li>
+              <li>Special Requirements</li>
+              <li>Remarks</li>
+              <li>Handled By (dropdown: Sales/Manager users)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-d">&#8595;</div>
+
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="card card-trigger">
+            <h4><span class="step-num">4</span> Validations Run</h4>
+            <ul>
+              <li>Phone format validated (Indian)</li>
+              <li>Duplicate check: Same phone + date</li>
+              <li>If duplicate found: warning shown (not blocked)</li>
+              <li>Past date prevention: <code>min={today}</code></li>
+              <li>Expected Pax required for GRE</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-action">
+            <h4><span class="step-num">5</span> Submit (POST /api/parties)</h4>
+            <ul>
+              <li>Auto-generates <strong>Unique ID</strong> (AKN-XXXXXX)</li>
+              <li>Status auto-set to <span class="tag s-enquiry">ENQUIRY</span></li>
+              <li>Sets <strong>Enquired At</strong> timestamp</li>
+              <li>Auto-calculates <strong>Day</strong> from Date</li>
+              <li>Writes to Google Sheets</li>
+              <li>Draft cleared from localStorage</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-email">
+            <h4><span class="step-num">6</span> Auto Notifications</h4>
+            <ul>
+              <li><strong>Email:</strong> New Party Notification sent to SALES + MANAGER</li>
+              <li><strong>In-App:</strong> Bell notification created (type: new_enquiry)</li>
+              <li><strong>WhatsApp:</strong> Copy message button available</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="sub-section">
+      <div class="sub-title"><span class="icon">&#128065;</span> GRE Can Also Do</div>
+      <div class="grid-3">
+        <div class="card card-page">
+          <h4>View Dashboard</h4>
+          <ul>
+            <li>See all parties (all statuses)</li>
+            <li>NO financial stats visible</li>
+            <li>NO revenue data</li>
+            <li>Auto-refresh every 30 seconds</li>
+          </ul>
+        </div>
+        <div class="card card-page">
+          <h4>View Calendar</h4>
+          <ul>
+            <li>Color-coded party view by month</li>
+            <li>View-only (cannot click to edit)</li>
+            <li>Status counts in legend</li>
+          </ul>
+        </div>
+        <div class="card card-action">
+          <h4>View Party Detail</h4>
+          <ul>
+            <li>Can view all party info</li>
+            <li><strong>Cannot Edit</strong> (no edit button)</li>
+            <li>Can copy WhatsApp message</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 2. SYSTEM AUTOMATED ALERTS -->
+<!-- ============================================================ -->
+<div class="section" id="sec-system" style="border-color:#64748b;">
+  <div class="section-header bg-system">
+    <h2>2. System Automated Alerts</h2>
+    <span class="badge">Runs Automatically</span>
+  </div>
+  <div class="section-body">
+    <div class="flow-row">
+      <div class="flow-step">
+        <div class="card card-system">
+          <h4>Stale Enquiry Detection (Every 15 min)</h4>
+          <ul>
+            <li>Scans all parties with Status = "Enquiry"</li>
+            <li>Checks if <code>Enquired At</code> is &gt; 1 hour ago</li>
+            <li>If stale found:</li>
+          </ul>
+        </div>
+      </div>
+      <div class="connector"><span class="arrow-r">&#8594;</span></div>
+      <div class="flow-step">
+        <div class="card card-email">
+          <h4>Stale Alerts Triggered</h4>
+          <ul>
+            <li><strong>In-App Notification:</strong> Bell icon (severity: error)</li>
+            <li><strong>Email to SALES + MANAGER:</strong> Table of stale parties with hours pending</li>
+            <li><strong>Critical Alert to ADMIN:</strong> Escalation email</li>
+            <li><strong>Dashboard Popup:</strong> Red modal auto-appears for SALES/MANAGER/ADMIN</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 3. SALES SECTION -->
+<!-- ============================================================ -->
+<div class="section border-sales" id="sec-sales">
+  <div class="section-header bg-sales">
+    <h2>3. SALES - Full Party Management</h2>
+    <span class="badge">Core Workflow</span>
+  </div>
+  <div class="section-body">
+
+    <!-- Step A: Contact -->
+    <div class="sub-section">
+      <div class="sub-title"><span class="icon">&#128386;</span> Step A: Contact the Guest</div>
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="card card-action">
+            <h4><span class="step-num">A1</span> View Enquiry on Dashboard</h4>
+            <ul>
+              <li>See new enquiry in party list</li>
+              <li>Click to open Party Detail</li>
+              <li>Check stale enquiry popup alerts</li>
+              <li>Review: Host, Phone, Company, Pax, Requirements</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-action">
+            <h4><span class="step-num">A2</span> Contact Guest</h4>
+            <ul>
+              <li>Call / WhatsApp / Email</li>
+              <li>Discuss: Packages, Menu, Pricing, Dates</li>
+              <li>Copy WhatsApp message (auto-generated)</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-status">
+            <h4><span class="step-num">A3</span> Update Status</h4>
+            <ul>
+              <li>Change: <span class="tag s-enquiry">ENQUIRY</span> &#8594; <span class="tag s-contacted">CONTACTED</span></li>
+              <li>API: <code>PUT /api/parties/:id/status</code></li>
+              <li>Auto-adds follow-up note with timestamp</li>
+              <li>Auto-updates Last Follow Up Date</li>
+              <li>Email: Status Change Notification sent</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-d">&#8595;</div>
+
+    <!-- Step B: Negotiate -->
+    <div class="sub-section">
+      <div class="sub-title"><span class="icon">&#128172;</span> Step B: Negotiate & Follow Up</div>
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="card card-action">
+            <h4><span class="step-num">B1</span> Add Follow-Up Notes</h4>
+            <ul>
+              <li>API: <code>PUT /api/parties/:id/followup</code></li>
+              <li>Notes prepended with: <code>[date - username]</code></li>
+              <li>Updates Last Follow Up Date</li>
+              <li>Multiple follow-ups tracked chronologically</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-decision">
+            <h4>Guest Interested?</h4>
+            <ul>
+              <li><strong style="color:#10b981">YES</strong> &#8594; Continue to Step C</li>
+              <li><strong style="color:#ef4444">NO</strong> &#8594; Cancel Party</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-system" style="border-color:#ef4444">
+            <h4>If Cancelled</h4>
+            <ul>
+              <li>Status: <span class="tag s-cancelled">CANCELLED</span></li>
+              <li><strong>Lost Reason required</strong> (mandatory)</li>
+              <li>Cancellation Notification email sent to MANAGER + ADMIN</li>
+              <li>Cancelled Date auto-set</li>
+              <li><strong>Flow ends here</strong></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-d">&#8595;</div>
+
+    <!-- Step C: Tentative -->
+    <div class="sub-section">
+      <div class="sub-title"><span class="icon">&#128203;</span> Step C: Mark Tentative & Prepare F&P</div>
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="card card-status">
+            <h4><span class="step-num">C1</span> Status &#8594; Tentative</h4>
+            <ul>
+              <li>Change: <span class="tag s-contacted">CONTACTED</span> &#8594; <span class="tag s-tentative">TENTATIVE</span></li>
+              <li>Guest is interested but not confirmed yet</li>
+              <li>Status change notification email sent</li>
+              <li>Follow-up note auto-added</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-action">
+            <h4><span class="step-num">C2</span> Update Party Details</h4>
+            <ul>
+              <li>Confirm: Date, Pax, Meal Type</li>
+              <li>Set: Package Selected</li>
+              <li>Set: Approx Bill Amount</li>
+              <li>Set: Guest Email</li>
+              <li>Update: Special Requirements</li>
+              <li>Handled By auto-appended</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-action">
+            <h4><span class="step-num">C3</span> Create F&P Document</h4>
+            <ul>
+              <li>Navigate to F&P &#8594; Create New</li>
+              <li>Select package, menu items, addons</li>
+              <li>Set rate/head, programme schedule</li>
+              <li>Generate PDF &amp; email to guest</li>
+              <li>Sets FP Issued = "Yes" on party</li>
+              <li><em>(See Section 4 for full F&P flow)</em></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow-d">&#8595;</div>
+
+    <!-- Step D: Confirm -->
+    <div class="sub-section">
+      <div class="sub-title"><span class="icon">&#9989;</span> Step D: Confirm Booking</div>
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="card card-status">
+            <h4><span class="step-num">D1</span> Status &#8594; Confirmed</h4>
+            <ul>
+              <li>Change: <span class="tag s-tentative">TENTATIVE</span> &#8594; <span class="tag s-confirmed">CONFIRMED</span></li>
+              <li><strong>OR</strong> Auto-confirmed when advance payment received</li>
+              <li>Status change notification sent</li>
+              <li>Now visible to CASHIER &amp; ACCOUNTS</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-data">
+            <h4><span class="step-num">D2</span> Set Confirmed Details</h4>
+            <ul>
+              <li><strong>Confirmed Pax</strong></li>
+              <li><strong>Final Rate / Head</strong></li>
+              <li><strong>Final Total Amount</strong> (auto: Pax x Rate)</li>
+              <li><strong>Guest Email</strong></li>
+              <li><strong>Balance Payment Date</strong></li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-action">
+            <h4><span class="step-num">D3</span> Collect Advance Payment</h4>
+            <ul>
+              <li>API: <code>PUT /api/parties/:id/payment</code></li>
+              <li>Type: "advance"</li>
+              <li>Records: Amount, Method, Reference, Note</li>
+              <li>Auto-calculates: Total Advance, Due Amount</li>
+              <li>Payment Status: Unpaid &#8594; Partial/Paid</li>
+              <li>Billing Update email sent</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Sales additional actions -->
+    <div class="sub-section">
+      <div class="sub-title"><span class="icon">&#128736;</span> Additional Sales Actions</div>
+      <div class="grid-3">
+        <div class="card card-action">
+          <h4>Send Payment Reminder</h4>
+          <ul>
+            <li>API: <code>POST /api/parties/:id/send-payment-reminder</code></li>
+            <li>Requires: Guest Email + Due &gt; 0</li>
+            <li>Sends reminder email to guest</li>
+            <li>Logged in Reminder Log</li>
+          </ul>
+        </div>
+        <div class="card card-action">
+          <h4>Edit Party Fields</h4>
+          <ul>
+            <li>Date, Host, Phone, Company, Status</li>
+            <li>Place, Meal, Pax, Remarks, Occasion</li>
+            <li>Package, FP Issued, Lost Reason</li>
+            <li>All billing fields</li>
+            <li>Follow-up Notes, Guest Email</li>
+          </ul>
+        </div>
+        <div class="card card-action">
+          <h4>View Reports</h4>
+          <ul>
+            <li>Daily summary reports</li>
+            <li>Date range reports</li>
+            <li>Financial overview</li>
+            <li>Status analysis charts</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 4. F&P SECTION -->
+<!-- ============================================================ -->
+<div class="section" id="sec-fp" style="border-color:#0ea5e9;">
+  <div class="section-header" style="background:#0ea5e9;">
+    <h2>4. F&P (Function & Prospectus) Workflow</h2>
+    <span class="badge">SALES / MANAGER</span>
+  </div>
+  <div class="section-body">
+
+    <div class="sub-section">
+      <div class="sub-title"><span class="icon">&#128196;</span> Create F&P Document</div>
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="card card-trigger">
+            <h4><span class="step-num">1</span> Prerequisites</h4>
+            <ul>
+              <li>Party must be <span class="tag s-tentative">TENTATIVE</span> or <span class="tag s-confirmed">CONFIRMED</span></li>
+              <li>Navigate: F&P List &#8594; Create New</li>
+              <li>Select Party from dropdown</li>
+              <li>Auto-fills: Date, Company, Contact, Phone, Pax from party data</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-data">
+            <h4><span class="step-num">2</span> Select Package</h4>
+            <ul>
+              <li>Package buttons show: <strong>Name + Price</strong></li>
+              <li>Auto-loads: Drinks brands, cocktails, mocktails, soft drinks, serving style</li>
+              <li>Set: Rate Per Head</li>
+              <li>Set: Allocated Area</li>
+              <li>Set: Advance Payment amount</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-data">
+            <h4><span class="step-num">3</span> Select Menu Items</h4>
+            <ul>
+              <li><strong>Checkbox-based selection per category:</strong></li>
+              <li>Veg Starters, Non-Veg Starters</li>
+              <li>Veg Main Course, Non-Veg Main Course</li>
+              <li>Rice, Dal, Salad, Accompaniments</li>
+              <li>Desserts</li>
+              <li>+ Other Items (free text per category)</li>
+              <li>Category limits enforced</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-d">&#8595;</div>
+
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="card card-data">
+            <h4><span class="step-num">4</span> Addons (Optional)</h4>
+            <ul>
+              <li>Mutton Starters / Main Course</li>
+              <li>Prawns Starters / Main Course</li>
+              <li>Extras (custom items)</li>
+              <li>Each addon has separate limits</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-data">
+            <h4><span class="step-num">5</span> Drinks & Bar Timing</h4>
+            <ul>
+              <li>Brands auto-loaded from package</li>
+              <li>Includes: Cocktails | Mocktails | Soft Drinks</li>
+              <li>Serving style from package</li>
+              <li><strong>Bar Start Time</strong></li>
+              <li><strong>Bar End Time</strong></li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-action">
+            <h4><span class="step-num">6</span> Save & Actions</h4>
+            <ul>
+              <li><strong>Save:</strong> POST /api/fp (creates record)</li>
+              <li>Sets FP Issued = "Yes" on party</li>
+              <li><strong>Generate PDF:</strong> Professional document with:
+                <br>- Package name (no price)
+                <br>- Numbered menu items
+                <br>- Other items marked with *
+                <br>- Drinks 4-column layout
+              </li>
+              <li><strong>Email PDF:</strong> Send to custom email address</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="sub-section">
+      <div class="sub-title"><span class="icon">&#128221;</span> F&P Management</div>
+      <div class="grid-3">
+        <div class="card card-action">
+          <h4>Edit F&P</h4>
+          <p style="font-size:12px">Update menu items, addons, drinks, rates. Updates "Updated At" timestamp.</p>
+        </div>
+        <div class="card card-email">
+          <h4>Email F&P</h4>
+          <p style="font-size:12px">Send formatted email with menu details to any email. Returns SMTP error details if failed.</p>
+        </div>
+        <div class="card card-system">
+          <h4>Delete F&P</h4>
+          <p style="font-size:12px">MANAGER only. Removes F&P record from Google Sheets.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 5. MANAGER SECTION -->
+<!-- ============================================================ -->
+<div class="section border-manager" id="sec-manager">
+  <div class="section-header bg-manager">
+    <h2>5. MANAGER - Oversight & Control</h2>
+    <span class="badge">Full Access</span>
+  </div>
+  <div class="section-body">
+    <div class="grid-2">
+      <div class="card card-action">
+        <h4>Full Party Management</h4>
+        <ul>
+          <li>Edit ALL fields on any party</li>
+          <li>Create, update, cancel parties</li>
+          <li>Add payments and follow-ups</li>
+          <li>Send payment reminders</li>
+          <li>Create/Edit/Delete F&P</li>
+        </ul>
+      </div>
+      <div class="card card-page">
+        <h4>Dashboard Oversight</h4>
+        <ul>
+          <li>Full stats: Revenue, Advance, Pending Dues</li>
+          <li>Today's enquiries and confirmed count</li>
+          <li>Stale enquiry popup alerts</li>
+          <li>Follow-ups needed section</li>
+          <li>Quick actions: Confirm, Cancel, Add Payment</li>
+        </ul>
+      </div>
+      <div class="card card-action">
+        <h4>Reports</h4>
+        <ul>
+          <li>View daily &amp; range reports</li>
+          <li>Financial overview with charts</li>
+          <li>Export all data as JSON</li>
+          <li>Send daily report email manually</li>
+          <li>Send custom range report email</li>
+        </ul>
+      </div>
+      <div class="card card-email">
+        <h4>Receives Notifications</h4>
+        <ul>
+          <li>New party notifications</li>
+          <li>Status change alerts</li>
+          <li>Cancellation notices</li>
+          <li>Stale enquiry alerts</li>
+          <li>Daily follow-up reminders (9 AM)</li>
+          <li>Daily report (10 PM)</li>
+          <li>Billing updates</li>
+          <li>Pending payments report (9:30 AM)</li>
+        </ul>
+      </div>
+      <div class="card card-action">
+        <h4>Notifications Config</h4>
+        <ul>
+          <li>Test SMTP email connectivity</li>
+          <li>Check notification configuration</li>
+        </ul>
+      </div>
+      <div class="card card-page">
+        <h4>Calendar View</h4>
+        <ul>
+          <li>Full interactive calendar</li>
+          <li>Click parties to edit</li>
+          <li>Status color coding</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 6. CASHIER SECTION -->
+<!-- ============================================================ -->
+<div class="section border-cashier" id="sec-cashier">
+  <div class="section-header bg-cashier">
+    <h2>6. CASHIER - Billing & Payments</h2>
+    <span class="badge">Confirmed Parties Only</span>
+  </div>
+  <div class="section-body">
+
+    <div class="sub-section">
+      <div class="sub-title"><span class="icon">&#128179;</span> Billing Workflow</div>
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="card card-action">
+            <h4><span class="step-num">1</span> Lookup Party</h4>
+            <ul>
+              <li>Route: <code>/cashier-billing</code></li>
+              <li>Search by <strong>Unique ID</strong> (AKN-XXXXXX)</li>
+              <li>API: <code>GET /api/parties/lookup/:uniqueId</code></li>
+              <li>Duplicate warning if same phone+date exists</li>
+              <li>Only <span class="tag s-confirmed">CONFIRMED</span> parties shown</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-data">
+            <h4><span class="step-num">2</span> Review & Set Billing</h4>
+            <ul>
+              <li><strong>Confirmed Pax</strong></li>
+              <li><strong>Final Rate / Head</strong></li>
+              <li><strong>Final Total Amount</strong> (auto: Pax x Rate)</li>
+              <li><strong>Bill Order ID</strong></li>
+              <li><strong>Guest Email</strong></li>
+              <li><strong>Balance Payment Date</strong></li>
+              <li><em>Validation:</em> Rate required for confirmed parties</li>
+              <li><em>Validation:</em> If due &gt; 0, Balance Date + Email required</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-action">
+            <h4><span class="step-num">3</span> Record Payments</h4>
+            <ul>
+              <li>API: <code>PUT /api/parties/:id/payment</code></li>
+              <li><strong>Type:</strong> "advance" or "payment"</li>
+              <li>Each entry records: Amount, Method, Reference, Note, Timestamp, User</li>
+              <li>Appended to Payment Log (JSON array)</li>
+              <li>Multiple entries supported</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow-d">&#8595;</div>
+
+      <div class="flow-row">
+        <div class="flow-step">
+          <div class="card card-calc">
+            <h4><span class="step-num">4</span> Auto-Calculations</h4>
+            <ul>
+              <li>Total Advance Paid = Sum of advance entries</li>
+              <li>Total Paid = Sum of payment entries</li>
+              <li>Total Amount Paid = Advance + Paid</li>
+              <li>Due Amount = Final Total - Total Amount Paid</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-status">
+            <h4><span class="step-num">5</span> Payment Status (Auto-Set)</h4>
+            <ul>
+              <li><span class="tag s-cancelled">UNPAID</span> = Total Paid is 0</li>
+              <li><span class="tag s-enquiry">PARTIAL</span> = 0 &lt; Paid &lt; Total</li>
+              <li><span class="tag s-confirmed">PAID</span> = Paid &ge; Total</li>
+            </ul>
+          </div>
+        </div>
+        <div class="connector"><span class="arrow-r">&#8594;</span></div>
+        <div class="flow-step">
+          <div class="card card-email">
+            <h4><span class="step-num">6</span> Billing Notification</h4>
+            <ul>
+              <li>Billing Update email sent to MANAGER + ADMIN + ACCOUNTS</li>
+              <li>Contains: Payment details, total bill, due amount</li>
+              <li>If advance on non-confirmed: auto-confirms party</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 7. ACCOUNTS SECTION -->
+<!-- ============================================================ -->
+<div class="section border-accounts" id="sec-accounts">
+  <div class="section-header bg-accounts">
+    <h2>7. ACCOUNTS - Payment Tracking & Reconciliation</h2>
+    <span class="badge">Confirmed Parties Only</span>
+  </div>
+  <div class="section-body">
+    <div class="flow-row">
+      <div class="flow-step">
+        <div class="card card-data">
+          <h4>Visible Fields</h4>
+          <ul>
+            <li>Party ID, Host Name, Contact</li>
+            <li>Total Bill Amount</li>
+            <li>Amount Paid</li>
+            <li>Balance / Due Amount</li>
+            <li>Balance Payment Date</li>
+            <li>Bill Order ID</li>
+            <li>Payment Status</li>
+          </ul>
+        </div>
+      </div>
+      <div class="connector"><span class="arrow-r">&#8594;</span></div>
+      <div class="flow-step">
+        <div class="card card-action">
+          <h4>Editable Fields</h4>
+          <ul>
+            <li>Final Total Amount</li>
+            <li>Total Amount Paid</li>
+            <li>Due Amount</li>
+            <li>Payment Status</li>
+            <li>Balance Payment Date</li>
+            <li>Bill Order ID</li>
+          </ul>
+        </div>
+      </div>
+      <div class="connector"><span class="arrow-r">&#8594;</span></div>
+      <div class="flow-step">
+        <div class="card card-email">
+          <h4>Daily Automated Emails</h4>
+          <ul>
+            <li><strong>9:30 AM IST:</strong> Pending Payments Report
+              <br>- Table of all confirmed parties with balance &gt; 0
+              <br>- Highlights overdue payments (past due date)
+              <br>- Sent to ACCOUNTS + MANAGER
+            </li>
+            <li><strong>8:00 AM IST:</strong> Payment Reminder to Guest
+              <br>- Sent on Balance Payment Due Date
+              <br>- Includes: Bill amount, paid, balance, due date
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="grid-3">
+      <div class="card card-page">
+        <h4>Dashboard</h4>
+        <p style="font-size:12px">Sees only Confirmed parties. No financial stats. Cashier billing page accessible.</p>
+      </div>
+      <div class="card card-page">
+        <h4>Calendar</h4>
+        <p style="font-size:12px">View-only calendar. Cannot click to edit parties.</p>
+      </div>
+      <div class="card card-system">
+        <h4>Restrictions</h4>
+        <p style="font-size:12px">No Add Party, No F&P, No Reports, No Settings, No Edit button on Party Detail.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 8. ADMIN SECTION -->
+<!-- ============================================================ -->
+<div class="section border-admin" id="sec-admin">
+  <div class="section-header bg-admin">
+    <h2>8. ADMIN - System Administration</h2>
+    <span class="badge">Everything + Settings</span>
+  </div>
+  <div class="section-body">
+    <div class="grid-2">
+      <div class="card card-action">
+        <h4>User Management</h4>
+        <ul>
+          <li>Create users (set username, password, role, name, email)</li>
+          <li>Roles: GRE, CASHIER, ACCOUNTS, SALES, MANAGER, ADMIN</li>
+          <li>Toggle user Active/Inactive</li>
+          <li>Reset user passwords</li>
+          <li>View login history (lastLogin, loginCount)</li>
+          <li>Auto-deactivate: 2+ months inactive</li>
+        </ul>
+      </div>
+      <div class="card card-action">
+        <h4>Email Settings</h4>
+        <ul>
+          <li>Configure SMTP recipient emails</li>
+          <li>Set: Sales, Manager, Admin, Notification emails</li>
+          <li>Test SMTP connectivity</li>
+          <li>Toggle payment reminders ON/OFF</li>
+          <li>Persists to .env file</li>
+        </ul>
+      </div>
+      <div class="card card-action">
+        <h4>Email Routing</h4>
+        <ul>
+          <li>Configure per notification type:</li>
+          <li>New Party &#8594; SALES, MANAGER</li>
+          <li>Status Change &#8594; MANAGER, SALES</li>
+          <li>Cancellation &#8594; MANAGER, ADMIN</li>
+          <li>Stale Enquiry &#8594; SALES, MANAGER</li>
+          <li>Critical Alert &#8594; ADMIN</li>
+          <li>Daily Follow-up &#8594; SALES, MANAGER, ADMIN</li>
+          <li>Daily Report &#8594; MANAGER, ADMIN</li>
+          <li>Billing Update &#8594; MANAGER, ADMIN, ACCOUNTS</li>
+          <li>Pending Payments &#8594; ACCOUNTS, MANAGER</li>
+        </ul>
+      </div>
+      <div class="card card-action">
+        <h4>F&P Settings</h4>
+        <ul>
+          <li>Override category item limits</li>
+          <li>Custom Terms &amp; Conditions</li>
+          <li>Liquor package overrides</li>
+          <li>Menu item overrides per category</li>
+        </ul>
+      </div>
+      <div class="card card-system">
+        <h4>Destructive Actions</h4>
+        <ul>
+          <li><strong>Delete Party</strong> (ADMIN only)</li>
+          <li>API: <code>DELETE /api/parties/:id</code></li>
+          <li>Permanent removal from Google Sheets</li>
+        </ul>
+      </div>
+      <div class="card card-page">
+        <h4>All Other Access</h4>
+        <ul>
+          <li>Everything MANAGER can do</li>
+          <li>All pages accessible</li>
+          <li>All fields editable</li>
+          <li>Receives critical alerts</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 9. AUTO-CALCULATIONS -->
+<!-- ============================================================ -->
+<div class="section" id="sec-auto" style="border-color:#0d9488;">
+  <div class="section-header" style="background:#0d9488;">
+    <h2>9. Auto-Calculations</h2>
+    <span class="badge">Real-time</span>
+  </div>
+  <div class="section-body">
+    <div class="grid-2">
+      <div class="card card-calc">
+        <h4>Final Total Amount</h4>
+        <p style="font-size:12px"><code>Confirmed Pax x Final Rate/Head</code><br>Falls back to Expected Pax if Confirmed not set.<br>Range "40-60" uses minimum (40).</p>
+      </div>
+      <div class="card card-calc">
+        <h4>Payment Totals</h4>
+        <p style="font-size:12px"><code>Total Advance</code> = sum of advance entries<br><code>Total Paid</code> = sum of payment entries<br><code>Total Amount Paid</code> = Advance + Paid</p>
+      </div>
+      <div class="card card-calc">
+        <h4>Due Amount</h4>
+        <p style="font-size:12px"><code>max(0, Final Total - Total Amount Paid)</code><br>Never goes negative.</p>
+      </div>
+      <div class="card card-calc">
+        <h4>Payment Status</h4>
+        <p style="font-size:12px"><strong>Unpaid:</strong> Total Paid = 0<br><strong>Partial:</strong> 0 &lt; Paid &lt; Total<br><strong>Paid:</strong> Paid &ge; Total</p>
+      </div>
+      <div class="card card-calc">
+        <h4>Day from Date</h4>
+        <p style="font-size:12px">YYYY-MM-DD &#8594; "Monday", "Tuesday" etc.<br>TBC dates &#8594; "TBC"<br>Timezone-safe manual parsing.</p>
+      </div>
+      <div class="card card-calc">
+        <h4>Approx Balance</h4>
+        <p style="font-size:12px"><code>max(0, Approx Bill - Total Amount Paid)</code><br>For estimation before final billing.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 10. CRON JOBS -->
+<!-- ============================================================ -->
+<div class="section" id="sec-cron" style="border-color:#7c3aed;">
+  <div class="section-header" style="background:#7c3aed;">
+    <h2>10. Scheduled Cron Jobs</h2>
+    <span class="badge">Server Automated</span>
+  </div>
+  <div class="section-body">
+    <table class="cron-table">
+      <thead>
+        <tr><th>Schedule</th><th>IST Time</th><th>Job Name</th><th>What It Does</th><th>Recipients</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>*/15 * * * *</code></td><td>Every 15 min</td>
+          <td><strong>Stale Enquiry Check</strong></td>
+          <td>Finds Enquiry status parties &gt;1 hour old. Creates in-app notifications. Sends email alert.</td>
+          <td>SALES, MANAGER + Critical to ADMIN</td>
+        </tr>
+        <tr>
+          <td><code>30 2 * * *</code></td><td>8:00 AM</td>
+          <td><strong>Payment Reminder to Guests</strong></td>
+          <td>Finds parties with balance due today. Sends reminder email to guest. Requires PAYMENT_REMINDER_ENABLED=true.</td>
+          <td>Guest Email (CC: Sales/Manager)</td>
+        </tr>
+        <tr>
+          <td><code>0 3 30 * *</code></td><td>8:30 AM</td>
+          <td><strong>Daily Follow-up Reminder</strong></td>
+          <td>Parties needing follow-up (2+ days stale). Confirmed with pending payments. Upcoming parties (next 3 days).</td>
+          <td>SALES, MANAGER, ADMIN</td>
+        </tr>
+        <tr>
+          <td><code>0 4 * * *</code></td><td>9:30 AM</td>
+          <td><strong>Pending Payments Report</strong></td>
+          <td>All confirmed parties with due &gt; 0. HTML table with amounts. Highlights overdue.</td>
+          <td>ACCOUNTS, MANAGER</td>
+        </tr>
+        <tr>
+          <td><code>0 22 * * *</code></td><td>10:00 PM</td>
+          <td><strong>Daily Night Report</strong></td>
+          <td>Full daily statistics. Status counts, revenue, advance, pending dues.</td>
+          <td>MANAGER, ADMIN</td>
+        </tr>
+        <tr>
+          <td><code>Every 1 min</code></td><td>Always</td>
+          <td><strong>Watchdog (on server)</strong></td>
+          <td>Checks /api/health. Auto-restarts Node.js if down. Kills LiteSpeed if detected.</td>
+          <td>Server only</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 11. EMAIL TYPES -->
+<!-- ============================================================ -->
+<div class="section" id="sec-emails" style="border-color:#be185d;">
+  <div class="section-header" style="background:#be185d;">
+    <h2>11. All Email Notifications</h2>
+    <span class="badge">12 Types</span>
+  </div>
+  <div class="section-body">
+    <div class="grid-2">
+      <div class="card card-email"><h4>1. New Party Notification</h4><p style="font-size:11px">Trigger: Party created. To: SALES, MANAGER. Content: Date, host, phone, company, pax, package, status.</p></div>
+      <div class="card card-email"><h4>2. Status Change</h4><p style="font-size:11px">Trigger: Status updated. To: MANAGER, SALES. Content: Old &#8594; New status, party details.</p></div>
+      <div class="card card-email"><h4>3. Cancellation</h4><p style="font-size:11px">Trigger: Party cancelled. To: MANAGER, ADMIN. Content: Lost reason, cancelled date.</p></div>
+      <div class="card card-email"><h4>4. Stale Enquiry Alert</h4><p style="font-size:11px">Trigger: Enquiry &gt;1hr old (every 15min). To: SALES, MANAGER. Content: Table of stale parties.</p></div>
+      <div class="card card-email"><h4>5. Critical Alert</h4><p style="font-size:11px">Trigger: Same as stale (escalation). To: ADMIN only. Content: Handled By, hours pending.</p></div>
+      <div class="card card-email"><h4>6. Daily Follow-up</h4><p style="font-size:11px">Trigger: 9 AM daily. To: SALES, MANAGER, ADMIN. Content: Follow-ups + pending payments + upcoming parties.</p></div>
+      <div class="card card-email"><h4>7. Daily Night Report</h4><p style="font-size:11px">Trigger: 10 PM daily. To: MANAGER, ADMIN. Content: Day's statistics, revenue, status counts.</p></div>
+      <div class="card card-email"><h4>8. Billing Update</h4><p style="font-size:11px">Trigger: Payment added. To: MANAGER, ADMIN, ACCOUNTS. Content: Payment details, total, due.</p></div>
+      <div class="card card-email"><h4>9. Pending Payments (ACCOUNTS)</h4><p style="font-size:11px">Trigger: 9:30 AM daily. To: ACCOUNTS, MANAGER. Content: Table of all parties with outstanding balance.</p></div>
+      <div class="card card-email"><h4>10. Payment Reminder (Guest)</h4><p style="font-size:11px">Trigger: 8 AM on due date / manual. To: Guest email. Content: Bill, paid, balance, urgency banner.</p></div>
+      <div class="card card-email"><h4>11. F&P Email</h4><p style="font-size:11px">Trigger: Manual send. To: Custom email. Content: Event details, formatted menu selections table.</p></div>
+      <div class="card card-email"><h4>12. Test Email</h4><p style="font-size:11px">Trigger: Manual (Manager). To: Configured email. Content: SMTP connectivity verification.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 12. STATUS FLOW -->
+<!-- ============================================================ -->
+<div class="section" id="sec-status" style="border-color:#ca8a04;">
+  <div class="section-header" style="background:#ca8a04;">
+    <h2>12. Status Transition Flow</h2>
+    <span class="badge">Party Lifecycle</span>
+  </div>
+  <div class="section-body">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:20px;">
+      <div class="tag s-enquiry" style="padding:10px 20px;font-size:14px;font-weight:700;">ENQUIRY</div>
+      <span style="font-size:24px;color:#94a3b8;">&#8594;</span>
+      <div class="tag s-contacted" style="padding:10px 20px;font-size:14px;font-weight:700;">CONTACTED</div>
+      <span style="font-size:24px;color:#94a3b8;">&#8594;</span>
+      <div class="tag s-tentative" style="padding:10px 20px;font-size:14px;font-weight:700;">TENTATIVE</div>
+      <span style="font-size:24px;color:#94a3b8;">&#8594;</span>
+      <div class="tag s-confirmed" style="padding:10px 20px;font-size:14px;font-weight:700;">CONFIRMED</div>
+    </div>
+    <div style="text-align:center;margin-bottom:20px;">
+      <span style="font-size:14px;color:#94a3b8;">Any status can transition to:</span>
+      <div class="tag s-cancelled" style="padding:8px 16px;font-size:13px;font-weight:700;margin-left:8px;">CANCELLED</div>
+      <span style="font-size:12px;color:#64748b;margin-left:8px;">(requires Lost Reason)</span>
+    </div>
+    <div class="grid-2">
+      <div class="card card-trigger">
+        <h4>Auto-Confirm Trigger</h4>
+        <p style="font-size:12px">When advance payment is received on a non-confirmed party, status auto-changes to CONFIRMED. Status change notification sent.</p>
+      </div>
+      <div class="card card-data">
+        <h4>On Each Status Change</h4>
+        <ul style="font-size:12px">
+          <li>Follow-up note auto-added with timestamp</li>
+          <li>Last Follow Up Date updated</li>
+          <li>Status Change email notification sent</li>
+          <li>In-app notification created</li>
+          <li>Handled By auto-appended</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 13. PERMISSIONS MATRIX -->
+<!-- ============================================================ -->
+<div class="section" id="sec-perms" style="border-color:#374151;">
+  <div class="section-header" style="background:#374151;">
+    <h2>13. Role Permissions Matrix</h2>
+    <span class="badge">Access Control</span>
+  </div>
+  <div class="section-body" style="overflow-x:auto;">
+    <table class="perm-table">
+      <thead>
+        <tr><th style="min-width:180px">Feature</th><th style="background:#fef3c7">GRE</th><th style="background:#d1fae5">CASHIER</th><th style="background:#e0e7ff">ACCOUNTS</th><th style="background:#dbeafe">SALES</th><th style="background:#ede9fe">MANAGER</th><th style="background:#fee2e2">ADMIN</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>View Dashboard</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>See Financial Stats</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>See All Statuses</td><td class="check">&#10003;</td><td class="cross">Confirmed only</td><td class="cross">Confirmed only</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Add Party</td><td class="check">&#10003;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Edit Party</td><td class="cross">&#10007;</td><td class="check">Billing only</td><td class="check">Billing only</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Delete Party</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Change Status</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Add Payment</td><td class="cross">&#10007;</td><td class="check">&#10003;</td><td class="cross">&#10007;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Add Follow-up</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>F&P Create/Edit</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>F&P Delete</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Calendar (Interactive)</td><td class="cross">View only</td><td class="cross">View only</td><td class="cross">View only</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Reports</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Send Payment Reminder</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Cashier Billing Page</td><td class="cross">&#10007;</td><td class="check">&#10003;</td><td class="check">&#10003;</td><td class="cross">&#10007;</td><td class="check">&#10003;</td><td class="check">&#10003;</td></tr>
+        <tr><td>Settings</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="check">&#10003;</td></tr>
+        <tr><td>User Management</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="cross">&#10007;</td><td class="check">&#10003;</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 14. ALL PAGES -->
+<!-- ============================================================ -->
+<div class="section" id="sec-pages" style="border-color:#059669;">
+  <div class="section-header" style="background:#059669;">
+    <h2>14. All Application Pages</h2>
+    <span class="badge">Frontend Routes</span>
+  </div>
+  <div class="section-body">
+    <div class="grid-2">
+      <div class="card card-page">
+        <h4>/login</h4>
+        <p style="font-size:12px">Username/password auth. JWT token stored. Redirect to dashboard. Auto-deactivates inactive users (2+ months).</p>
+      </div>
+      <div class="card card-page">
+        <h4>/ (Dashboard)</h4>
+        <p style="font-size:12px">Party list with filters (status, date, search, type). Stats cards. Quick actions (Confirm, Cancel, Payment). Stale enquiry popup. Follow-ups section. Auto-refresh 30s.</p>
+      </div>
+      <div class="card card-page">
+        <h4>/add-party</h4>
+        <p style="font-size:12px">New enquiry form. Auto-draft save. Duplicate detection. Phone validation. Past date prevention. GRE simplified form. WhatsApp copy.</p>
+      </div>
+      <div class="card card-page">
+        <h4>/parties/:id</h4>
+        <p style="font-size:12px">Full party detail. Role-based edit fields. Status change. Payment history. Follow-up notes. F&P records. Reminder log. WhatsApp copy. Delete (ADMIN).</p>
+      </div>
+      <div class="card card-page">
+        <h4>/calendar</h4>
+        <p style="font-size:12px">Monthly calendar grid. Color-coded statuses. Day detail panel. Navigate months. Today highlight. View-only for GRE/CASHIER/ACCOUNTS.</p>
+      </div>
+      <div class="card card-page">
+        <h4>/cashier-billing</h4>
+        <p style="font-size:12px">Unique ID lookup. Billing form: Pax, Rate, Total, Payments, Due, Bill ID. Validations. For CASHIER/ACCOUNTS/MANAGER/ADMIN.</p>
+      </div>
+      <div class="card card-page">
+        <h4>/fp</h4>
+        <p style="font-size:12px">F&P list with party filter. Create/View/Edit/Delete/Email actions. For SALES/MANAGER/ADMIN.</p>
+      </div>
+      <div class="card card-page">
+        <h4>/fp/:id</h4>
+        <p style="font-size:12px">F&P editor. Package selection (buttons with name+price). Checkbox menu. Addons. Drinks + bar timing. PDF generation. Email send.</p>
+      </div>
+      <div class="card card-page">
+        <h4>/reports</h4>
+        <p style="font-size:12px">Tabs: Overview, Financial, Status Analysis. Date range picker. Charts (bar, pie, line). Export Excel. Send report email. For SALES/MANAGER/ADMIN.</p>
+      </div>
+      <div class="card card-page">
+        <h4>/settings</h4>
+        <p style="font-size:12px">ADMIN only. Tabs: Users, Notifications, Email Settings, Email Routing, F&P Settings. Full system configuration.</p>
+      </div>
+      <div class="card card-page">
+        <h4>/profile</h4>
+        <p style="font-size:12px">View: Username, name, email, role, last login, login count. Change password (old password required).</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div style="text-align:center;margin-top:30px;padding:20px;background:white;border-radius:12px;border:1px solid #e2e8f0;">
+  <p style="font-size:14px;font-weight:700;color:#af4408;">AKAN Party Manager v3.0</p>
+  <p style="font-size:12px;color:#64748b;">Production: corporate.akanhyd.com | Server: 89.116.21.19 | Generated March 31, 2026</p>
+  <p style="font-size:11px;color:#94a3b8;margin-top:8px;">Tech Stack: React + Tailwind (Frontend) | Node.js + Express (Backend) | Google Sheets (Database) | JWT Auth | jsPDF</p>
+</div>
+
+</body>
+</html>

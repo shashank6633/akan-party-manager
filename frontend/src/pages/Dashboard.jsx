@@ -50,9 +50,18 @@ export default function Dashboard() {
  };
 
  const getMonthLabel = (offset) => {
- const d = new Date();
- d.setMonth(d.getMonth() + offset);
+ const now = new Date();
+ const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
  return d.toLocaleString('default', { month: 'long', year: 'numeric' });
+ };
+
+ // Sync stats month change with party list date filters
+ const changeMonth = (offset) => {
+ setStatsMonthOffset(offset);
+ const { from, to } = getMonthRange(offset);
+ setDateFrom(from);
+ setDateTo(to);
+ setPage(1);
  };
 
  // Quick action modal state
@@ -156,6 +165,10 @@ export default function Dashboard() {
  const debouncedSearch = useCallback(
  debounce((val) => {
  setSearchQuery(val);
+ if (val && val.trim()) {
+  setDateFrom('');
+  setDateTo('');
+ }
  setPage(1);
  }, 400),
  []
@@ -179,8 +192,17 @@ export default function Dashboard() {
  const setThisMonth = () => {
  const now = new Date();
  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+ const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
  setDateFrom(start.toISOString().split('T')[0]);
- setDateTo(now.toISOString().split('T')[0]);
+ setDateTo(end.toISOString().split('T')[0]);
+ setPage(1);
+ };
+ const setNextMonth = () => {
+ const now = new Date();
+ const start = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+ const end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+ setDateFrom(start.toISOString().split('T')[0]);
+ setDateTo(end.toISOString().split('T')[0]);
  setPage(1);
  };
  const clearFilters = () => {
@@ -229,7 +251,7 @@ export default function Dashboard() {
  <div className="flex items-center justify-between">
   <div className="flex items-center gap-1">
   <button
-   onClick={() => setStatsMonthOffset((o) => o - 1)}
+   onClick={() => changeMonth(statsMonthOffset - 1)}
    className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
   >
    <ChevronLeft className="w-4 h-4" />
@@ -238,7 +260,7 @@ export default function Dashboard() {
    {getMonthLabel(statsMonthOffset)}
   </span>
   <button
-   onClick={() => setStatsMonthOffset((o) => o + 1)}
+   onClick={() => changeMonth(statsMonthOffset + 1)}
    className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
   >
    <ChevronRight className="w-4 h-4" />
@@ -248,7 +270,7 @@ export default function Dashboard() {
   {[-1, 0, 1].map((o) => (
    <button
    key={o}
-   onClick={() => setStatsMonthOffset(o)}
+   onClick={() => changeMonth(o)}
    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${
     statsMonthOffset === o
     ? 'bg-[#af4408] text-white'
@@ -415,10 +437,14 @@ export default function Dashboard() {
  {/* Upcoming parties banner */}
  <div className="bg-[#af4408]/5 border border-[#af4408]/20 rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
  <div>
- <h2 className="text-sm font-semibold text-[#af4408] mb-0.5">Upcoming Parties (Next 2 Weeks)</h2>
- <p className="text-xs text-gray-500">Showing parties from today to {dateTo ? formatDate(dateTo) : ''}</p>
+ <h2 className="text-sm font-semibold text-[#af4408] mb-0.5">
+  {searchQuery ? 'Search Results' : dateFrom || dateTo ? `Parties: ${dateFrom ? formatDate(dateFrom) : 'Start'} — ${dateTo ? formatDate(dateTo) : 'End'}` : 'All Parties'}
+ </h2>
+ <p className="text-xs text-gray-500">
+  {searchQuery ? `Searching "${searchQuery}" across all dates` : dateFrom && dateTo ? `Filtered by date range` : 'Showing all parties'}
+ </p>
  </div>
- {!isGRE && !isCashier && (
+ {!isGRE && !isCashier && (dateFrom || dateTo) && !searchQuery && (
  <button
  onClick={() => { setDateFrom(''); setDateTo(''); setPage(1); }}
  className="text-xs text-[#af4408] font-medium hover:underline shrink-0"
@@ -471,6 +497,7 @@ export default function Dashboard() {
   <button onClick={setToday} className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors whitespace-nowrap">Today</button>
   <button onClick={setThisWeek} className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors whitespace-nowrap">This Week</button>
   <button onClick={setThisMonth} className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors whitespace-nowrap">This Month</button>
+  <button onClick={setNextMonth} className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-[#af4408]/10 text-[#af4408] hover:bg-[#af4408]/20 transition-colors whitespace-nowrap">Next Month</button>
  </div>
  )}
 

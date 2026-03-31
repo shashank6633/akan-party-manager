@@ -85,7 +85,7 @@ log "Frontend uploaded"
 
 # ── STEP 7: RESTART BACKEND ───────────────────────────────────────────────
 info "Starting backend..."
-ssh $SERVER "cd $SERVER_PATH/backend && nohup node server.js > /tmp/backend.log 2>&1 &"
+ssh -f $SERVER "cd $SERVER_PATH/backend && nohup node server.js > /tmp/backend.log 2>&1 & disown"
 sleep 3
 log "Backend started"
 
