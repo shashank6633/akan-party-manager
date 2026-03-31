@@ -41,6 +41,9 @@ const ROLE_FIELDS = {
   'approxBillAmount', 'paymentStatus',
   'billOrderId', 'balancePaymentDate',
  ],
+ ACCOUNTS: [
+  'paymentStatus', 'balancePaymentDate', 'billOrderId',
+ ],
  SALES: [
   'date', 'hostName', 'phoneNumber', 'company', 'occasionType',
   'guestVisited', 'status', 'place', 'mealType', 'expectedPax',
@@ -649,7 +652,7 @@ export default function PartyDetail() {
        </button>
       </>
      ) : (
-      user?.role !== 'GRE' && (
+      user?.role !== 'GRE' && user?.role !== 'ACCOUNTS' && (
       <button
        onClick={() => setEditing(true)}
        className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-[#af4408]/10 text-[#af4408] hover:bg-[#af4408]/20 transition-colors"

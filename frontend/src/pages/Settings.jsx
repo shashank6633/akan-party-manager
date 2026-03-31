@@ -27,7 +27,7 @@ import { authAPI, notificationAPI, api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { DISCLAIMERS, PACKAGES, FULL_MENU, MENU_CATEGORIES } from '../data/menuTemplates';
 
-const ROLES = ['GRE', 'CASHIER', 'SALES', 'MANAGER', 'ADMIN'];
+const ROLES = ['GRE', 'CASHIER', 'ACCOUNTS', 'SALES', 'MANAGER', 'ADMIN'];
 
 function getTimeAgo(date) {
  const now = new Date();
@@ -271,7 +271,8 @@ export default function Settings() {
  criticalAlert: ['ADMIN'],
  dailyFollowUp: ['SALES', 'MANAGER', 'ADMIN'],
  dailyReport: ['MANAGER', 'ADMIN'],
- billingUpdate: ['MANAGER', 'ADMIN'],
+ billingUpdate: ['MANAGER', 'ADMIN', 'ACCOUNTS'],
+ pendingPayments: ['ACCOUNTS', 'MANAGER'],
  };
 
  const fetchEmailRouting = async () => {
@@ -728,6 +729,7 @@ export default function Settings() {
   { key: 'dailyFollowUp', label: 'Follow-up + Payment + Upcoming', trigger: 'Daily at 9:00 AM', color: 'green' },
   { key: 'dailyReport', label: 'End of Day Summary', trigger: 'Daily at 10:00 PM', color: 'indigo' },
   { key: 'billingUpdate', label: 'Billing Update', trigger: 'When cashier records payment', color: 'cyan' },
+  { key: 'pendingPayments', label: 'Pending Payments (Accounts)', trigger: 'Daily at 9:30 AM IST', color: 'indigo' },
  ].map(({ key, label, trigger, color }) => (
   <tr key={key} className="hover:bg-gray-50/50">
   <td className="px-4 py-3 font-medium text-gray-800">{label}</td>

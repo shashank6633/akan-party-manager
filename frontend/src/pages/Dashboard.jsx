@@ -24,7 +24,7 @@ export default function Dashboard() {
  const { user } = useAuth();
  const navigate = useNavigate();
  const isGRE = user?.role === 'GRE';
- const isCashier = user?.role === 'CASHIER';
+ const isCashier = user?.role === 'CASHIER' || user?.role === 'ACCOUNTS';
  const canFollowUp = ['SALES', 'MANAGER', 'ADMIN'].includes(user?.role);
  const [parties, setParties] = useState([]);
  const [stats, setStats] = useState(null);

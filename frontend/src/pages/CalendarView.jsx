@@ -19,7 +19,7 @@ const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export default function CalendarView() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isViewOnly = user?.role === 'GRE' || user?.role === 'CASHIER';
+  const isViewOnly = user?.role === 'GRE' || user?.role === 'CASHIER' || user?.role === 'ACCOUNTS';
   const [currentDate, setCurrentDate] = useState(new Date());
   const [parties, setParties] = useState([]);
   const [loading, setLoading] = useState(true);

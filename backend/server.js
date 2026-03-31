@@ -258,6 +258,30 @@ cron.schedule('0 9 * * *', async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Cron Job: Daily pending payments report to ACCOUNTS at 9:30 AM IST (4:00 AM UTC)
+// ---------------------------------------------------------------------------
+cron.schedule('0 4 * * *', async () => {
+  console.log('Running daily pending payments report for ACCOUNTS...');
+  try {
+    const rows = await sheetsService.getAllRows();
+    const pendingPayments = rows.filter((r) => {
+      if (r['Status'] !== 'Confirmed') return false;
+      const due = parseFloat(r['Due Amount']) || 0;
+      return due > 0;
+    });
+
+    if (pendingPayments.length > 0) {
+      await emailService.sendPendingPaymentsToAccounts(pendingPayments);
+      console.log(`Pending payments report sent to ACCOUNTS: ${pendingPayments.length} parties.`);
+    } else {
+      console.log('No pending payments to report to ACCOUNTS.');
+    }
+  } catch (err) {
+    console.error('ACCOUNTS pending payments cron failed:', err.message);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Cron Job: Payment reminder emails at 8:00 AM IST (2:30 AM UTC)
 // Sends reminders: 2 days before, 1 day before, and on the payment due date
 // ---------------------------------------------------------------------------

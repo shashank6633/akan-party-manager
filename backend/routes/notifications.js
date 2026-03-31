@@ -310,7 +310,8 @@ const DEFAULT_EMAIL_ROUTING = {
   criticalAlert: ['ADMIN'],
   dailyFollowUp: ['SALES', 'MANAGER', 'ADMIN'],
   dailyReport:   ['MANAGER', 'ADMIN'],
-  billingUpdate: ['MANAGER', 'ADMIN'],
+  billingUpdate: ['MANAGER', 'ADMIN', 'ACCOUNTS'],
+  pendingPayments: ['ACCOUNTS', 'MANAGER'],
 };
 
 function loadEmailRouting() {

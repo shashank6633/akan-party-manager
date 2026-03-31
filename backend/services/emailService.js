@@ -15,7 +15,8 @@ const DEFAULT_EMAIL_ROUTING = {
   criticalAlert: ['ADMIN'],
   dailyFollowUp: ['SALES', 'MANAGER', 'ADMIN'],
   dailyReport:   ['MANAGER', 'ADMIN'],
-  billingUpdate: ['MANAGER', 'ADMIN'],
+  billingUpdate: ['MANAGER', 'ADMIN', 'ACCOUNTS'],
+  pendingPayments: ['ACCOUNTS', 'MANAGER'],
 };
 
 /**
@@ -770,6 +771,76 @@ async function sendCriticalAlert(criticalParties) {
   return sendEmail(recipients.join(','), subject, html);
 }
 
+/**
+ * Send daily pending payments summary to ACCOUNTS role.
+ * Lists all confirmed parties with outstanding balance amounts.
+ */
+async function sendPendingPaymentsToAccounts(pendingParties) {
+  const emails = await getEmailsByRoles(getRoutingRoles('pendingPayments'));
+  const recipients = emails.length > 0 ? emails : [];
+  if (recipients.length === 0) {
+    console.log('No ACCOUNTS email recipients configured — skipping pending payments email.');
+    return;
+  }
+
+  const todayStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  let totalDue = 0;
+  const rows = pendingParties.map((p) => {
+    const due = parseFloat(p['Due Amount']) || 0;
+    totalDue += due;
+    const balDate = p['Balance Payment Date'] || '-';
+    const isOverdue = balDate !== '-' && new Date(balDate) < new Date();
+    return `
+      <tr style="${isOverdue ? 'background:#FFF5F5;' : ''}">
+        <td style="padding:8px 10px;border:1px solid #eee;font-weight:bold;">${p['Unique ID'] || '-'}</td>
+        <td style="padding:8px 10px;border:1px solid #eee;">${p['Host Name'] || '-'}</td>
+        <td style="padding:8px 10px;border:1px solid #eee;">${p['Phone Number'] || '-'}</td>
+        <td style="padding:8px 10px;border:1px solid #eee;font-weight:bold;">₹${(parseFloat(p['Final Total Amount']) || 0).toLocaleString('en-IN')}</td>
+        <td style="padding:8px 10px;border:1px solid #eee;color:#27ae60;font-weight:bold;">₹${(parseFloat(p['Total Amount Paid']) || 0).toLocaleString('en-IN')}</td>
+        <td style="padding:8px 10px;border:1px solid #eee;color:#e74c3c;font-weight:bold;">₹${due.toLocaleString('en-IN')}</td>
+        <td style="padding:8px 10px;border:1px solid #eee;${isOverdue ? 'color:#e74c3c;font-weight:bold;' : ''}">${balDate}${isOverdue ? ' ⚠ OVERDUE' : ''}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const subject = `AKAN Accounts: ${pendingParties.length} Pending Payments | Total Due ₹${totalDue.toLocaleString('en-IN')} | ${todayStr}`;
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;">
+      <div style="background:#af4408;color:white;padding:16px 20px;border-radius:8px 8px 0 0;">
+        <h2 style="margin:0;font-size:18px;">AKAN — Daily Pending Payments Report</h2>
+        <p style="margin:4px 0 0;font-size:12px;opacity:0.9;">${todayStr} | ${pendingParties.length} parties with outstanding balance</p>
+      </div>
+      <div style="padding:20px;border:1px solid #eee;border-top:none;">
+        <div style="display:flex;gap:20px;margin-bottom:20px;">
+          <div style="background:#FFF5E6;padding:12px 16px;border-radius:8px;flex:1;">
+            <p style="margin:0;font-size:11px;color:#666;">Total Outstanding</p>
+            <p style="margin:4px 0 0;font-size:20px;font-weight:bold;color:#e74c3c;">₹${totalDue.toLocaleString('en-IN')}</p>
+          </div>
+          <div style="background:#F0F8FF;padding:12px 16px;border-radius:8px;flex:1;">
+            <p style="margin:0;font-size:11px;color:#666;">Parties Pending</p>
+            <p style="margin:4px 0 0;font-size:20px;font-weight:bold;color:#2c3e50;">${pendingParties.length}</p>
+          </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <tr style="background:#af4408;color:white;">
+            <th style="padding:8px 10px;text-align:left;">Party ID</th>
+            <th style="padding:8px 10px;text-align:left;">Name</th>
+            <th style="padding:8px 10px;text-align:left;">Contact</th>
+            <th style="padding:8px 10px;text-align:left;">Total Bill</th>
+            <th style="padding:8px 10px;text-align:left;">Paid</th>
+            <th style="padding:8px 10px;text-align:left;">Balance Due</th>
+            <th style="padding:8px 10px;text-align:left;">Due Date</th>
+          </tr>
+          ${rows}
+        </table>
+        <p style="margin-top:16px;font-size:11px;color:#999;">This is an automated daily report from AKAN Party Manager for the Accounts team.</p>
+      </div>
+    </div>
+  `;
+
+  return sendEmail(recipients.join(','), subject, html);
+}
+
 module.exports = {
   sendEmail,
   sendNewPartyNotification,
@@ -781,5 +852,6 @@ module.exports = {
   sendDailyFollowUpReminder,
   sendPaymentReminderToGuest,
   sendBillingUpdateNotification,
+  sendPendingPaymentsToAccounts,
   getEmailsByRoles,
 };

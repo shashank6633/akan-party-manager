@@ -56,6 +56,14 @@ const ROLE_EDITABLE_FIELDS = {
     'Balance Payment Date',
     'Guest Email',
   ],
+  ACCOUNTS: [
+    'Final Total Amount',
+    'Total Amount Paid',
+    'Due Amount',
+    'Payment Status',
+    'Balance Payment Date',
+    'Bill Order ID',
+  ],
   SALES: [
     'Date',
     'Host Name',
@@ -142,9 +150,9 @@ router.get(
 
       let rows = await sheetsService.getAllRows();
 
-      // CASHIER can only see Confirmed parties
+      // CASHIER and ACCOUNTS can only see Confirmed parties
       const userRole = req.user?.role?.toUpperCase();
-      if (userRole === 'CASHIER') {
+      if (userRole === 'CASHIER' || userRole === 'ACCOUNTS') {
         rows = rows.filter((r) => r['Status'] === 'Confirmed');
       }
 
