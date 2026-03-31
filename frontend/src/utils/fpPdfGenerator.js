@@ -201,15 +201,19 @@ export function generateFpPdf(data) {
     }
 
     // Helper: append per-category other item as last row in a paired table body
+    // Uses same numbering format as regular items so it blends in
     const appendOtherRow = (body, leftCat, rightCat) => {
       const leftOther = otherItemsObj[leftCat] && otherItemsObj[leftCat].trim();
       const rightOther = rightCat && otherItemsObj[rightCat] && otherItemsObj[rightCat].trim();
       if (leftOther || rightOther) {
+        // Count existing items to continue numbering
+        const leftCount = body.filter((r) => r[1] && r[1].trim()).length;
+        const rightCount = body.filter((r) => r[3] && r[3].trim()).length;
         body.push([
-          leftOther ? '+ Guest Request' : '',
-          leftOther ? `  * ${leftOther}` : '',
-          rightOther ? '+ Guest Request' : '',
-          rightOther ? `  * ${rightOther}` : '',
+          '',
+          leftOther ? `  ${leftCount + 1}. ${leftOther} *` : '',
+          '',
+          rightOther ? `  ${rightCount + 1}. ${rightOther} *` : '',
         ]);
       }
     };
@@ -250,16 +254,6 @@ export function generateFpPdf(data) {
           startY: y, body, theme: 'grid',
           bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10] },
           columnStyles: menuColStyles,
-          didParseCell: (hookData) => {
-            if (hookData.section === 'body' && hookData.cell.raw && String(hookData.cell.raw).startsWith('+ Guest')) {
-              hookData.cell.styles.textColor = [180, 130, 50];
-              hookData.cell.styles.fontSize = fs - 0.5;
-            }
-            if (hookData.section === 'body' && hookData.cell.raw && String(hookData.cell.raw).startsWith('  *')) {
-              hookData.cell.styles.textColor = [180, 130, 50];
-              hookData.cell.styles.fontStyle = 'bolditalic';
-            }
-          },
           margin: { left: M, right: M },
         });
         y = doc.lastAutoTable.finalY;
@@ -287,16 +281,6 @@ export function generateFpPdf(data) {
           startY: y, body, theme: 'grid',
           bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10] },
           columnStyles: menuColStyles,
-          didParseCell: (hookData) => {
-            if (hookData.section === 'body' && hookData.cell.raw && String(hookData.cell.raw).startsWith('+ Guest')) {
-              hookData.cell.styles.textColor = [180, 130, 50];
-              hookData.cell.styles.fontSize = fs - 0.5;
-            }
-            if (hookData.section === 'body' && hookData.cell.raw && String(hookData.cell.raw).startsWith('  *')) {
-              hookData.cell.styles.textColor = [180, 130, 50];
-              hookData.cell.styles.fontStyle = 'bolditalic';
-            }
-          },
           margin: { left: M, right: M },
         });
         y = doc.lastAutoTable.finalY;
@@ -328,16 +312,6 @@ export function generateFpPdf(data) {
           startY: y, body, theme: 'grid',
           bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10] },
           columnStyles: menuColStyles,
-          didParseCell: (hookData) => {
-            if (hookData.section === 'body' && hookData.cell.raw && String(hookData.cell.raw).startsWith('+ Guest')) {
-              hookData.cell.styles.textColor = [180, 130, 50];
-              hookData.cell.styles.fontSize = fs - 0.5;
-            }
-            if (hookData.section === 'body' && hookData.cell.raw && String(hookData.cell.raw).startsWith('  *')) {
-              hookData.cell.styles.textColor = [180, 130, 50];
-              hookData.cell.styles.fontStyle = 'bolditalic';
-            }
-          },
           margin: { left: M, right: M },
         });
         y = doc.lastAutoTable.finalY;
