@@ -288,7 +288,7 @@ export default function Dashboard() {
 
  {/* URGENT: Stale enquiry popup modal */}
  {canFollowUp && showStalePopup && staleEnquiries.length > 0 && (
- <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={() => setShowStalePopup(false)}>
+ <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => setShowStalePopup(false)}>
  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-in" onClick={(e) => e.stopPropagation()}>
  {/* Header */}
  <div className="bg-red-600 rounded-t-2xl px-5 py-4 flex items-center justify-between">
@@ -300,7 +300,7 @@ export default function Dashboard() {
    <h3 className="text-base font-bold text-white">
    {staleEnquiries.length} Enquir{staleEnquiries.length === 1 ? 'y' : 'ies'} Pending
    </h3>
-   <p className="text-xs text-red-100 mt-0.5">Not updated for over 1 hour</p>
+   <p className="text-xs text-red-100 mt-0.5">Not updated for over 2 minutes</p>
   </div>
   </div>
   <button onClick={() => setShowStalePopup(false)} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
@@ -351,7 +351,7 @@ export default function Dashboard() {
     )}
     <span className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full">
     <Timer className="w-3 h-3" />
-    {party.hoursAgo}h ago
+    {party.minutesAgo != null ? `${party.minutesAgo}m ago` : `${party.hoursAgo}h ago`}
     </span>
    </div>
    </div>

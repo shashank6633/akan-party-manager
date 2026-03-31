@@ -239,12 +239,12 @@ router.get(
         const enquiredAt = row['Enquired At'];
         if (!enquiredAt) continue;
 
-        const hoursSince = (now - new Date(enquiredAt)) / (1000 * 60 * 60);
-        if (hoursSince >= 1) {
+        const minutesSince = (now - new Date(enquiredAt)) / (1000 * 60);
+        if (minutesSince >= 2) {
           stale.push({
             ...toCamelCase(row),
-            hoursAgo: Math.floor(hoursSince),
-            minutesAgo: Math.floor((now - new Date(enquiredAt)) / (1000 * 60)),
+            hoursAgo: Math.floor(minutesSince / 60),
+            minutesAgo: Math.floor(minutesSince),
           });
         }
       }
