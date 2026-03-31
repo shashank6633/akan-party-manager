@@ -1029,6 +1029,12 @@ function getDayFromDate(dateStr) {
   if (!dateStr) return '';
   if (isTBCDate(dateStr)) return 'TBC';
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  // Parse YYYY-MM-DD manually to avoid timezone issues
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    if (!isNaN(d.getTime())) return days[d.getDay()];
+  }
   const parsed = new Date(dateStr);
   if (isNaN(parsed.getTime())) return '';
   return days[parsed.getDay()];

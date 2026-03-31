@@ -160,6 +160,10 @@ export default function AddParty() {
  setError('Company Name is required.');
  return;
  }
+ if (isGRE && !form.expectedPax) {
+ setError('Expected Pax is required.');
+ return;
+ }
  if (!form.dateNotConfirmed && !form.date) {
  setError('Date is required (or mark as Date Not Confirmed).');
  return;
@@ -421,7 +425,7 @@ export default function AddParty() {
  {renderSelect('Status', 'status', ['Enquiry'], { required: true })}
  {renderInput('Place', 'place', { placeholder: 'Venue / Hall' })}
  {renderInput('Meal Type', 'mealType', { placeholder: 'e.g. Lunch 12:30 PM, Breakfast + Dinner' })}
- {renderInput('Expected Pax', 'expectedPax', { placeholder: 'e.g. 50 or 40-60' })}
+ {renderInput('Expected Pax', 'expectedPax', { required: isGRE, placeholder: 'e.g. 50 or 40-60' })}
  <div className="md:col-span-2">
  <label className="block text-xs font-medium text-gray-600 mb-1">Special Requirements</label>
  <textarea
