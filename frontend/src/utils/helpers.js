@@ -79,7 +79,7 @@ export const generateWhatsAppMessage = (party, userName, { isNew = false, greNam
  ];
  if (party.altContact) lines.push(`📞 *Alt Contact:* ${party.altContact}`);
  if (party.occasionType) lines.push(`🎊 *Occasion:* ${party.occasionType}`);
- if (party.mealType) lines.push(`🍽️ *Meal:* ${party.mealType}`);
+ if (party.partyTime) lines.push(`🕐 *Party Time:* ${party.partyTime}`);
  if (party.expectedPax) lines.push(`👥 *Expected Pax:* ${party.expectedPax}`);
  if (party.packageSelected) lines.push(`📦 *Package:* ${party.packageSelected}`);
  if (party.specialRequirements) lines.push(`⚡ *Special Requirements:* ${party.specialRequirements}`);

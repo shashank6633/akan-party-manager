@@ -9,6 +9,7 @@ const ROLES = {
   SALES: 'SALES',
   MANAGER: 'MANAGER',
   ADMIN: 'ADMIN',
+  VIEWER: 'VIEWER',
 };
 
 /**

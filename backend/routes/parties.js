@@ -21,6 +21,40 @@ function convertBody(req) {
 // Valid statuses (flow: Enquiry → Contacted → Tentative → Confirmed → Cancelled)
 const VALID_STATUSES = ['Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled'];
 
+// Fields to skip in edit history (auto-calculated or too verbose)
+const AUDIT_SKIP_FIELDS = [
+  'Follow Up Notes', 'Last Follow Up Date', 'Payment Log',
+  'Total Advance Paid', 'Total Paid', 'Total Amount Paid',
+  'Day', 'Enquired At', 'Created By',
+];
+
+/**
+ * Build a diff of changed fields between existing and new data.
+ * Returns array of { field, from, to } objects.
+ */
+function buildEditDiff(existing, updateData) {
+  const changes = [];
+  for (const [field, newVal] of Object.entries(updateData)) {
+    if (AUDIT_SKIP_FIELDS.includes(field)) continue;
+    const oldVal = existing[field] || '';
+    const newStr = String(newVal || '').trim();
+    const oldStr = String(oldVal).trim();
+    if (newStr !== oldStr) {
+      changes.push({ field, from: oldStr, to: newStr });
+    }
+  }
+  return changes;
+}
+
+/**
+ * Log an edit to the Edit History sheet (non-blocking).
+ */
+function logEdit(entry) {
+  sheetsService.appendEditHistory(entry).catch((err) => {
+    console.error('Failed to log edit history:', err.message);
+  });
+}
+
 /**
  * Role-based field restrictions.
  * Defines which columns each role is allowed to update.
@@ -34,7 +68,7 @@ const ROLE_EDITABLE_FIELDS = {
     'Guest Visited',
     'Status',
     'Place',
-    'Meal Type',
+    'Party Time',
     'Expected Pax',
     'Remarks',
     'Occasion Type',
@@ -72,7 +106,7 @@ const ROLE_EDITABLE_FIELDS = {
     'Guest Visited',
     'Status',
     'Place',
-    'Meal Type',
+    'Party Time',
     'Expected Pax',
     'Remarks',
     'Occasion Type',
@@ -327,7 +361,7 @@ router.get('/stats', async (req, res) => {
 // ---------------------------------------------------------------------------
 router.get(
   '/pending-followups',
-  roleCheck(ROLES.SALES, ROLES.MANAGER),
+  roleCheck(ROLES.SALES, ROLES.MANAGER, ROLES.VIEWER),
   async (req, res) => {
     try {
       const rows = await sheetsService.getAllRows();
@@ -397,7 +431,7 @@ router.get(
 // ---------------------------------------------------------------------------
 router.get(
   '/reminder-log',
-  roleCheck(ROLES.SALES, ROLES.MANAGER, ROLES.ADMIN),
+  roleCheck(ROLES.SALES, ROLES.MANAGER, ROLES.ADMIN, ROLES.VIEWER),
   async (req, res) => {
     try {
       const logs = await sheetsService.getReminderLogs();
@@ -488,11 +522,46 @@ router.post(
         });
       }
 
+      // Track who created this party
+      const currentUserName = req.user.name || req.user.username;
+      const currentUserRole = req.user.role || '';
+      if (currentUserName) {
+        data['Created By'] = `${currentUserName} (${currentUserRole})`;
+      }
+
+      // Auto-set "Handled By" — only for SALES, MANAGER, ADMIN (not GRE/CASHIER)
+      if (currentUserName && !['GRE', 'CASHIER'].includes(currentUserRole)) {
+        const existingHandledBy = data['Handled By'] || '';
+        const handlers = existingHandledBy.split(',').map(h => h.trim()).filter(Boolean);
+        if (!handlers.some(h => h.toLowerCase() === currentUserName.toLowerCase())) {
+          handlers.push(currentUserName);
+        }
+        data['Handled By'] = handlers.join(', ');
+      }
+
+      // Auto-add creation follow-up note
+      if (currentUserName) {
+        const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
+        data['Follow Up Notes'] = `[${timestamp} - ${currentUserName}] Party created — ${data['Status'] || 'Enquiry'}`;
+        data['Last Follow Up Date'] = new Date().toISOString().split('T')[0];
+      }
+
       // Apply auto-calculations
       applyAutoCalculations(data);
 
       // Write to sheet
       const result = await sheetsService.appendRow(data);
+
+      // Audit log: party created
+      logEdit({
+        partyUniqueId: data['Unique ID'] || '',
+        rowIndex: result._rowIndex || '',
+        userName: currentUserName,
+        userRole: currentUserRole,
+        action: 'Created',
+        changes: [],
+        summary: `Party created — ${data['Host Name'] || ''} | ${data['Date'] || ''} | Status: ${data['Status'] || 'Enquiry'}`,
+      });
 
       // Send notification (non-blocking)
       emailService.sendNewPartyNotification(data).catch((err) => {
@@ -558,9 +627,9 @@ router.put(
         });
       }
 
-      // Auto-append current user's name to "Handled By" if not already present
+      // Auto-append current user's name to "Handled By" — only SALES/MANAGER/ADMIN (not GRE/CASHIER)
       const currentUserName = req.user.name || req.user.username;
-      if (currentUserName) {
+      if (currentUserName && !['GRE', 'CASHIER'].includes(userRole)) {
         const existingHandledBy = existing['Handled By'] || '';
         const handlers = existingHandledBy.split(',').map(h => h.trim()).filter(Boolean);
         if (!handlers.some(h => h.toLowerCase() === currentUserName.toLowerCase())) {
@@ -571,6 +640,22 @@ router.put(
 
       // Merge with existing data for auto-calculations
       const merged = { ...existing, ...allowed };
+
+      // Block status change to "Confirmed" without Confirmed Pax & Final Rate
+      if (allowed['Status'] === 'Confirmed') {
+        const cPax = merged['Confirmed Pax'] || '';
+        const fRate = merged['Final Rate'] || '';
+        const missing = [];
+        if (!cPax) missing.push('Confirmed Pax');
+        if (!fRate) missing.push('Final Rate');
+        if (missing.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: `${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} required before confirming the event.`,
+          });
+        }
+      }
+
       applyAutoCalculations(merged);
 
       // Only update the fields that changed plus auto-calculated fields
@@ -590,6 +675,21 @@ router.put(
 
       const result = await sheetsService.updateRow(rowIndex, updateData);
 
+      // Audit log: track what changed
+      const changes = buildEditDiff(existing, updateData);
+      if (changes.length > 0) {
+        const summary = changes.map(c => `${c.field}: "${c.from}" → "${c.to}"`).join('; ');
+        logEdit({
+          partyUniqueId: existing['Unique ID'] || '',
+          rowIndex,
+          userName: req.user.name || req.user.username,
+          userRole: req.user.role || '',
+          action: 'Edit',
+          changes,
+          summary: summary.length > 500 ? summary.slice(0, 500) + '...' : summary,
+        });
+      }
+
       res.json({
         success: true,
         message: 'Party updated successfully.',
@@ -601,6 +701,40 @@ router.put(
     } catch (err) {
       console.error('Update party error:', err);
       res.status(500).json({ success: false, message: 'Failed to update party.' });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/parties/:id/edit-history - Get edit history for a party (ADMIN only)
+// ---------------------------------------------------------------------------
+router.get(
+  '/:id/edit-history',
+  roleCheck(ROLES.ADMIN, ROLES.VIEWER),
+  [param('id').isInt({ min: 2 }).withMessage('Invalid party ID')],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+      }
+
+      const rowIndex = parseInt(req.params.id, 10);
+      const existing = await sheetsService.getRow(rowIndex);
+      if (!existing) {
+        return res.status(404).json({ success: false, message: 'Party not found.' });
+      }
+
+      const uniqueId = existing['Unique ID'];
+      if (!uniqueId) {
+        return res.json({ success: true, data: [] });
+      }
+
+      const history = await sheetsService.getEditHistoryByParty(uniqueId);
+      res.json({ success: true, data: history });
+    } catch (err) {
+      console.error('Edit history error:', err);
+      res.status(500).json({ success: false, message: 'Failed to fetch edit history.' });
     }
   }
 );
@@ -645,7 +779,7 @@ router.delete(
 // ---------------------------------------------------------------------------
 router.put(
   '/:id/status',
-  roleCheck(ROLES.SALES, ROLES.MANAGER),
+  roleCheck(ROLES.SALES, ROLES.MANAGER, ROLES.ADMIN),
   [
     param('id').isInt({ min: 2 }).withMessage('Invalid party ID'),
     body('status').isIn(VALID_STATUSES).withMessage('Invalid status value'),
@@ -677,16 +811,43 @@ router.put(
       const oldStatus = existing['Status'];
       const updateData = { Status: status };
 
-      // Auto-update Follow-up Tracking when status changes from Enquiry to Contacted/Tentative
-      if (oldStatus === 'Enquiry' && (status === 'Contacted' || status === 'Tentative')) {
+      // Auto-append current user to "Handled By" on every status change — only SALES/MANAGER/ADMIN (not GRE/CASHIER)
+      const currentUserName = req.user.name || req.user.username;
+      const currentUserRole = req.user.role || '';
+      if (currentUserName && !['GRE', 'CASHIER'].includes(currentUserRole)) {
+        const existingHandledBy = existing['Handled By'] || '';
+        const handlers = existingHandledBy.split(',').map(h => h.trim()).filter(Boolean);
+        if (!handlers.some(h => h.toLowerCase() === currentUserName.toLowerCase())) {
+          handlers.push(currentUserName);
+          updateData['Handled By'] = handlers.join(', ');
+        }
+      }
+
+      // Auto-update Follow-up Tracking on ALL status changes (not just Enquiry→Contacted)
+      if (oldStatus !== status) {
         const userName = req.user.name || req.user.username;
         const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
         const followUpNote = req.body.followUpNote || req.body['Follow Up Note'] || '';
-        const noteText = followUpNote ? followUpNote : 'Call follow-up';
+        const noteText = followUpNote ? followUpNote : 'Status update';
         const autoNote = `[${timestamp} - ${userName}] Status: ${oldStatus} → ${status} | ${noteText}`;
         const existingNotes = existing['Follow Up Notes'] || '';
         updateData['Follow Up Notes'] = existingNotes ? `${autoNote}\n${existingNotes}` : autoNote;
         updateData['Last Follow Up Date'] = new Date().toISOString().split('T')[0];
+      }
+
+      // Block status change to "Confirmed" without Confirmed Pax & Final Rate
+      if (status === 'Confirmed') {
+        const cPax = existing['Confirmed Pax'] || '';
+        const fRate = existing['Final Rate'] || '';
+        const missing = [];
+        if (!cPax) missing.push('Confirmed Pax');
+        if (!fRate) missing.push('Final Rate');
+        if (missing.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: `${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} required before confirming the event.`,
+          });
+        }
       }
 
       // If cancelled, Lost Reason is REQUIRED and auto-fill Cancelled Date
@@ -702,6 +863,18 @@ router.put(
       }
 
       const result = await sheetsService.updateRow(rowIndex, updateData);
+
+      // Audit log: status change
+      const followUpNote = req.body.followUpNote || req.body['Follow Up Note'] || '';
+      logEdit({
+        partyUniqueId: existing['Unique ID'] || '',
+        rowIndex,
+        userName: req.user.name || req.user.username,
+        userRole: req.user.role || '',
+        action: 'Status Change',
+        changes: [{ field: 'Status', from: oldStatus, to: status }],
+        summary: `Status: ${oldStatus} → ${status}${lostReason ? ` | Reason: ${lostReason}` : ''}${followUpNote ? ` | Note: ${followUpNote}` : ''}`,
+      });
 
       // Send notifications (non-blocking)
       if (oldStatus !== status) {
@@ -829,6 +1002,17 @@ router.put(
 
       const result = await sheetsService.updateRow(rowIndex, updateData);
 
+      // Audit log: payment
+      logEdit({
+        partyUniqueId: existing['Unique ID'] || '',
+        rowIndex,
+        userName: req.user.name || req.user.username,
+        userRole: req.user.role || '',
+        action: 'Payment',
+        changes: [{ field: 'Payment', from: '', to: `₹${amount} (${type}, ${method || 'cash'})` }],
+        summary: `Payment: ₹${amount} ${type} via ${method || 'cash'}${updateData['Status'] === 'Confirmed' && oldStatus !== 'Confirmed' ? ' | Auto-confirmed' : ''}${note ? ` | ${note}` : ''}`,
+      });
+
       // Send status change notification if auto-confirmed
       if (updateData['Status'] === 'Confirmed' && oldStatus !== 'Confirmed') {
         emailService.sendStatusChangeNotification(result, oldStatus, 'Confirmed').catch((err) => {
@@ -861,7 +1045,7 @@ router.put(
 // ---------------------------------------------------------------------------
 router.get(
   '/:id/payments',
-  roleCheck(ROLES.CASHIER, ROLES.SALES, ROLES.MANAGER),
+  roleCheck(ROLES.CASHIER, ROLES.SALES, ROLES.MANAGER, ROLES.VIEWER),
   [param('id').isInt({ min: 2 }).withMessage('Invalid party ID')],
   async (req, res) => {
     try {
@@ -905,11 +1089,11 @@ router.get(
 );
 
 // ---------------------------------------------------------------------------
-// PUT /api/parties/:id/followup - Add follow-up note (SALES/MANAGER)
+// PUT /api/parties/:id/followup - Add follow-up note (SALES/MANAGER/ADMIN)
 // ---------------------------------------------------------------------------
 router.put(
   '/:id/followup',
-  roleCheck(ROLES.SALES, ROLES.MANAGER),
+  roleCheck(ROLES.SALES, ROLES.MANAGER, ROLES.ADMIN),
   [
     param('id').isInt({ min: 2 }).withMessage('Invalid party ID'),
     body('note').trim().notEmpty().withMessage('Follow-up note is required'),
@@ -943,7 +1127,29 @@ router.put(
         'Last Follow Up Date': now.split('T')[0],
       };
 
+      // Auto-append user to "Handled By" on follow-up — only SALES/MANAGER/ADMIN (not GRE/CASHIER)
+      const userRole = req.user.role || '';
+      if (!['GRE', 'CASHIER'].includes(userRole)) {
+        const existingHandledBy = existing['Handled By'] || '';
+        const handlers = existingHandledBy.split(',').map(h => h.trim()).filter(Boolean);
+        if (!handlers.some(h => h.toLowerCase() === userName.toLowerCase())) {
+          handlers.push(userName);
+          updateData['Handled By'] = handlers.join(', ');
+        }
+      }
+
       const result = await sheetsService.updateRow(rowIndex, updateData);
+
+      // Audit log: follow-up
+      logEdit({
+        partyUniqueId: existing['Unique ID'] || '',
+        rowIndex,
+        userName,
+        userRole,
+        action: 'Follow-up',
+        changes: [{ field: 'Follow Up', from: '', to: note }],
+        summary: `Follow-up: ${note.length > 200 ? note.slice(0, 200) + '...' : note}`,
+      });
 
       res.json({
         success: true,

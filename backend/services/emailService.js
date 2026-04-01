@@ -146,8 +146,8 @@ async function sendNewPartyNotification(partyData) {
           <td style="padding: 8px 12px; border: 1px solid #dee2e6;">${partyData['Place'] || '-'}</td>
         </tr>
         <tr>
-          <td style="padding: 8px 12px; font-weight: bold; border: 1px solid #dee2e6;">Meal</td>
-          <td style="padding: 8px 12px; border: 1px solid #dee2e6;">${partyData['Meal Type'] || '-'}</td>
+          <td style="padding: 8px 12px; font-weight: bold; border: 1px solid #dee2e6;">Party Time</td>
+          <td style="padding: 8px 12px; border: 1px solid #dee2e6;">${partyData['Party Time'] || '-'}</td>
         </tr>
         <tr style="background: #f8f9fa;">
           <td style="padding: 8px 12px; font-weight: bold; border: 1px solid #dee2e6;">Expected Pax</td>

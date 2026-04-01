@@ -12,6 +12,7 @@ const partyRoutes = require('./routes/parties');
 const reportRoutes = require('./routes/reports');
 const notificationRoutes = require('./routes/notifications');
 const fpRoutes = require('./routes/fp');
+const feedbackRoutes = require('./routes/feedback');
 const reportService = require('./services/reportService');
 const emailService = require('./services/emailService');
 const sheetsService = require('./services/sheetsService');
@@ -59,6 +60,7 @@ app.use('/api/parties', partyRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/fp', fpRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -335,6 +337,8 @@ async function startServer() {
     console.log('Initializing Google Sheets...');
     await sheetsService.ensurePartyBookingsHeader();
     await sheetsService.ensureFpSheet();
+    await sheetsService.ensureFeedbackSheet();
+    await sheetsService.ensureEditHistorySheet();
     await ensureDefaultAdmin();
     console.log('Google Sheets initialized.');
 

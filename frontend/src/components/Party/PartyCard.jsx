@@ -66,9 +66,10 @@ export default function PartyCard({ party, onQuickAction }) {
      ) : (
       <span>{formatDate(party.date)}</span>
      )}
-     {party.mealType && (
+     {party.day && <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#af4408]/10 text-[#af4408]">{party.day.slice(0, 3)}</span>}
+     {party.partyTime && (
       <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
-       {party.mealType}
+       {party.partyTime}
       </span>
      )}
     </div>
@@ -113,6 +114,11 @@ export default function PartyCard({ party, onQuickAction }) {
        {party.packageSelected}
       </span>
      )}
+    </div>
+   )}
+   {party.createdBy && (
+    <div className="mt-1.5 text-[10px] text-blue-500">
+     Added by: {party.createdBy}
     </div>
    )}
 

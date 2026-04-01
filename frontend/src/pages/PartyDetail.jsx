@@ -34,7 +34,7 @@ import {
 const ROLE_FIELDS = {
  GRE: [
   'date', 'hostName', 'phoneNumber', 'company', 'occasionType',
-  'guestVisited', 'status', 'place', 'mealType', 'expectedPax',
+  'guestVisited', 'status', 'place', 'partyTime', 'expectedPax',
   'specialRequirements', 'remarks', 'altContact', 'handledBy',
  ],
  CASHIER: [
@@ -46,7 +46,7 @@ const ROLE_FIELDS = {
  ],
  SALES: [
   'date', 'hostName', 'phoneNumber', 'company', 'occasionType',
-  'guestVisited', 'status', 'place', 'mealType', 'expectedPax',
+  'guestVisited', 'status', 'place', 'partyTime', 'expectedPax',
   'packageSelected', 'specialRequirements', 'remarks', 'handledBy',
   'lostReason', 'fpIssued', 'approxBillAmount',
   'confirmedPax', 'finalRate', 'paymentStatus',
@@ -54,6 +54,7 @@ const ROLE_FIELDS = {
  ],
  MANAGER: 'all',
  ADMIN: 'all',
+ VIEWER: 'all',
 };
 
 const FIELD_LABELS = {
@@ -66,7 +67,7 @@ const FIELD_LABELS = {
  place: 'Place',
  handledBy: 'Handled By',
  occasionType: 'Occasion Type',
- mealType: 'Meal Type',
+ partyTime: 'Party Time',
  expectedPax: 'Expected Pax',
  packageSelected: 'Package Selected',
  specialRequirements: 'Special Requirements',
@@ -92,11 +93,12 @@ const FIELD_LABELS = {
  guestEmail: 'Guest Email',
  balancePaymentDate: 'Balance Payment Date',
  billOrderId: 'Bill Order ID',
+ createdBy: 'Created By',
 };
 
 const READ_ONLY_FIELDS = [
  'uniqueId', 'day', 'finalTotalAmount', 'totalAdvancePaid', 'totalPaid',
- 'totalAmountPaid', 'dueAmount', 'enquiredAt',
+ 'totalAmountPaid', 'dueAmount', 'enquiredAt', 'createdBy',
 ];
 
 const PAYMENT_STATUS_OPTIONS = ['Unpaid', 'Partial', 'Paid', 'Refunded'];
@@ -134,10 +136,15 @@ export default function PartyDetail() {
  const [reminderLog, setReminderLog] = useState([]);
  const [showReminderLog, setShowReminderLog] = useState(false);
  const [fpRecords, setFpRecords] = useState([]);
+ const [editHistory, setEditHistory] = useState([]);
+ const [showEditHistory, setShowEditHistory] = useState(false);
+ const [loadingHistory, setLoadingHistory] = useState(false);
 
  const isCashier = user?.role === 'CASHIER';
- const canFollowUp = ['SALES', 'MANAGER', 'ADMIN'].includes(user?.role);
- const canAddPayment = ['CASHIER', 'SALES', 'MANAGER', 'ADMIN'].includes(user?.role);
+ const isAdmin = user?.role === 'ADMIN';
+ const isViewer = user?.role === 'VIEWER';
+ const canFollowUp = !isViewer && ['SALES', 'MANAGER', 'ADMIN'].includes(user?.role);
+ const canAddPayment = !isViewer && ['CASHIER', 'SALES', 'MANAGER', 'ADMIN'].includes(user?.role);
 
  useEffect(() => {
   fetchParty();
@@ -165,6 +172,19 @@ export default function PartyDetail() {
    setFpRecords(res.data.data || []);
   } catch {
    setFpRecords([]);
+  }
+ };
+
+ const fetchEditHistory = async () => {
+  if (!isAdmin && !isViewer) return;
+  setLoadingHistory(true);
+  try {
+   const res = await partyAPI.getEditHistory(id);
+   setEditHistory(res.data.data || []);
+  } catch {
+   setEditHistory([]);
+  } finally {
+   setLoadingHistory(false);
   }
  };
 
@@ -220,17 +240,23 @@ export default function PartyDetail() {
   // Mandatory follow-up note for ALL status changes (what was discussed with guest)
   const currentStatus = (party.status || '').trim();
   if (currentStatus !== newStatus) {
-   // Warn if confirming without Confirmed Pax & Final Rate
+   // Block confirming without Confirmed Pax & Final Rate
    if (newStatus === 'Confirmed') {
     const pax = party.confirmedPax || editData.confirmedPax;
     const rate = party.finalRate || editData.finalRate;
-    if (!pax || !rate) {
-     const proceed = window.confirm(
-      'Confirmed Pax and Final Rate are not set yet. You can fill them later.\n\nProceed with confirmation?'
-    );
-    if (!proceed) return;
+    if (!pax && !rate) {
+     alert('Confirmed Pax and Final Rate are required before confirming the event. Please fill in both fields first.');
+     return;
+    }
+    if (!pax) {
+     alert('Confirmed Pax is required before confirming the event. Please fill it in first.');
+     return;
+    }
+    if (!rate) {
+     alert('Final Rate is required before confirming the event. Please fill it in first.');
+     return;
+    }
    }
-  }
   // Always ask for follow-up note on status change
   setPendingStatus(newStatus);
   setStatusFollowUpNote('');
@@ -370,11 +396,11 @@ export default function PartyDetail() {
  const sections = [
   {
    title: 'Basic Details',
-   fields: ['uniqueId', 'date', 'day', 'hostName', 'phoneNumber', 'altContact', 'company', 'place', 'handledBy', 'guestEmail'],
+   fields: ['uniqueId', 'date', 'day', 'hostName', 'phoneNumber', 'altContact', 'company', 'place', 'handledBy', 'createdBy', 'guestEmail'],
   },
   {
    title: 'Party Details',
-   fields: ['occasionType', 'mealType', 'expectedPax', 'packageSelected', 'specialRequirements', 'guestVisited'],
+   fields: ['occasionType', 'partyTime', 'expectedPax', 'packageSelected', 'specialRequirements', 'guestVisited'],
   },
   {
    title: 'Status Tracking',
@@ -408,7 +434,14 @@ export default function PartyDetail() {
    return (
     <select
      value={editData[field] || ''}
-     onChange={(e) => setEditData((prev) => ({ ...prev, [field]: e.target.value }))}
+     onChange={(e) => {
+      const newStatus = e.target.value;
+      const currentStatus = (party.status || '').trim();
+      if (newStatus !== currentStatus) {
+       // Trigger the follow-up popup for status change (same as top buttons)
+       handleStatusChange(newStatus);
+      }
+     }}
      className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
     >
      {['Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled'].map((s) => (
@@ -431,13 +464,13 @@ export default function PartyDetail() {
     </select>
    );
   }
-  if (field === 'mealType') {
+  if (field === 'partyTime') {
    return (
     <input
      type="text"
      value={editData[field] || ''}
      onChange={(e) => setEditData((prev) => ({ ...prev, [field]: e.target.value }))}
-     placeholder="e.g. Lunch 12:30 PM, Breakfast + Dinner"
+     placeholder="e.g. Lunch 12:30 PM, Dinner 7:30 PM"
      className="w-full px-3 py-2 rounded-lg border border-[#af4408]/30 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
     />
    );
@@ -566,8 +599,8 @@ export default function PartyDetail() {
       <Copy className="w-4 h-4" /> {copied ? 'Copied!' : 'WhatsApp'}
      </button>
 
-     {/* F&P - SALES/MANAGER/ADMIN - only for Confirmed or Tentative */}
-     {['SALES', 'MANAGER', 'ADMIN'].includes(user?.role) && ['Confirmed', 'Tentative'].includes((party.status || '').trim()) && (
+     {/* F&P - SALES/MANAGER/ADMIN/VIEWER - only for Confirmed or Tentative */}
+     {['SALES', 'MANAGER', 'ADMIN', 'VIEWER'].includes(user?.role) && ['Confirmed', 'Tentative'].includes((party.status || '').trim()) && (
       fpRecords.length > 0 ? (
        <button
         onClick={() => navigate(`/fp/${fpRecords[0].rowIndex}`)}
@@ -581,7 +614,7 @@ export default function PartyDetail() {
          'bg-gray-100 text-gray-600'
         }`}>{fpRecords[0].status || 'Draft'}</span>
        </button>
-      ) : (
+      ) : !isViewer && (
        <button
         onClick={() => navigate(`/fp/new?partyId=${encodeURIComponent(party.uniqueId)}`)}
         className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors min-h-[44px]"
@@ -603,8 +636,8 @@ export default function PartyDetail() {
       </button>
      )}
 
-     {/* Quick status actions - hidden for CASHIER */}
-     {!isCashier && party.status === 'Enquiry' && (
+     {/* Quick status actions - hidden for CASHIER & VIEWER */}
+     {!isCashier && !isViewer && party.status === 'Enquiry' && (
       <button
        onClick={() => handleStatusChange('Contacted')}
        className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors min-h-[44px]"
@@ -612,7 +645,7 @@ export default function PartyDetail() {
        Contacted
       </button>
      )}
-     {!isCashier && party.status !== 'Tentative' && party.status !== 'Confirmed' && party.status !== 'Cancelled' && (
+     {!isCashier && !isViewer && party.status !== 'Tentative' && party.status !== 'Confirmed' && party.status !== 'Cancelled' && (
       <button
        onClick={() => handleStatusChange('Tentative')}
        className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors min-h-[44px]"
@@ -620,7 +653,7 @@ export default function PartyDetail() {
        <Clock className="w-4 h-4" /> Tentative
       </button>
      )}
-     {!isCashier && party.status !== 'Confirmed' && party.status !== 'Cancelled' && (
+     {!isCashier && !isViewer && party.status !== 'Confirmed' && party.status !== 'Cancelled' && (
       <button
        onClick={() => handleStatusChange('Confirmed')}
        className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-colors min-h-[44px]"
@@ -628,7 +661,7 @@ export default function PartyDetail() {
        <CheckCircle className="w-4 h-4" /> Confirm
       </button>
      )}
-     {!isCashier && party.status !== 'Cancelled' && (
+     {!isCashier && !isViewer && party.status !== 'Cancelled' && (
       <button
        onClick={() => handleStatusChange('Cancelled')}
        className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-colors min-h-[44px]"
@@ -637,7 +670,7 @@ export default function PartyDetail() {
       </button>
      )}
 
-     {editing ? (
+     {!isViewer && editing ? (
       <>
        <button onClick={() => { setEditing(false); setEditData(party); }} className="px-3 py-2.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
         <X className="w-3.5 h-3.5" />
@@ -651,8 +684,8 @@ export default function PartyDetail() {
         Save
        </button>
       </>
-     ) : (
-      user?.role !== 'GRE' && user?.role !== 'ACCOUNTS' && (
+     ) : !isViewer && (
+      !['GRE', 'ACCOUNTS'].includes(user?.role) && (
       <button
        onClick={() => setEditing(true)}
        className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-[#af4408]/10 text-[#af4408] hover:bg-[#af4408]/20 transition-colors"
@@ -913,6 +946,101 @@ export default function PartyDetail() {
       </div>
      ) : (
       <p className="text-xs text-gray-400 text-center py-4">No follow-up notes yet. Add one above to start tracking.</p>
+     )}
+    </div>
+   )}
+
+   {/* Edit History (Admin Only) */}
+   {(isAdmin || isViewer) && (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+     <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2">
+       <History className="w-4 h-4 text-gray-500" />
+       <h3 className="text-sm font-semibold text-gray-800">Edit History</h3>
+      </div>
+      <button
+       onClick={() => {
+        if (!showEditHistory && editHistory.length === 0) fetchEditHistory();
+        setShowEditHistory(!showEditHistory);
+       }}
+       className="text-xs font-medium text-[#af4408] hover:underline"
+      >
+       {showEditHistory ? 'Hide' : 'View History'}
+      </button>
+     </div>
+
+     {showEditHistory && (
+      <div>
+       {loadingHistory ? (
+        <div className="flex items-center justify-center py-6">
+         <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+        </div>
+       ) : editHistory.length === 0 ? (
+        <p className="text-xs text-gray-400 text-center py-4">No edit history recorded yet.</p>
+       ) : (
+        <div className="space-y-3 max-h-[500px] overflow-y-auto">
+         {editHistory.map((entry, i) => {
+          let changes = [];
+          try { changes = typeof entry.changes === 'string' ? JSON.parse(entry.changes) : (entry.changes || []); } catch { changes = []; }
+          const actionColor =
+           entry.action === 'Created' ? 'bg-green-100 text-green-700' :
+           entry.action === 'Status Change' ? 'bg-purple-100 text-purple-700' :
+           entry.action === 'Payment' ? 'bg-blue-100 text-blue-700' :
+           entry.action === 'Follow-up' ? 'bg-amber-100 text-amber-700' :
+           'bg-gray-100 text-gray-700';
+
+          return (
+           <div key={entry.editId || i} className="relative pl-6 pb-3 border-l-2 border-gray-200 last:border-l-0">
+            {/* Timeline dot */}
+            <div className={`absolute -left-[7px] top-0.5 w-3 h-3 rounded-full border-2 border-white ${
+             entry.action === 'Created' ? 'bg-green-500' :
+             entry.action === 'Status Change' ? 'bg-purple-500' :
+             entry.action === 'Payment' ? 'bg-blue-500' :
+             entry.action === 'Follow-up' ? 'bg-amber-500' :
+             'bg-gray-400'
+            }`} />
+
+            {/* Header: action badge + user + timestamp */}
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${actionColor}`}>
+              {entry.action}
+             </span>
+             <span className="text-[11px] font-medium text-gray-700">
+              {entry.userName}
+             </span>
+             <span className="text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
+              {entry.userRole}
+             </span>
+             <span className="text-[10px] text-gray-400">{entry.timestamp}</span>
+            </div>
+
+            {/* Changes detail */}
+            {changes.length > 0 && entry.action === 'Edit' ? (
+             <div className="space-y-1">
+              {changes.map((c, j) => (
+               <div key={j} className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1.5">
+                <span className="font-medium text-gray-700">{c.field}:</span>{' '}
+                {c.from ? (
+                 <>
+                  <span className="text-red-500 line-through">{c.from.length > 60 ? c.from.slice(0, 60) + '...' : c.from}</span>
+                  {' → '}
+                  <span className="text-green-600 font-medium">{c.to.length > 60 ? c.to.slice(0, 60) + '...' : c.to}</span>
+                 </>
+                ) : (
+                 <span className="text-green-600 font-medium">{c.to.length > 80 ? c.to.slice(0, 80) + '...' : c.to}</span>
+                )}
+               </div>
+              ))}
+             </div>
+            ) : entry.summary ? (
+             <p className="text-xs text-gray-600 bg-gray-50 rounded px-2 py-1.5">{entry.summary}</p>
+            ) : null}
+           </div>
+          );
+         })}
+        </div>
+       )}
+      </div>
      )}
     </div>
    )}

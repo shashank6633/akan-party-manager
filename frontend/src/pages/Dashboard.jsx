@@ -25,6 +25,7 @@ export default function Dashboard() {
  const navigate = useNavigate();
  const isGRE = user?.role === 'GRE';
  const isCashier = user?.role === 'CASHIER' || user?.role === 'ACCOUNTS';
+ const isViewer = user?.role === 'VIEWER';
  const canFollowUp = ['SALES', 'MANAGER', 'ADMIN'].includes(user?.role);
  const [parties, setParties] = useState([]);
  const [stats, setStats] = useState(null);
@@ -332,7 +333,14 @@ export default function Dashboard() {
     <span className="flex items-center gap-1 text-[11px] text-gray-500">
      <Calendar className="w-3 h-3" />
      {isTBCDate(party.date) ? party.date.replace('TBC: ', '') : formatDate(party.date)}
+     {party.day && <span className="px-1 py-0.5 rounded text-[9px] font-semibold bg-[#af4408]/10 text-[#af4408]">{party.day.slice(0, 3)}</span>}
     </span>
+    {party.partyTime && (
+     <span className="text-[10px] text-gray-500 bg-orange-50 px-1.5 py-0.5 rounded">{party.partyTime}</span>
+    )}
+    {party.place && (
+     <span className="text-[10px] text-gray-500 bg-blue-50 px-1.5 py-0.5 rounded">{party.place}</span>
+    )}
     {party.handledBy && (
      <span className="text-[10px] text-gray-500 bg-white px-1.5 py-0.5 rounded">{party.handledBy}</span>
     )}
@@ -407,11 +415,30 @@ export default function Dashboard() {
   <span className="flex items-center gap-1 text-[11px] text-gray-500">
   <Clock className="w-3 h-3" />
   {isTBCDate(party.date) ? party.date.replace('TBC: ', '') : formatDate(party.date)}
+  {party.day && <span className="px-1 py-0.5 rounded text-[9px] font-semibold bg-[#af4408]/10 text-[#af4408]">{party.day.slice(0, 3)}</span>}
   </span>
+  {party.partyTime && (
+  <span className="text-[10px] text-gray-500 bg-orange-50 px-1.5 py-0.5 rounded">{party.partyTime}</span>
+  )}
+  {party.place && (
+  <span className="text-[10px] text-gray-500 bg-blue-50 px-1.5 py-0.5 rounded">{party.place}</span>
+  )}
   {party.handledBy && party.handledBy.split(',').map((name, i) => (
   <span key={i} className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{name.trim()}</span>
   ))}
  </div>
+ {/* Created By */}
+ {party.createdBy && (
+ <p className="text-[10px] text-blue-600 mt-1 flex items-center gap-1">
+  <span className="font-medium">Added by:</span> {party.createdBy}
+ </p>
+ )}
+ {/* Latest follow-up note */}
+ {party.followUpNotes && (
+ <p className="text-[10px] text-gray-500 mt-1.5 line-clamp-1 italic bg-gray-50 rounded px-2 py-1">
+  {party.followUpNotes.split('\n')[0]}
+ </p>
+ )}
  {/* Action row: Call + Follow-up icon */}
  <div className="flex items-center justify-end gap-2 mt-2">
   {party.phoneNumber && (
@@ -565,7 +592,7 @@ export default function Dashboard() {
  <PartyTable
  parties={parties}
  loading={loading}
- onQuickAction={handleQuickAction}
+ onQuickAction={isViewer ? null : handleQuickAction}
  page={page}
  totalPages={totalPages}
  onPageChange={setPage}

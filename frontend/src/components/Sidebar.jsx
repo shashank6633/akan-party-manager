@@ -11,17 +11,19 @@ import {
   Receipt,
   CalendarDays,
   FileText,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
-  { to: '/add-party', icon: PlusCircle, label: 'Add Party', hideFor: ['CASHIER', 'ACCOUNTS'] },
+  { to: '/add-party', icon: PlusCircle, label: 'Add Party', hideFor: ['CASHIER', 'ACCOUNTS', 'VIEWER'] },
   { to: '/cashier-billing', icon: Receipt, label: 'Billing', showFor: ['CASHIER', 'ACCOUNTS', 'ADMIN', 'MANAGER'] },
   { to: '/fp', icon: FileText, label: 'F&P', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS'] },
+  { to: '/feedback', icon: MessageSquare, label: 'Feedback', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS', 'VIEWER'] },
   { to: '/reports', icon: BarChart3, label: 'Reports', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS'] },
-  { to: '/settings', icon: Settings, label: 'Settings', hideFor: ['GRE', 'SALES', 'MANAGER', 'CASHIER', 'ACCOUNTS'] },
+  { to: '/settings', icon: Settings, label: 'Settings', hideFor: ['GRE', 'SALES', 'MANAGER', 'CASHIER', 'ACCOUNTS', 'VIEWER'] },
 ];
 
 export default function Sidebar({ collapsed, onToggle, onClose }) {
@@ -34,6 +36,7 @@ export default function Sidebar({ collapsed, onToggle, onClose }) {
     CASHIER: 'bg-teal-100 text-teal-700',
     ACCOUNTS: 'bg-indigo-100 text-indigo-700',
     GRE: 'bg-green-100 text-green-700',
+    VIEWER: 'bg-gray-100 text-gray-700',
   };
 
   return (

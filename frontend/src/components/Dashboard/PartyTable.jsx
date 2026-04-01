@@ -21,6 +21,8 @@ export default function PartyTable({ parties, loading, onQuickAction, page, tota
  const navigate = useNavigate();
  const { user } = useAuth();
  const isGRE = user?.role === 'GRE';
+ const isViewer = user?.role === 'VIEWER';
+ const hideActions = isGRE || isViewer;
  const [sortField, setSortField] = useState('date');
  const [sortDir, setSortDir] = useState('asc');
  const [viewMode, setViewMode] = useState('table');
@@ -110,7 +112,7 @@ export default function PartyTable({ parties, loading, onQuickAction, page, tota
     </div>
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
      {sorted.map((party) => (
-      <PartyCard key={party.rowIndex} party={party} onQuickAction={isGRE ? null : onQuickAction} />
+      <PartyCard key={party.rowIndex} party={party} onQuickAction={hideActions ? null : onQuickAction} />
      ))}
     </div>
     <Pagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
@@ -136,7 +138,7 @@ export default function PartyTable({ parties, loading, onQuickAction, page, tota
         <ThCell field="status">Status</ThCell>
         <ThCell field="expectedPax">Pax</ThCell>
         <ThCell field="handledBy">Handled By</ThCell>
-        {!isGRE && <th className="px-4 py-3 w-10" />}
+        {!hideActions && <th className="px-4 py-3 w-10" />}
        </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
@@ -159,8 +161,10 @@ export default function PartyTable({ parties, loading, onQuickAction, page, tota
            )}
            {party.day && <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#af4408]/10 text-[#af4408]">{party.day.slice(0, 3)}</span>}
            </div>
-           {party.mealType && (
-            <span className="block text-[10px] text-gray-400">{party.mealType}</span>
+           {(party.partyTime || party.place) && (
+            <span className="block text-[10px] text-gray-400">
+             {party.partyTime}{party.partyTime && party.place ? ' · ' : ''}{party.place}
+            </span>
            )}
           </td>
           <td className="px-4 py-3">
@@ -182,8 +186,11 @@ export default function PartyTable({ parties, loading, onQuickAction, page, tota
           </td>
           <td className="px-4 py-3 text-sm text-gray-600 truncate max-w-[160px] lg:max-w-[200px]">
            {party.handledBy || '-'}
+           {party.createdBy && (
+            <span className="block text-[10px] text-blue-500 mt-0.5">Added: {party.createdBy}</span>
+           )}
           </td>
-          {!isGRE && (
+          {!hideActions && (
            <td className="px-4 py-3 relative">
             <button
              onClick={(e) => {
@@ -233,7 +240,7 @@ export default function PartyTable({ parties, loading, onQuickAction, page, tota
    {/* Mobile card view */}
    <div className="md:hidden grid grid-cols-1 gap-3 px-0">
     {sorted.map((party) => (
-     <PartyCard key={party.rowIndex} party={party} onQuickAction={isGRE ? null : onQuickAction} />
+     <PartyCard key={party.rowIndex} party={party} onQuickAction={hideActions ? null : onQuickAction} />
     ))}
    </div>
 

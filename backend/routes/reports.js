@@ -16,7 +16,7 @@ router.use(authenticate);
 // ---------------------------------------------------------------------------
 router.get(
   '/daily',
-  roleCheck(ROLES.GRE, ROLES.SALES, ROLES.MANAGER),
+  roleCheck(ROLES.GRE, ROLES.SALES, ROLES.MANAGER, ROLES.VIEWER),
   [query('date').optional().isISO8601().withMessage('Date must be in YYYY-MM-DD format')],
   async (req, res) => {
     try {
@@ -44,7 +44,7 @@ router.get(
 // ---------------------------------------------------------------------------
 router.get(
   '/range',
-  roleCheck(ROLES.GRE, ROLES.SALES, ROLES.MANAGER),
+  roleCheck(ROLES.GRE, ROLES.SALES, ROLES.MANAGER, ROLES.VIEWER),
   [
     query('from').isISO8601().withMessage('From date is required (YYYY-MM-DD)'),
     query('to').isISO8601().withMessage('To date is required (YYYY-MM-DD)'),
@@ -83,7 +83,7 @@ router.get(
 // ---------------------------------------------------------------------------
 router.get(
   '/export',
-  roleCheck(ROLES.MANAGER),
+  roleCheck(ROLES.MANAGER, ROLES.VIEWER),
   [
     query('status').optional().isIn(['Enquiry', 'Confirmed', 'Tentative', 'Cancelled']),
     query('from').optional().isISO8601(),

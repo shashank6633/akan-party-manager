@@ -203,7 +203,7 @@ export default function CalendarView() {
                           {p.phoneNumber && <span className="text-[11px] text-gray-600">{p.phoneNumber}</span>}
                           {p.company && <span className="text-[11px] text-gray-600">{p.company}</span>}
                           {p.occasionType && <span className="text-[11px] text-gray-600">{p.occasionType}</span>}
-                          {p.mealType && <span className="text-[11px] text-gray-600">{p.mealType}</span>}
+                          {p.partyTime && <span className="text-[11px] text-gray-600">{p.partyTime}</span>}
                           {p.expectedPax && <span className="text-[11px] text-gray-600">Pax: {p.expectedPax}</span>}
                         </div>
                       </div>

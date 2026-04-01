@@ -18,7 +18,7 @@ import { validatePhone, formatCurrency, generateWhatsAppMessage, copyToClipboard
 // GRE can only fill these fields for new enquiry
 const GRE_FIELDS = [
  'date', 'hostName', 'phoneNumber', 'altContact', 'company',
- 'guestVisited', 'status', 'place', 'mealType',
+ 'guestVisited', 'status', 'place', 'partyTime',
  'expectedPax', 'remarks', 'occasionType', 'specialRequirements',
  'handledBy',
 ];
@@ -40,7 +40,7 @@ const EMPTY_FORM = {
  guestVisited: '',
  status: 'Enquiry',
  place: '',
- mealType: '',
+ partyTime: '',
  expectedPax: '',
  packageSelected: '',
  remarks: '',
@@ -125,29 +125,44 @@ export default function AddParty() {
  }
  };
 
- // Check duplicates on phone + date change
+ // Check duplicates on phone number change (across ALL parties)
  useEffect(() => {
- if (form.phoneNumber && form.date && validatePhone(form.phoneNumber)) {
+ if (form.phoneNumber && validatePhone(form.phoneNumber)) {
  const timer = setTimeout(async () => {
  try {
- const res = await partyAPI.getAll({ search: form.phoneNumber, dateFrom: form.date, dateTo: form.date });
- if (res.data.parties?.length > 0) {
- setDuplicateWarning(`Possible duplicate: ${res.data.parties[0].hostName} on ${form.date}`);
- } else {
- setDuplicateWarning('');
- }
+  const res = await partyAPI.getAll({ search: form.phoneNumber });
+  // Filter to exact phone match (search may return partial matches)
+  const phone = form.phoneNumber.replace(/\D/g, '').slice(-10);
+  const matches = (res.data.parties || []).filter((p) => {
+   const pPhone = (p.phoneNumber || '').replace(/\D/g, '').slice(-10);
+   return pPhone === phone;
+  });
+  if (matches.length > 0) {
+   const match = matches[0];
+   const status = match.status || '';
+   const dateStr = match.date || '';
+   setDuplicateWarning(
+    `Duplicate phone number found: ${match.hostName || 'Unknown'} (${match.company || ''}) — ${status} on ${dateStr}${matches.length > 1 ? ` (+${matches.length - 1} more)` : ''}`
+   );
+  } else {
+   setDuplicateWarning('');
+  }
  } catch {
- setDuplicateWarning('');
+  setDuplicateWarning('');
  }
  }, 800);
  return () => clearTimeout(timer);
  } else {
  setDuplicateWarning('');
  }
- }, [form.phoneNumber, form.date]);
+ }, [form.phoneNumber]);
 
  const handleSubmit = async (e) => {
  e.preventDefault();
+ if (duplicateWarning) {
+ setError('Cannot add party — a booking with this phone number already exists. Please check the existing booking.');
+ return;
+ }
  if (!form.hostName) {
  setError('Host Name is required.');
  return;
@@ -162,6 +177,10 @@ export default function AddParty() {
  }
  if (isGRE && !form.expectedPax) {
  setError('Expected Pax is required.');
+ return;
+ }
+ if (!isGRE && !['Enquiry', 'Contacted'].includes(form.status)) {
+ setError('New parties can only be saved as Enquiry or Contacted.');
  return;
  }
  if (!form.dateNotConfirmed && !form.date) {
@@ -391,9 +410,13 @@ export default function AddParty() {
 
  {/* Warnings */}
  {duplicateWarning && (
- <div className="mb-4 p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-sm text-yellow-700 flex items-center gap-2">
- <AlertTriangle className="w-4 h-4 shrink-0" />
- {duplicateWarning}
+ <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-300 text-sm text-red-700 flex items-start gap-2">
+ <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+ <div>
+  <p className="font-semibold">Duplicate Party Detected!</p>
+  <p>{duplicateWarning}</p>
+  <p className="text-xs mt-1 text-red-500">You cannot add a new party with the same phone number. Please check the existing booking first.</p>
+ </div>
  </div>
  )}
  {error && (
@@ -424,7 +447,7 @@ export default function AddParty() {
  {renderSelect('Guest Visited', 'guestVisited', ['Yes', 'No'])}
  {renderSelect('Status', 'status', ['Enquiry'], { required: true })}
  {renderInput('Place', 'place', { placeholder: 'Venue / Hall' })}
- {renderInput('Meal Type', 'mealType', { placeholder: 'e.g. Lunch 12:30 PM, Breakfast + Dinner' })}
+ {renderInput('Party Time', 'partyTime', { placeholder: 'e.g. Lunch 12:30 PM, Dinner 7:30 PM' })}
  {renderInput('Expected Pax', 'expectedPax', { required: isGRE, placeholder: 'e.g. 50 or 40-60' })}
  <div className="md:col-span-2">
  <label className="block text-xs font-medium text-gray-600 mb-1">Special Requirements</label>
@@ -466,7 +489,7 @@ export default function AddParty() {
  {renderSelect('Handled By', 'handledBy', handlerUsers)}
  {renderInput('Guest Email', 'guestEmail', { type: 'email', placeholder: 'guest@example.com' })}
  {renderInput('Place', 'place', { placeholder: 'Venue / Hall' })}
- {renderSelect('Status', 'status', ['Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled'], { required: true })}
+ {renderSelect('Status', 'status', ['Enquiry', 'Contacted'], { required: true })}
  </div>
  </div>
 
@@ -476,7 +499,7 @@ export default function AddParty() {
  <h3 className="text-sm font-semibold text-gray-800 mb-4">Party Details</h3>
  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
  {renderSelect('Occasion Type', 'occasionType', ['Corporate', 'Family', 'Others'])}
- {renderInput('Meal Type', 'mealType', { placeholder: 'e.g. Lunch 12:30 PM, Breakfast + Dinner' })}
+ {renderInput('Party Time', 'partyTime', { placeholder: 'e.g. Lunch 12:30 PM, Dinner 7:30 PM' })}
  {renderInput('Expected Pax', 'expectedPax', { placeholder: 'e.g. 50 or 40-60' })}
  {renderInput('Package Selected', 'packageSelected', { placeholder: 'Package name' })}
  {renderSelect('Guest Visited', 'guestVisited', ['Yes', 'No'])}
@@ -558,7 +581,7 @@ export default function AddParty() {
  </button>
  <button
  type="submit"
- disabled={loading}
+ disabled={loading || !!duplicateWarning}
  className="flex items-center justify-center gap-2 px-6 py-3 sm:py-2.5 rounded-xl text-sm font-semibold text-white bg-[#af4408] hover:bg-[#963a07] shadow-lg shadow-[#af4408]/25 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
  >
  {loading ? (

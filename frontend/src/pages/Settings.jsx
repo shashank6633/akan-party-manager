@@ -27,7 +27,7 @@ import { authAPI, notificationAPI, api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { DISCLAIMERS, PACKAGES, FULL_MENU, MENU_CATEGORIES } from '../data/menuTemplates';
 
-const ROLES = ['GRE', 'CASHIER', 'ACCOUNTS', 'SALES', 'MANAGER', 'ADMIN'];
+const ROLES = ['GRE', 'CASHIER', 'ACCOUNTS', 'SALES', 'MANAGER', 'ADMIN', 'VIEWER'];
 
 function getTimeAgo(date) {
  const now = new Date();
@@ -496,6 +496,7 @@ export default function Settings() {
    u.role === 'MANAGER' ? 'bg-purple-100 text-purple-700' :
    u.role === 'SALES' ? 'bg-blue-100 text-blue-700' :
    u.role === 'CASHIER' ? 'bg-amber-100 text-amber-700' :
+   u.role === 'VIEWER' ? 'bg-gray-200 text-gray-700' :
    'bg-green-100 text-green-700'
    }`}>
    {u.role}

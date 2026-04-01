@@ -39,6 +39,7 @@ export const partyAPI = {
   getPendingFollowUps: () => api.get('/parties/pending-followups'),
   sendPaymentReminder: (id) => api.post(`/parties/${id}/send-payment-reminder`),
   getReminderLog: () => api.get('/parties/reminder-log'),
+  getEditHistory: (id) => api.get(`/parties/${id}/edit-history`),
 };
 
 export const authAPI = {
@@ -74,6 +75,13 @@ export const fpAPI = {
   update: (id, data) => api.put(`/fp/${id}`, data),
   delete: (id) => api.delete(`/fp/${id}`),
   sendEmail: (id, data) => api.post(`/fp/${id}/send-email`, data),
+};
+
+export const feedbackAPI = {
+  getAll: (params) => api.get('/feedback', { params }),
+  getById: (id) => api.get(`/feedback/${id}`),
+  getByFp: (fpId) => api.get(`/feedback/by-fp/${encodeURIComponent(fpId)}`),
+  submit: (data) => api.post('/feedback', data),
 };
 
 export const reportAPI = {

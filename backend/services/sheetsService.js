@@ -27,7 +27,7 @@ const COLUMNS = [
   'Place',                       // F
   'Handled By',                   // G
   'Occasion Type',               // H
-  'Meal Type',                   // I
+  'Party Time',                  // I
   'Expected Pax',                // J
   'Package Selected',            // K
   'Special Requirements',        // L
@@ -56,6 +56,7 @@ const COLUMNS = [
   'Balance Payment Date',        // AI
   'Bill Order ID',               // AJ
   'Day',                         // AK  (Auto-calculated from Date)
+  'Created By',                  // AL  (Who created this party: "Name (ROLE)")
 ];
 
 /**
@@ -67,7 +68,7 @@ COLUMNS.forEach((name, idx) => {
 });
 
 // Last column letter for range references
-const LAST_COL = 'AK';
+const LAST_COL = 'AL';
 
 // Retry wrapper for transient Google API errors
 const MAX_RETRIES = 3;
@@ -1058,6 +1059,295 @@ async function getReminderLogs() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Edit History (Audit Log)
+// ---------------------------------------------------------------------------
+
+const EDIT_HISTORY_COLUMNS = [
+  'Edit ID',            // A  (unique identifier)
+  'Party Unique ID',    // B  (links to Party Bookings)
+  'Row Index',          // C  (party row number)
+  'Timestamp',          // D  (IST formatted)
+  'User Name',          // E  (who made the edit)
+  'User Role',          // F  (SALES, MANAGER, ADMIN, etc.)
+  'Action',             // G  (Edit, Status Change, Payment, Follow-up, Created)
+  'Changes',            // H  (JSON: [{field, from, to}])
+  'Summary',            // I  (human-readable summary)
+];
+
+const EDIT_HISTORY_LAST_COL = 'I';
+
+function generateEditId() {
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const rand = Math.random().toString(36).substring(2, 7).toUpperCase();
+  return `ED-${dateStr}-${rand}`;
+}
+
+async function ensureEditHistorySheet() {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const spreadsheetId = getSpreadsheetId();
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets.properties.title',
+    });
+    const exists = meta.data.sheets.some((s) => s.properties.title === 'Edit History');
+    if (!exists) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests: [{ addSheet: { properties: { title: 'Edit History' } } }] },
+      });
+      const endCol = indexToColumnLetter(EDIT_HISTORY_COLUMNS.length - 1);
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `'Edit History'!A1:${endCol}1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [EDIT_HISTORY_COLUMNS] },
+      });
+      console.log('Edit History: Created sheet with header row.');
+    } else {
+      // Check if columns need updating
+      const endCol = indexToColumnLetter(EDIT_HISTORY_COLUMNS.length - 1);
+      const res = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'Edit History'!A1:${endCol}1`,
+      });
+      const header = (res.data.values || [])[0] || [];
+      if (header.length < EDIT_HISTORY_COLUMNS.length) {
+        const newCols = EDIT_HISTORY_COLUMNS.slice(header.length);
+        const startCol = indexToColumnLetter(header.length);
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'Edit History'!${startCol}1:${endCol}1`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [newCols] },
+        });
+        console.log(`Edit History: Added ${newCols.length} new column(s).`);
+      }
+    }
+  });
+}
+
+/**
+ * Append an edit history entry.
+ * @param {Object} entry - { partyUniqueId, rowIndex, userName, userRole, action, changes, summary }
+ */
+async function appendEditHistory(entry) {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const editId = generateEditId();
+    const timestamp = new Date().toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
+    });
+
+    const values = [
+      editId,
+      entry.partyUniqueId || '',
+      entry.rowIndex || '',
+      timestamp,
+      entry.userName || '',
+      entry.userRole || '',
+      entry.action || 'Edit',
+      typeof entry.changes === 'string' ? entry.changes : JSON.stringify(entry.changes || []),
+      entry.summary || '',
+    ];
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: getSpreadsheetId(),
+      range: `'Edit History'!A:${EDIT_HISTORY_LAST_COL}`,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [values] },
+    });
+
+    return { editId, timestamp };
+  });
+}
+
+/**
+ * Get all edit history for a specific party (by Unique ID).
+ * Returns entries sorted newest first.
+ */
+async function getEditHistoryByParty(partyUniqueId) {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: getSpreadsheetId(),
+      range: `'Edit History'!A2:${EDIT_HISTORY_LAST_COL}`,
+    });
+    const rows = res.data.values || [];
+    const entries = rows
+      .filter((row) => row[1] === partyUniqueId)
+      .map((row) => ({
+        editId: row[0] || '',
+        partyUniqueId: row[1] || '',
+        rowIndex: row[2] || '',
+        timestamp: row[3] || '',
+        userName: row[4] || '',
+        userRole: row[5] || '',
+        action: row[6] || '',
+        changes: row[7] || '[]',
+        summary: row[8] || '',
+      }));
+    // Return newest first (they are appended chronologically, so reverse)
+    return entries.reverse();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Feedback
+// ---------------------------------------------------------------------------
+
+const FEEDBACK_COLUMNS = [
+  'Feedback ID',            // A
+  'Party Unique ID',        // B
+  'FP ID',                  // C
+  'Reviewer Name',          // D  (person giving feedback — may differ from host)
+  'Guest Name',             // E  (host/contact from F&P)
+  'Phone',                  // F
+  'Company',                // G
+  'Date of Event',          // H
+  'Package Type',           // I
+  'Overall Rating',         // J  (1-5)
+  'Overall Comment',        // K
+  'Food Quality Rating',    // L  (1-5)
+  'Starters Item Ratings',  // M  (JSON: [{item,rating,comment}])
+  'Main Course Item Ratings', // N  (JSON)
+  'Sides Item Ratings',     // O  (JSON: rice, dal, salad, accompaniments)
+  'Dessert Item Ratings',   // P  (JSON)
+  'Addon Item Ratings',     // Q  (JSON: mutton, prawns, extras)
+  'Beverages Rating',       // R  (1-5)
+  'Beverages Comment',      // S
+  'Staff Behavior Rating',  // T  (1-5)
+  'Order Accuracy Rating',  // U  (1-5)
+  'Serving Speed Rating',   // V  (1-5)
+  'Service Comment',        // W
+  'Cleanliness Rating',     // X  (1-5)
+  'Music Rating',           // Y  (1-5)
+  'Seating Comfort Rating', // Z  (1-5)
+  'Ambience Comment',       // AA
+  'Complaint',              // AB
+  'Suggestion',             // AC
+  'Wants Callback',         // AD (Yes/No)
+  'Submitted At',           // AE
+  'Submitted By',           // AF
+];
+
+const FEEDBACK_COLUMN_MAP = {};
+FEEDBACK_COLUMNS.forEach((name, idx) => { FEEDBACK_COLUMN_MAP[name] = idx; });
+
+const FEEDBACK_JSON_FIELDS = [
+  'Starters Item Ratings', 'Main Course Item Ratings',
+  'Sides Item Ratings', 'Dessert Item Ratings',
+  'Addon Item Ratings',
+];
+
+function generateFeedbackId() {
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `FB-${dateStr}-${rand}`;
+}
+
+async function ensureFeedbackSheet() {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const spreadsheetId = getSpreadsheetId();
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets.properties.title',
+    });
+    const exists = meta.data.sheets.some((s) => s.properties.title === SHEET_NAMES.FEEDBACK);
+    if (!exists) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests: [{ addSheet: { properties: { title: SHEET_NAMES.FEEDBACK } } }] },
+      });
+      const endCol = indexToColumnLetter(FEEDBACK_COLUMNS.length - 1);
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `'${SHEET_NAMES.FEEDBACK}'!A1:${endCol}1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [FEEDBACK_COLUMNS] },
+      });
+      console.log('Feedback: Created sheet with header row.');
+    }
+  });
+}
+
+async function getAllFeedbackRows() {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const endCol = indexToColumnLetter(FEEDBACK_COLUMNS.length - 1);
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: getSpreadsheetId(),
+      range: `'${SHEET_NAMES.FEEDBACK}'!A2:${endCol}`,
+    });
+    const rows = res.data.values || [];
+    return rows.map((row, idx) => {
+      const obj = { _rowIndex: idx + 2 };
+      FEEDBACK_COLUMNS.forEach((col, i) => {
+        let val = row[i] || '';
+        if (FEEDBACK_JSON_FIELDS.includes(col) && val) {
+          try { val = JSON.parse(val); } catch { /* keep string */ }
+        }
+        obj[col] = val;
+      });
+      return obj;
+    });
+  });
+}
+
+async function appendFeedbackRow(data) {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const values = FEEDBACK_COLUMNS.map((col) => {
+      let val = data[col] ?? '';
+      if (FEEDBACK_JSON_FIELDS.includes(col) && typeof val !== 'string') {
+        val = JSON.stringify(val);
+      }
+      return val;
+    });
+    const endCol = indexToColumnLetter(FEEDBACK_COLUMNS.length - 1);
+    const res = await sheets.spreadsheets.values.append({
+      spreadsheetId: getSpreadsheetId(),
+      range: `'${SHEET_NAMES.FEEDBACK}'!A:${endCol}`,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [values] },
+    });
+    const updatedRange = res.data.updates?.updatedRange || '';
+    const match = updatedRange.match(/!A(\d+):/);
+    const rowIndex = match ? parseInt(match[1]) : -1;
+    return { ...data, _rowIndex: rowIndex };
+  });
+}
+
+async function getFeedbackRow(rowIndex) {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const endCol = indexToColumnLetter(FEEDBACK_COLUMNS.length - 1);
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: getSpreadsheetId(),
+      range: `'${SHEET_NAMES.FEEDBACK}'!A${rowIndex}:${endCol}${rowIndex}`,
+    });
+    const row = (res.data.values || [])[0];
+    if (!row) return null;
+    const obj = { _rowIndex: rowIndex };
+    FEEDBACK_COLUMNS.forEach((col, i) => {
+      let val = row[i] || '';
+      if (FEEDBACK_JSON_FIELDS.includes(col) && val) {
+        try { val = JSON.parse(val); } catch { /* keep string */ }
+      }
+      obj[col] = val;
+    });
+    return obj;
+  });
+}
+
 module.exports = {
   COLUMNS,
   COLUMN_MAP,
@@ -1092,4 +1382,17 @@ module.exports = {
   appendFpRow,
   updateFpRow,
   deleteFpRow,
+  // Edit History
+  EDIT_HISTORY_COLUMNS,
+  ensureEditHistorySheet,
+  appendEditHistory,
+  getEditHistoryByParty,
+  // Feedback
+  FEEDBACK_COLUMNS,
+  FEEDBACK_COLUMN_MAP,
+  generateFeedbackId,
+  ensureFeedbackSheet,
+  getAllFeedbackRows,
+  appendFeedbackRow,
+  getFeedbackRow,
 };
