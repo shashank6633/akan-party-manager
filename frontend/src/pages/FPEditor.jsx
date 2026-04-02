@@ -501,16 +501,18 @@ export default function FPEditor() {
       );
     }
 
+    const totalCount = selected.length + otherTags.length;
+
     return (
       <div key={categoryKey} className="mb-5">
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wide">{catDef.label}</h4>
           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-            selected.length === limitNum ? 'bg-green-100 text-green-700' :
-            selected.length > limitNum ? 'bg-red-100 text-red-700' :
+            totalCount === limitNum ? 'bg-green-100 text-green-700' :
+            totalCount > limitNum ? 'bg-red-100 text-red-700' :
             'bg-gray-100 text-gray-500'
           }`}>
-            {selected.length} / {limitNum}
+            {totalCount} / {limitNum}
           </span>
         </div>
 

@@ -132,7 +132,7 @@ function applyAutoCalculations(data, changedFields) {
 function columnToCamel(col) {
   if (col.startsWith('_')) return col;
   return col
-    .split(/\s+/)
+    .split(/[\s\-]+/)
     .map((word, i) =>
       i === 0
         ? word.toLowerCase()

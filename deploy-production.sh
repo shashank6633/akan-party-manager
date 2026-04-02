@@ -42,12 +42,16 @@ log "SSH connection successful"
 
 # ── STEP 1: CREATE LOCAL BACKUP ────────────────────────────────────────────
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-BACKUP_DIR="$LOCAL_DIR.backup-$TIMESTAMP"
+BACKUP_BASE="/Users/shashankreddy/Desktop/Claude/akan-party-manager-backups"
+mkdir -p "$BACKUP_BASE"
+BACKUP_DIR="$BACKUP_BASE/backup-$TIMESTAMP"
 info "Creating local backup at $BACKUP_DIR..."
 cp -r "$BACKEND_DIR" "$BACKUP_DIR-backend" 2>/dev/null || true
 if [ -d "$FRONTEND_DIR/dist" ]; then
   cp -r "$FRONTEND_DIR/dist" "$BACKUP_DIR-frontend-dist" 2>/dev/null || true
 fi
+# Keep only last 3 backups to save disk space
+cd "$BACKUP_BASE" && ls -dt backup-*-backend 2>/dev/null | tail -n +4 | while read d; do rm -rf "$d" "${d%-backend}-frontend-dist"; done
 log "Backup created"
 
 # ── STEP 2: BUILD FRONTEND ────────────────────────────────────────────────

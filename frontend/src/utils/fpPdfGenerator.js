@@ -43,8 +43,8 @@ export function generateFpPdf(data) {
     { key: 'rice', label: 'Rice' },
     { key: 'dal', label: 'Dal' },
     { key: 'salad', label: 'Salad' },
-    { key: 'accompaniments', label: 'Accompaniments' },
     { key: 'desserts', label: 'Desserts' },
+    { key: 'accompaniments', label: 'Accompaniments' },
   ];
 
   const hasRegularMenu = !isPreset && [...pairedMenu.flatMap((p) => [p.left, p.right]), ...singleMenu.map((s) => s.key)]
@@ -142,13 +142,16 @@ export function generateFpPdf(data) {
   if (data.veganFood) foodPrefs.push(`Vegan: ${data.veganFoodPax || '?'} pax`);
   const foodPrefStr = foodPrefs.length > 0 ? foodPrefs.join(' | ') : '';
 
+  // Min Guarantee: use least pax from paxExpected or minimumGuarantee
+  const minGuarVal = data.minimumGuarantee || parseLeastPax(data.paxExpected) || '';
+
   const detailRows = [
-    ['Booking', d(data.dateOfBooking), 'Event Date', d(data.dateOfEvent), 'Day', d(data.dayOfEvent)],
-    ['Time', d(data.timeOfEvent), 'Area', d(data.allocatedArea), 'Pax', d(data.paxExpected)],
+    ['Booking', formatDateIN(data.dateOfBooking), 'Event Date', formatDateIN(data.dateOfEvent), 'Day', d(data.dayOfEvent)],
+    ['Time', d(data.timeOfEvent), 'Area', d(data.allocatedArea), 'Min Guar.', d(minGuarVal)],
     ['Guest', d(data.contactPerson), 'Phone', d(data.phone), 'Company', d(data.company)],
     ['Package', d(pkgDisplay), 'Reference', d(data.reference), 'Payment', d(data.modeOfPayment)],
-    ['Rate/Head', d(data.ratePerHead ? `Rs.${data.ratePerHead}` : ''), 'Advance', d(data.advancePayment ? `Rs.${data.advancePayment}` : ''), 'Min Guar.', d(data.minimumGuarantee)],
-    ['Est. Bill', d(data.approxBillAmount ? `Rs.${Number(data.approxBillAmount).toLocaleString('en-IN')}` : ''), 'Food Pref', d(foodPrefStr), '', ''],
+    ['Rate/Head', d(data.ratePerHead ? `Rs.${data.ratePerHead}` : ''), 'Advance', d(data.advancePayment ? `Rs.${data.advancePayment}` : ''), 'Est. Bill', d(data.approxBillAmount ? `Rs.${Number(data.approxBillAmount).toLocaleString('en-IN')}` : '')],
+    ['Food Pref', d(foodPrefStr), '', '', '', ''],
   ];
 
   autoTable(doc, {
@@ -156,20 +159,25 @@ export function generateFpPdf(data) {
     head: [['BOOKING & GUEST DETAILS', '', '', '', '', '']],
     body: detailRows,
     theme: 'grid',
-    headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5 },
+    headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
     bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [30, 30, 30] },
     columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, fontSize: fs - 0.5 },
+      0: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, fontSize: fs - 0.5, valign: 'middle', halign: 'center' },
       1: { fontStyle: 'bold', cellWidth: CW / 3 - 20 },
-      2: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, fontSize: fs - 0.5 },
+      2: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, fontSize: fs - 0.5, valign: 'middle', halign: 'center' },
       3: { fontStyle: 'bold', cellWidth: CW / 3 - 20 },
-      4: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, fontSize: fs - 0.5 },
+      4: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, fontSize: fs - 0.5, valign: 'middle', halign: 'center' },
       5: { fontStyle: 'bold', cellWidth: CW / 3 - 20 },
     },
     didParseCell: (hookData) => {
+      if (hookData.section === 'head' && hookData.column.index === 0) {
+        hookData.cell.colSpan = 6;
+      }
       if (hookData.section === 'body' && (hookData.column.index % 2 === 0)) {
         hookData.cell.styles.textColor = [80, 50, 20];
         hookData.cell.styles.fontSize = fs - 0.5;
+        hookData.cell.styles.valign = 'middle';
+        hookData.cell.styles.halign = 'center';
       }
       if (hookData.section === 'body' && (hookData.column.index % 2 === 1)) {
         hookData.cell.styles.fontStyle = 'bold';
@@ -188,7 +196,10 @@ export function generateFpPdf(data) {
       head: [[isPreset ? 'PRESET MENU' : 'MENU SELECTION', '']],
       body: [],
       theme: 'grid',
-      headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5 },
+      headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
+      didParseCell: (hookData) => {
+        if (hookData.section === 'head' && hookData.column.index === 0) hookData.cell.colSpan = 2;
+      },
       margin: { left: M, right: M },
     });
     y = doc.lastAutoTable.finalY;
@@ -200,25 +211,28 @@ export function generateFpPdf(data) {
       try { otherItemsObj = JSON.parse(otherItemsObj); } catch { otherItemsObj = {}; }
     }
 
-    // Helper: append per-category other items as individual rows in a paired table body
-    // Splits comma-separated values so each item gets its own numbered line
-    const appendOtherRow = (body, leftCat, rightCat) => {
-      const leftRaw = otherItemsObj[leftCat] && otherItemsObj[leftCat].trim();
-      const rightRaw = rightCat && otherItemsObj[rightCat] && otherItemsObj[rightCat].trim();
-      if (!leftRaw && !rightRaw) return;
-      const leftItems = leftRaw ? leftRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
-      const rightItems = rightRaw ? rightRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
-      const maxOther = Math.max(leftItems.length, rightItems.length);
-      let leftCount = body.filter((r) => r[1] && r[1].trim()).length;
-      let rightCount = body.filter((r) => r[3] && r[3].trim()).length;
-      for (let i = 0; i < maxOther; i++) {
-        body.push([
-          '',
-          leftItems[i] ? `  ${leftCount + 1 + i}. ${leftItems[i]} *` : '',
-          '',
-          rightItems[i] ? `  ${rightCount + 1 + i}. ${rightItems[i]} *` : '',
-        ]);
-      }
+    // Helper: count other items for a category
+    const getOtherCount = (catKey) => {
+      const raw = otherItemsObj[catKey] && otherItemsObj[catKey].trim();
+      if (!raw) return 0;
+      return raw.split(',').map((s) => s.trim()).filter(Boolean).length;
+    };
+
+    // Helper: get other items array for a category
+    const getOtherItems = (catKey) => {
+      const raw = otherItemsObj[catKey] && otherItemsObj[catKey].trim();
+      if (!raw) return [];
+      return raw.split(',').map((s) => s.trim()).filter(Boolean);
+    };
+
+    // Helper: combine preset items + other items into a single numbered list
+    const getCombinedItems = (catKey) => {
+      const preset = data[catKey] || [];
+      const others = getOtherItems(catKey);
+      const combined = [];
+      preset.forEach((item, i) => combined.push(`  ${i + 1}. ${item}`));
+      others.forEach((item, i) => combined.push(`  ${preset.length + i + 1}. ${item} *`));
+      return combined;
     };
 
     const menuColStyles = {
@@ -241,18 +255,22 @@ export function generateFpPdf(data) {
       for (const pair of presetPairs) {
         const leftLines = (pmt[pair.left] || '').split('\n').filter(Boolean);
         const rightLines = pair.right ? (pmt[pair.right] || '').split('\n').filter(Boolean) : [];
-        if (leftLines.length === 0 && rightLines.length === 0) continue;
-        const maxRows = Math.max(leftLines.length, rightLines.length, 1);
+        // Merge other items into preset lines
+        const leftOthers = getOtherItems(pair.left);
+        const rightOthers = pair.right ? getOtherItems(pair.right) : [];
+        const leftAll = [...leftLines.map((l, i) => `  ${i + 1}. ${l}`), ...leftOthers.map((o, i) => `  ${leftLines.length + i + 1}. ${o} *`)];
+        const rightAll = [...rightLines.map((l, i) => `  ${i + 1}. ${l}`), ...rightOthers.map((o, i) => `  ${rightLines.length + i + 1}. ${o} *`)];
+        if (leftAll.length === 0 && rightAll.length === 0) continue;
+        const maxRows = Math.max(leftAll.length, rightAll.length, 1);
         const body = [];
         for (let i = 0; i < maxRows; i++) {
           body.push([
             i === 0 ? pair.leftLabel : '',
-            leftLines[i] ? `  ${i + 1}. ${leftLines[i]}` : '',
+            leftAll[i] || '',
             i === 0 ? (pair.rightLabel || '') : '',
-            rightLines[i] ? `  ${i + 1}. ${rightLines[i]}` : '',
+            rightAll[i] || '',
           ]);
         }
-        appendOtherRow(body, pair.left, pair.right);
         autoTable(doc, {
           startY: y, body, theme: 'grid',
           bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10] },
@@ -262,24 +280,23 @@ export function generateFpPdf(data) {
         y = doc.lastAutoTable.finalY;
       }
     } else if (hasRegularMenu) {
-      // Package menu — checkbox items, paired Veg/Non-Veg
+      // Package menu — checkbox items + other items combined, paired Veg/Non-Veg
       for (const pair of pairedMenu) {
-        const leftItems = data[pair.left] || [];
-        const rightItems = data[pair.right] || [];
-        if (leftItems.length === 0 && rightItems.length === 0) continue;
+        const leftCombined = getCombinedItems(pair.left);
+        const rightCombined = getCombinedItems(pair.right);
+        if (leftCombined.length === 0 && rightCombined.length === 0) continue;
         const leftLim = pkg?.limits[pair.left] ?? '-';
         const rightLim = pkg?.limits[pair.right] ?? '-';
-        const maxRows = Math.max(leftItems.length, rightItems.length, 1);
+        const maxRows = Math.max(leftCombined.length, rightCombined.length, 1);
         const body = [];
         for (let i = 0; i < maxRows; i++) {
           body.push([
-            i === 0 ? `${pair.leftLabel} (${leftItems.length}/${leftLim})` : '',
-            leftItems[i] ? `  ${i + 1}. ${leftItems[i]}` : '',
-            i === 0 ? `${pair.rightLabel} (${rightItems.length}/${rightLim})` : '',
-            rightItems[i] ? `  ${i + 1}. ${rightItems[i]}` : '',
+            i === 0 ? `${pair.leftLabel} (${leftCombined.length}/${leftLim})` : '',
+            leftCombined[i] || '',
+            i === 0 ? `${pair.rightLabel} (${rightCombined.length}/${rightLim})` : '',
+            rightCombined[i] || '',
           ]);
         }
-        appendOtherRow(body, pair.left, pair.right);
         autoTable(doc, {
           startY: y, body, theme: 'grid',
           bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10] },
@@ -290,11 +307,11 @@ export function generateFpPdf(data) {
       }
 
       const singleEntries = singleMenu
-        .filter(({ key }) => data[key] && data[key].length > 0)
+        .filter(({ key }) => getCombinedItems(key).length > 0)
         .map(({ key, label }) => {
-          const items = data[key];
+          const combined = getCombinedItems(key);
           const lim = pkg?.limits[key] ?? '-';
-          return { key, label: `${label} (${items.length}/${lim})`, items };
+          return { key, label: `${label} (${combined.length}/${lim})`, items: combined };
         });
 
       for (let i = 0; i < singleEntries.length; i += 2) {
@@ -305,12 +322,11 @@ export function generateFpPdf(data) {
         for (let r = 0; r < maxRows; r++) {
           body.push([
             r === 0 ? left.label : '',
-            left.items[r] ? `  ${r + 1}. ${left.items[r]}` : '',
+            left.items[r] || '',
             r === 0 ? (right?.label || '') : '',
-            right?.items[r] ? `  ${r + 1}. ${right.items[r]}` : '',
+            right?.items[r] || '',
           ]);
         }
-        appendOtherRow(body, left.key, right?.key);
         autoTable(doc, {
           startY: y, body, theme: 'grid',
           bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10] },
@@ -334,14 +350,17 @@ export function generateFpPdf(data) {
     if (generalBody.length === 0) generalBody.push(['Guest Request', otherItemsObj._general.trim()]);
     autoTable(doc, {
       startY: y,
-      head: [['OTHER ITEM (Outside Menu)', 'Item']],
+      head: [['OTHER ITEM (Outside Menu)', '']],
       body: generalBody,
       theme: 'grid',
-      headStyles: { fillColor: [180, 130, 50], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5 },
+      headStyles: { fillColor: [180, 130, 50], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
       bodyStyles: { fontSize: fs, cellPadding: cp, fillColor: [255, 250, 235], fontStyle: 'bold', textColor: [10, 10, 10] },
       columnStyles: {
         0: { cellWidth: 42, textColor: [120, 100, 60] },
         1: { fillColor: [255, 250, 235] },
+      },
+      didParseCell: (hookData) => {
+        if (hookData.section === 'head' && hookData.column.index === 0) hookData.cell.colSpan = 2;
       },
       margin: { left: M, right: M },
     });
@@ -355,7 +374,7 @@ export function generateFpPdf(data) {
       head: [['ADDONS (Extra Charges)']],
       body: addonParts.map((p) => [p]),
       theme: 'grid',
-      headStyles: { fillColor: [210, 100, 30], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5 },
+      headStyles: { fillColor: [210, 100, 30], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
       bodyStyles: { fontSize: fs, cellPadding: cp, fillColor: C.orange, fontStyle: 'bold', textColor: [10, 10, 10] },
       margin: { left: M, right: M },
     });
@@ -380,10 +399,10 @@ export function generateFpPdf(data) {
 
     autoTable(doc, {
       startY: y,
-      head: [['DRINKS & BAR', '', '', '']],
+      head: [['DRINKS & BAR   |   ALCOHOLIC { Pouring will be 30ml }   |   NOTE: DRINKS WILL BE SERVED AS PER AVAILABILITY', '', '', '']],
       body: dRows,
       theme: 'grid',
-      headStyles: { fillColor: [120, 60, 120], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5 },
+      headStyles: { fillColor: [120, 60, 120], textColor: 255, fontStyle: 'bold', fontSize: fsH - 0.5, cellPadding: 1.5, halign: 'center' },
       bodyStyles: { fontSize: fs + 0.5, cellPadding: cp, overflow: 'linebreak', fontStyle: 'bold', textColor: [10, 10, 10] },
       columnStyles: {
         0: { fontStyle: 'bold', cellWidth: drinkLabelW, fillColor: [240, 230, 245], textColor: [80, 40, 80], fontSize: fs },
@@ -391,13 +410,12 @@ export function generateFpPdf(data) {
         2: { fontStyle: 'bold', cellWidth: timeLabW, fillColor: [240, 230, 245], textColor: [80, 40, 80], fontSize: fs },
         3: { fillColor: C.cream, cellWidth: timeValW, fontStyle: 'bold' },
       },
+      didParseCell: (hookData) => {
+        if (hookData.section === 'head' && hookData.column.index === 0) hookData.cell.colSpan = 4;
+      },
       margin: { left: M, right: M },
     });
-    y = doc.lastAutoTable.finalY;
-    doc.setFontSize(5.5);
-    doc.setTextColor(...C.ltGray);
-    doc.text('* Drinks subject to availability. Excl: Breezer, Shots, Redbull, Ginger Ale, Tonic Water.', M, y + 2.5);
-    y += gap + 2;
+    y = doc.lastAutoTable.finalY + gap;
   }
 
   // ===== ENTERTAINMENT =====
@@ -407,11 +425,14 @@ export function generateFpPdf(data) {
       head: [['ENTERTAINMENT & ARRANGEMENTS', '']],
       body: entItems,
       theme: 'grid',
-      headStyles: { fillColor: [80, 120, 160], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5 },
+      headStyles: { fillColor: [80, 120, 160], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
       bodyStyles: { fontSize: fs, cellPadding: cp, fontStyle: 'bold', textColor: [10, 10, 10] },
       columnStyles: {
         0: { fontStyle: 'bold', cellWidth: 22, fillColor: [225, 235, 245], textColor: [40, 60, 100] },
         1: { fillColor: C.cream },
+      },
+      didParseCell: (hookData) => {
+        if (hookData.section === 'head' && hookData.column.index === 0) hookData.cell.colSpan = 2;
       },
       margin: { left: M, right: M },
     });
@@ -428,7 +449,7 @@ export function generateFpPdf(data) {
       ['Stores', data.storesDept || '', 'Maint.', data.maintenance || '', 'Front Off.', data.frontOffice || ''],
     ],
     theme: 'grid',
-    headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5 },
+    headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
     bodyStyles: { fontSize: fs, cellPadding: { top: 2, bottom: signH - 6, left: 2, right: 2 }, fontStyle: 'bold', textColor: [10, 10, 10], minCellHeight: signH },
     columnStyles: {
       0: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, textColor: [80, 50, 20] },
@@ -437,6 +458,9 @@ export function generateFpPdf(data) {
       3: { cellWidth: CW / 3 - 20 },
       4: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, textColor: [80, 50, 20] },
       5: { cellWidth: CW / 3 - 20 },
+    },
+    didParseCell: (hookData) => {
+      if (hookData.section === 'head' && hookData.column.index === 0) hookData.cell.colSpan = 6;
     },
     margin: { left: M, right: M },
   });
@@ -497,6 +521,35 @@ export function generateFpPdf(data) {
 // ---- Helpers ----
 function d(val) {
   return val || '-';
+}
+
+// Format date from YYYY-MM-DD or any parseable format to DD-MM-YYYY (Indian format)
+function formatDateIN(val) {
+  if (!val) return '-';
+  const str = String(val).trim();
+  // Already DD-MM-YYYY?
+  if (/^\d{2}-\d{2}-\d{4}$/.test(str)) return str;
+  // YYYY-MM-DD
+  const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) return `${match[3]}-${match[2]}-${match[1]}`;
+  // Try Date parse
+  const dt = new Date(str);
+  if (!isNaN(dt.getTime())) {
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const yy = dt.getFullYear();
+    return `${dd}-${mm}-${yy}`;
+  }
+  return str || '-';
+}
+
+// Parse least pax from a range like "100-150" → 100, or plain "80" → 80
+function parseLeastPax(val) {
+  if (!val) return '';
+  const str = String(val).trim();
+  const parts = str.split(/[-–\/]/).map((s) => parseFloat(s.trim())).filter((n) => !isNaN(n));
+  if (parts.length > 0) return String(Math.min(...parts));
+  return str;
 }
 
 function buildAddonParts(data) {
