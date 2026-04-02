@@ -200,20 +200,23 @@ export function generateFpPdf(data) {
       try { otherItemsObj = JSON.parse(otherItemsObj); } catch { otherItemsObj = {}; }
     }
 
-    // Helper: append per-category other item as last row in a paired table body
-    // Uses same numbering format as regular items so it blends in
+    // Helper: append per-category other items as individual rows in a paired table body
+    // Splits comma-separated values so each item gets its own numbered line
     const appendOtherRow = (body, leftCat, rightCat) => {
-      const leftOther = otherItemsObj[leftCat] && otherItemsObj[leftCat].trim();
-      const rightOther = rightCat && otherItemsObj[rightCat] && otherItemsObj[rightCat].trim();
-      if (leftOther || rightOther) {
-        // Count existing items to continue numbering
-        const leftCount = body.filter((r) => r[1] && r[1].trim()).length;
-        const rightCount = body.filter((r) => r[3] && r[3].trim()).length;
+      const leftRaw = otherItemsObj[leftCat] && otherItemsObj[leftCat].trim();
+      const rightRaw = rightCat && otherItemsObj[rightCat] && otherItemsObj[rightCat].trim();
+      if (!leftRaw && !rightRaw) return;
+      const leftItems = leftRaw ? leftRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
+      const rightItems = rightRaw ? rightRaw.split(',').map((s) => s.trim()).filter(Boolean) : [];
+      const maxOther = Math.max(leftItems.length, rightItems.length);
+      let leftCount = body.filter((r) => r[1] && r[1].trim()).length;
+      let rightCount = body.filter((r) => r[3] && r[3].trim()).length;
+      for (let i = 0; i < maxOther; i++) {
         body.push([
           '',
-          leftOther ? `  ${leftCount + 1}. ${leftOther} *` : '',
+          leftItems[i] ? `  ${leftCount + 1 + i}. ${leftItems[i]} *` : '',
           '',
-          rightOther ? `  ${rightCount + 1}. ${rightOther} *` : '',
+          rightItems[i] ? `  ${rightCount + 1 + i}. ${rightItems[i]} *` : '',
         ]);
       }
     };
@@ -326,10 +329,13 @@ export function generateFpPdf(data) {
     try { otherItemsObj = JSON.parse(otherItemsObj); } catch { otherItemsObj = {}; }
   }
   if (otherItemsObj._general && otherItemsObj._general.trim()) {
+    const generalItems = otherItemsObj._general.split(',').map((s) => s.trim()).filter(Boolean);
+    const generalBody = generalItems.map((item, i) => [i === 0 ? 'Guest Request' : '', `  ${i + 1}. ${item}`]);
+    if (generalBody.length === 0) generalBody.push(['Guest Request', otherItemsObj._general.trim()]);
     autoTable(doc, {
       startY: y,
       head: [['OTHER ITEM (Outside Menu)', 'Item']],
-      body: [['Guest Request', otherItemsObj._general.trim()]],
+      body: generalBody,
       theme: 'grid',
       headStyles: { fillColor: [180, 130, 50], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5 },
       bodyStyles: { fontSize: fs, cellPadding: cp, fillColor: [255, 250, 235], fontStyle: 'bold', textColor: [10, 10, 10] },

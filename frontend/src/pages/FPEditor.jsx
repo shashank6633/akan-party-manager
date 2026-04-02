@@ -450,20 +450,33 @@ export default function FPEditor() {
     const atLimit = selected.length >= limitNum;
 
     // Other item input for this category
+    const otherVal = (form.otherItems || {})[categoryKey] || '';
+    const otherTags = otherVal.split(',').map((s) => s.trim()).filter(Boolean);
     const otherItemInput = (
-      <div className="mt-2 flex items-center gap-2">
-        <span className="text-[10px] text-amber-500 font-semibold shrink-0">+ Other:</span>
-        <input
-          type="text"
-          value={(form.otherItems || {})[categoryKey] || ''}
-          onChange={(e) => {
-            const updated = { ...(form.otherItems || {}), [categoryKey]: e.target.value };
-            updateField('otherItems', updated);
-          }}
-          readOnly={!canEdit}
-          placeholder={`Guest request item...`}
-          className="flex-1 px-2.5 py-1.5 rounded-lg border border-dashed border-amber-300 bg-amber-50/50 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400/30 placeholder:text-gray-300"
-        />
+      <div className="mt-2">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-amber-500 font-semibold shrink-0">+ Other:</span>
+          <input
+            type="text"
+            value={otherVal}
+            onChange={(e) => {
+              const updated = { ...(form.otherItems || {}), [categoryKey]: e.target.value };
+              updateField('otherItems', updated);
+            }}
+            readOnly={!canEdit}
+            placeholder={`Guest request items (comma separated)...`}
+            className="flex-1 px-2.5 py-1.5 rounded-lg border border-dashed border-amber-300 bg-amber-50/50 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400/30 placeholder:text-gray-300"
+          />
+        </div>
+        {otherTags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-1.5 ml-12">
+            {otherTags.map((tag, i) => (
+              <span key={i} className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-300 text-xs text-amber-800 font-medium">
+                {tag} <span className="text-amber-400">*</span>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     );
 
