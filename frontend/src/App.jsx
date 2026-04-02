@@ -18,6 +18,7 @@ import FPEditor from './pages/FPEditor';
 import FeedbackList from './pages/FeedbackList';
 import FeedbackForm from './pages/FeedbackForm';
 import FeedbackDetail from './pages/FeedbackDetail';
+import SheetsView from './pages/SheetsView';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children, adminOnly = false, hideForRoles = [] }) {
@@ -132,6 +133,11 @@ export default function App() {
   <RoleGuard hideForRoles={['GRE', 'CASHIER', 'ACCOUNTS', 'VIEWER']}>
    <FeedbackDetail />
   </RoleGuard>
+ } />
+ <Route path="sheets" element={
+ <RoleGuard hideForRoles={['GRE', 'CASHIER']}>
+  <SheetsView />
+ </RoleGuard>
  } />
  <Route path="cashier-billing" element={<CashierBilling />} />
  <Route path="profile" element={<Profile />} />
