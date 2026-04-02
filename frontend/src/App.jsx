@@ -135,7 +135,7 @@ export default function App() {
   </RoleGuard>
  } />
  <Route path="sheets" element={
- <RoleGuard hideForRoles={['GRE', 'CASHIER']}>
+ <RoleGuard hideForRoles={['CASHIER']}>
   <SheetsView />
  </RoleGuard>
  } />

@@ -22,7 +22,7 @@ const navItems = [
   { to: '/add-party', icon: PlusCircle, label: 'Add Party', hideFor: ['CASHIER', 'ACCOUNTS', 'VIEWER'] },
   { to: '/cashier-billing', icon: Receipt, label: 'Billing', showFor: ['CASHIER', 'ACCOUNTS', 'ADMIN', 'MANAGER'] },
   { to: '/fp', icon: FileText, label: 'F&P', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS'] },
-  { to: '/sheets', icon: Table2, label: 'Sheets View', hideFor: ['GRE', 'CASHIER'] },
+  { to: '/sheets', icon: Table2, label: 'Sheets View', hideFor: ['CASHIER'] },
   { to: '/feedback', icon: MessageSquare, label: 'Feedback', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS', 'VIEWER'] },
   { to: '/reports', icon: BarChart3, label: 'Reports', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS'] },
   { to: '/settings', icon: Settings, label: 'Settings', hideFor: ['GRE', 'SALES', 'MANAGER', 'CASHIER', 'ACCOUNTS', 'VIEWER'] },

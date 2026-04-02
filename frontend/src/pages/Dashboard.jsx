@@ -592,7 +592,7 @@ export default function Dashboard() {
  <PartyTable
  parties={parties}
  loading={loading}
- onQuickAction={isViewer ? null : handleQuickAction}
+ onQuickAction={isViewer || isGRE ? null : handleQuickAction}
  page={page}
  totalPages={totalPages}
  onPageChange={setPage}
