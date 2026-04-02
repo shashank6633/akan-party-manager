@@ -317,8 +317,8 @@ export default function Dashboard() {
  </>
  )}
 
- {/* Today's Expected Income Banner — ADMIN/MANAGER/CASHIER */}
- {['ADMIN', 'MANAGER', 'CASHIER'].includes(user?.role) && stats?.todayExpectedIncome > 0 && (
+ {/* Today's Expected Income Banner — ADMIN only */}
+ {user?.role === 'ADMIN' && stats?.todayExpectedIncome > 0 && (
  <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
  <div className="flex items-center justify-between gap-3">
   <div className="flex items-center gap-3">
