@@ -1,22 +1,35 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Search, Filter, Calendar, RefreshCw, X, AlertCircle, AlertOctagon, MessageSquarePlus, Phone, Clock, Timer, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Filter, Calendar, RefreshCw, X, AlertCircle, AlertOctagon, MessageSquarePlus, Phone, Clock, Timer, ChevronLeft, ChevronRight, User, IndianRupee, TrendingUp } from 'lucide-react';
 import StatsCards from '../components/Dashboard/StatsCards';
 import PartyTable from '../components/Dashboard/PartyTable';
 import StatusBadge from '../components/Party/StatusBadge';
 import { partyAPI, notificationAPI } from '../services/api';
-import { debounce, formatDate, isTBCDate } from '../utils/helpers';
+import { debounce, formatDate, formatCurrency, isTBCDate } from '../utils/helpers';
 import { useAuth } from '../context/AuthContext';
 
 const STATUS_OPTIONS = ['All', 'Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled'];
 const CASHIER_STATUS_OPTIONS = ['All', 'Confirmed'];
 const PAGE_SIZE = 20;
 
-// Get date 2 weeks from now as YYYY-MM-DD
-function getTwoWeeksFromNow() {
- const d = new Date();
- d.setDate(d.getDate() + 14);
- return d.toISOString().split('T')[0];
+// Format a Date as YYYY-MM-DD in local timezone (avoids UTC shift issues)
+function toLocalDateStr(d) {
+ const y = d.getFullYear();
+ const m = String(d.getMonth() + 1).padStart(2, '0');
+ const day = String(d.getDate()).padStart(2, '0');
+ return `${y}-${m}-${day}`;
+}
+
+// Get start of current month as YYYY-MM-DD
+function getStartOfMonth() {
+ const now = new Date();
+ return toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+}
+
+// Get end of current month as YYYY-MM-DD
+function getEndOfMonth() {
+ const now = new Date();
+ return toLocalDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 }
 
 export default function Dashboard() {
@@ -33,11 +46,12 @@ export default function Dashboard() {
  const [statsLoading, setStatsLoading] = useState(true);
  const [statusFilter, setStatusFilter] = useState('All');
  const [searchQuery, setSearchQuery] = useState('');
- const [dateFrom, setDateFrom] = useState(() => new Date().toISOString().split('T')[0]);
- const [dateTo, setDateTo] = useState(() => getTwoWeeksFromNow());
+ const [dateFrom, setDateFrom] = useState(() => getStartOfMonth());
+ const [dateTo, setDateTo] = useState(() => getEndOfMonth());
  const [page, setPage] = useState(1);
  const [totalPages, setTotalPages] = useState(1);
  const [showFilters, setShowFilters] = useState(false);
+ const [activeQuickDate, setActiveQuickDate] = useState('thisMonth');
 
  // Stats month filter: 0 = this month, -1 = last month, 1 = next month
  const [statsMonthOffset, setStatsMonthOffset] = useState(0);
@@ -46,7 +60,7 @@ export default function Dashboard() {
  const now = new Date();
  const start = new Date(now.getFullYear(), now.getMonth() + offset, 1);
  const end = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
- const fmt = (d) => d.toISOString().split('T')[0];
+ const fmt = (d) => toLocalDateStr(d);
  return { from: fmt(start), to: fmt(end) };
  };
 
@@ -63,6 +77,7 @@ export default function Dashboard() {
  setDateFrom(from);
  setDateTo(to);
  setPage(1);
+ setActiveQuickDate(offset === 0 ? 'thisMonth' : '');
  };
 
  // Quick action modal state
@@ -73,6 +88,10 @@ export default function Dashboard() {
  // Follow-up tracking
  const [pendingFollowUps, setPendingFollowUps] = useState([]);
  const [followUpLoading, setFollowUpLoading] = useState(false);
+
+ // "My Parties" filter for follow-up and upcoming sections
+ const [myFollowUps, setMyFollowUps] = useState(false);
+ const [myUpcoming, setMyUpcoming] = useState(false);
 
  // Stale enquiry alerts
  const [staleEnquiries, setStaleEnquiries] = useState([]);
@@ -148,18 +167,28 @@ export default function Dashboard() {
  fetchStaleEnquiries();
  }, [fetchStaleEnquiries]);
 
- // Auto-show popup when stale enquiries are detected
+ // Auto-show popup only once when NEW stale enquiries appear (not after dismissal)
+ const [staleDismissedIds, setStaleDismissedIds] = useState([]);
  useEffect(() => {
- if (staleEnquiries.length > 0) setShowStalePopup(true);
+ if (staleEnquiries.length > 0) {
+  const newIds = staleEnquiries.map((p) => p.rowIndex);
+  const hasNew = newIds.some((id) => !staleDismissedIds.includes(id));
+  if (hasNew) setShowStalePopup(true);
+ }
  }, [staleEnquiries]);
 
- // Auto-refresh every 30 seconds
+ const dismissStalePopup = () => {
+ setShowStalePopup(false);
+ setStaleDismissedIds(staleEnquiries.map((p) => p.rowIndex));
+ };
+
+ // Auto-refresh every 5 minutes
  useEffect(() => {
  const interval = setInterval(() => {
  fetchParties();
  fetchStats();
  fetchStaleEnquiries();
- }, 30000);
+ }, 300000);
  return () => clearInterval(interval);
  }, [fetchParties, fetchStats, fetchStaleEnquiries]);
 
@@ -177,34 +206,34 @@ export default function Dashboard() {
 
  // Quick date buttons
  const setToday = () => {
- const today = new Date().toISOString().split('T')[0];
+ const today = toLocalDateStr(new Date());
  setDateFrom(today);
  setDateTo(today);
  setPage(1);
+ setActiveQuickDate('today');
  };
  const setThisWeek = () => {
  const now = new Date();
  const start = new Date(now);
  start.setDate(now.getDate() - now.getDay());
- setDateFrom(start.toISOString().split('T')[0]);
- setDateTo(now.toISOString().split('T')[0]);
+ setDateFrom(toLocalDateStr(start));
+ setDateTo(toLocalDateStr(now));
  setPage(1);
+ setActiveQuickDate('thisWeek');
  };
  const setThisMonth = () => {
  const now = new Date();
- const start = new Date(now.getFullYear(), now.getMonth(), 1);
- const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
- setDateFrom(start.toISOString().split('T')[0]);
- setDateTo(end.toISOString().split('T')[0]);
+ setDateFrom(toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), 1)));
+ setDateTo(toLocalDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0)));
  setPage(1);
+ setActiveQuickDate('thisMonth');
  };
  const setNextMonth = () => {
  const now = new Date();
- const start = new Date(now.getFullYear(), now.getMonth() + 1, 1);
- const end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
- setDateFrom(start.toISOString().split('T')[0]);
- setDateTo(end.toISOString().split('T')[0]);
+ setDateFrom(toLocalDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 1)));
+ setDateTo(toLocalDateStr(new Date(now.getFullYear(), now.getMonth() + 2, 0)));
  setPage(1);
+ setActiveQuickDate('nextMonth');
  };
  const clearFilters = () => {
  setStatusFilter('All');
@@ -212,6 +241,7 @@ export default function Dashboard() {
  setDateFrom('');
  setDateTo('');
  setPage(1);
+ setActiveQuickDate('');
  };
 
  const hasActiveFilters = statusFilter !== 'All' || searchQuery || dateFrom || dateTo;
@@ -283,13 +313,48 @@ export default function Dashboard() {
   ))}
   </div>
  </div>
- <StatsCards stats={stats} loading={statsLoading} cashierView={isCashier} showRevenue={['SALES', 'MANAGER', 'ADMIN'].includes(user?.role)} />
+ <StatsCards stats={stats} loading={statsLoading} cashierView={isCashier} showRevenue={['CASHIER', 'ACCOUNTS', 'ADMIN'].includes(user?.role)} />
  </>
+ )}
+
+ {/* Today's Expected Income Banner — ADMIN/MANAGER/CASHIER */}
+ {['ADMIN', 'MANAGER', 'CASHIER'].includes(user?.role) && stats?.todayExpectedIncome > 0 && (
+ <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+ <div className="flex items-center justify-between gap-3">
+  <div className="flex items-center gap-3">
+  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+   <TrendingUp className="w-5 h-5 text-green-600" />
+  </div>
+  <div>
+   <p className="text-xs font-medium text-green-700 uppercase tracking-wider">Today's Expected Income</p>
+   <p className="text-2xl font-black text-green-800">{formatCurrency(stats.todayExpectedIncome)}</p>
+   <p className="text-[11px] text-green-600 mt-0.5">
+   {stats.todayConfirmed} confirmed part{stats.todayConfirmed !== 1 ? 'ies' : 'y'} today
+   </p>
+  </div>
+  </div>
+  {stats.todayConfirmedParties && stats.todayConfirmedParties.length > 0 && (
+  <div className="hidden sm:flex flex-col gap-1 max-w-xs">
+   {stats.todayConfirmedParties.slice(0, 3).map((p, i) => (
+   <div key={i} className="flex items-center gap-2 text-[11px] bg-white/70 rounded-lg px-2.5 py-1.5">
+    <span className="font-semibold text-gray-800 truncate max-w-[120px]">{p.hostName}</span>
+    {p.partyTime && <span className="text-orange-700 font-medium bg-orange-50 px-1.5 py-0.5 rounded text-[10px]">{p.partyTime}</span>}
+    {p.place && <span className="text-blue-700 font-medium bg-blue-50 px-1.5 py-0.5 rounded text-[10px]">{p.place}</span>}
+    <span className="font-bold text-green-700 ml-auto">{formatCurrency(p.approxBill)}</span>
+   </div>
+   ))}
+   {stats.todayConfirmedParties.length > 3 && (
+   <p className="text-[10px] text-green-600 text-right">+{stats.todayConfirmedParties.length - 3} more</p>
+   )}
+  </div>
+  )}
+ </div>
+ </div>
  )}
 
  {/* URGENT: Stale enquiry popup modal */}
  {canFollowUp && showStalePopup && staleEnquiries.length > 0 && (
- <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={() => setShowStalePopup(false)}>
+ <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onClick={dismissStalePopup}>
  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-in" onClick={(e) => e.stopPropagation()}>
  {/* Header */}
  <div className="bg-red-600 rounded-t-2xl px-5 py-4 flex items-center justify-between">
@@ -304,7 +369,7 @@ export default function Dashboard() {
    <p className="text-xs text-red-100 mt-0.5">Not updated for over 2 minutes</p>
   </div>
   </div>
-  <button onClick={() => setShowStalePopup(false)} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
+  <button onClick={dismissStalePopup} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
   <X className="w-5 h-5 text-white" />
   </button>
  </div>
@@ -319,7 +384,7 @@ export default function Dashboard() {
   {staleEnquiries.map((party) => (
    <div
    key={party.rowIndex}
-   onClick={() => { setShowStalePopup(false); navigate(`/parties/${party.rowIndex}`); }}
+   onClick={() => { dismissStalePopup(); navigate(`/parties/${party.rowIndex}`); }}
    className="flex items-center justify-between gap-3 p-3 bg-red-50 rounded-xl border border-red-200 cursor-pointer hover:bg-red-100 hover:border-red-400 transition-all"
    >
    <div className="min-w-0 flex-1">
@@ -370,7 +435,7 @@ export default function Dashboard() {
  {/* Footer */}
  <div className="border-t border-gray-100 px-5 py-3 flex justify-end">
   <button
-  onClick={() => setShowStalePopup(false)}
+  onClick={dismissStalePopup}
   className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors"
   >
   Got it
@@ -381,15 +446,34 @@ export default function Dashboard() {
  )}
 
  {/* Follow-up tracking for Sales/Manager */}
- {canFollowUp && pendingFollowUps.length > 0 && (
+ {canFollowUp && pendingFollowUps.length > 0 && (() => {
+ const filteredFollowUps = myFollowUps
+  ? pendingFollowUps.filter((p) => p.handledBy && p.handledBy.toLowerCase().includes(user?.name?.toLowerCase()))
+  : pendingFollowUps;
+ return (
  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
- <div className="flex items-center gap-2 mb-3">
+ <div className="flex items-center justify-between mb-3">
+ <div className="flex items-center gap-2">
  <AlertCircle className="w-4 h-4 text-amber-600" />
- <h3 className="text-sm font-semibold text-amber-800">Needs Follow-Up ({pendingFollowUps.length})</h3>
+ <h3 className="text-sm font-semibold text-amber-800">Needs Follow-Up ({filteredFollowUps.length})</h3>
  <span className="text-[10px] text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full font-medium">Pending</span>
  </div>
+ {user?.name && (
+ <button
+  onClick={() => setMyFollowUps(!myFollowUps)}
+  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+  myFollowUps
+   ? 'bg-[#af4408] text-white shadow-sm'
+   : 'bg-white text-gray-600 border border-gray-300 hover:border-[#af4408] hover:text-[#af4408]'
+  }`}
+ >
+  <User className="w-3.5 h-3.5" />
+  {myFollowUps ? user.name : 'My Parties'}
+ </button>
+ )}
+ </div>
  <div className="space-y-2 max-h-[400px] overflow-y-auto">
- {pendingFollowUps.map((party) => (
+ {filteredFollowUps.map((party) => (
  <div
  key={party.rowIndex}
  onClick={() => navigate(`/parties/${party.rowIndex}`)}
@@ -459,7 +543,8 @@ export default function Dashboard() {
  ))}
  </div>
  </div>
- )}
+ );
+ })()}
 
  {/* Upcoming parties banner */}
  <div className="bg-[#af4408]/5 border border-[#af4408]/20 rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -471,14 +556,29 @@ export default function Dashboard() {
   {searchQuery ? `Searching "${searchQuery}" across all dates` : dateFrom && dateTo ? `Filtered by date range` : 'Showing all parties'}
  </p>
  </div>
- {!isGRE && !isCashier && (dateFrom || dateTo) && !searchQuery && (
+ <div className="flex items-center gap-2">
+ {user?.name && (
  <button
- onClick={() => { setDateFrom(''); setDateTo(''); setPage(1); }}
- className="text-xs text-[#af4408] font-medium hover:underline shrink-0"
+  onClick={() => setMyUpcoming(!myUpcoming)}
+  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+  myUpcoming
+   ? 'bg-[#af4408] text-white shadow-sm'
+   : 'bg-white text-gray-600 border border-gray-300 hover:border-[#af4408] hover:text-[#af4408]'
+  }`}
  >
- Show All
+  <User className="w-3.5 h-3.5" />
+  {myUpcoming ? user.name : 'My Parties'}
  </button>
  )}
+ {!isGRE && !isCashier && (dateFrom || dateTo) && !searchQuery && (
+ <button
+  onClick={() => { setDateFrom(''); setDateTo(''); setPage(1); }}
+  className="text-xs text-[#af4408] font-medium hover:underline shrink-0"
+ >
+  Show All
+ </button>
+ )}
+ </div>
  </div>
 
  {/* Filters bar */}
@@ -521,10 +621,10 @@ export default function Dashboard() {
  {/* Quick date buttons */}
  {!isGRE && !isCashier && (
  <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-  <button onClick={setToday} className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors whitespace-nowrap">Today</button>
-  <button onClick={setThisWeek} className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors whitespace-nowrap">This Week</button>
-  <button onClick={setThisMonth} className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors whitespace-nowrap">This Month</button>
-  <button onClick={setNextMonth} className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-[#af4408]/10 text-[#af4408] hover:bg-[#af4408]/20 transition-colors whitespace-nowrap">Next Month</button>
+  <button onClick={setToday} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors whitespace-nowrap ${activeQuickDate === 'today' ? 'bg-[#af4408] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Today</button>
+  <button onClick={setThisWeek} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors whitespace-nowrap ${activeQuickDate === 'thisWeek' ? 'bg-[#af4408] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>This Week</button>
+  <button onClick={setThisMonth} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors whitespace-nowrap ${activeQuickDate === 'thisMonth' ? 'bg-[#af4408] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>This Month</button>
+  <button onClick={setNextMonth} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors whitespace-nowrap ${activeQuickDate === 'nextMonth' ? 'bg-[#af4408] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>Next Month</button>
  </div>
  )}
 
@@ -590,7 +690,7 @@ export default function Dashboard() {
 
  {/* Party table */}
  <PartyTable
- parties={parties}
+ parties={myUpcoming ? parties.filter((p) => p.handledBy && p.handledBy.toLowerCase().includes(user?.name?.toLowerCase())) : parties}
  loading={loading}
  onQuickAction={isViewer || isGRE ? null : handleQuickAction}
  page={page}

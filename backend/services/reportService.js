@@ -92,6 +92,18 @@ async function generateRangeReport(fromDate, toDate) {
       (sum, r) => sum + (parseFloat(r['Final Total Amount']) || 0),
       0
     ),
+    totalApproxBill: filtered.reduce(
+      (sum, r) => sum + (parseFloat(r['Approx Bill Amount']) || 0),
+      0
+    ),
+    confirmedApproxBill: filtered.filter((r) => (r['Status'] || '').trim() === 'Confirmed').reduce(
+      (sum, r) => sum + (parseFloat(r['Approx Bill Amount']) || 0),
+      0
+    ),
+    confirmedFinalBill: filtered.filter((r) => (r['Status'] || '').trim() === 'Confirmed').reduce(
+      (sum, r) => sum + (parseFloat(r['Final Total Amount']) || 0),
+      0
+    ),
     totalAdvance: filtered.reduce(
       (sum, r) => sum + (parseFloat(r['Total Advance Paid']) || 0),
       0

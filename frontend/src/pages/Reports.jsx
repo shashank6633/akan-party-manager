@@ -9,13 +9,20 @@ import {
  PieChart as PieIcon,
  FileSpreadsheet,
  FileText,
+ Star,
+ MessageSquare,
+ ThumbsUp,
+ ThumbsDown,
+ AlertTriangle,
+ PhoneCall,
+ ChefHat,
 } from 'lucide-react';
 import {
  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
  PieChart, Pie, Cell, Legend,
  LineChart, Line,
 } from 'recharts';
-import { reportAPI, partyAPI } from '../services/api';
+import { reportAPI, partyAPI, feedbackAPI } from '../services/api';
 import { formatCurrency, exportToExcel } from '../utils/helpers';
 import { useAuth } from '../context/AuthContext';
 
@@ -28,14 +35,19 @@ const STATUS_COLORS = {
  Unknown: '#6B7280',
 };
 
-const TABS = [
+const ALL_TABS = [
  { id: 'overview', label: 'Overview', icon: BarChart3 },
- { id: 'financial', label: 'Financial', icon: TrendingUp },
+ { id: 'financial', label: 'Financial', icon: TrendingUp, revenueOnly: true },
  { id: 'status', label: 'Status Analysis', icon: PieIcon },
+ { id: 'feedback', label: 'Feedback', icon: Star },
 ];
+
+const RATING_COLORS = { 5: '#22C55E', 4: '#84CC16', 3: '#EAB308', 2: '#F97316', 1: '#EF4444' };
+const RATING_LABELS = { 5: 'Excellent', 4: 'Good', 3: 'Average', 2: 'Poor', 1: 'Very Poor' };
 
 export default function Reports() {
  const { user } = useAuth();
+ const canSeeRevenue = user?.role === 'ADMIN';
  const [activeTab, setActiveTab] = useState('overview');
  const [dateFrom, setDateFrom] = useState(() => {
  return `${new Date().getFullYear()}-01-01`;
@@ -47,10 +59,16 @@ export default function Reports() {
  const [loading, setLoading] = useState(true);
  const [sendingReport, setSendingReport] = useState(false);
  const [allParties, setAllParties] = useState([]);
+ const [feedbackData, setFeedbackData] = useState([]);
+ const [feedbackLoading, setFeedbackLoading] = useState(false);
 
  useEffect(() => {
  fetchReport();
  }, [dateFrom, dateTo]);
+
+ useEffect(() => {
+ if (activeTab === 'feedback') fetchFeedback();
+ }, [activeTab]);
 
  const fetchReport = async () => {
  setLoading(true);
@@ -66,6 +84,18 @@ export default function Reports() {
  console.error('Failed to fetch report:', err);
  } finally {
  setLoading(false);
+ }
+ };
+
+ const fetchFeedback = async () => {
+ setFeedbackLoading(true);
+ try {
+ const res = await feedbackAPI.getAll();
+ setFeedbackData(res.data.feedback || []);
+ } catch (err) {
+ console.error('Failed to fetch feedback:', err);
+ } finally {
+ setFeedbackLoading(false);
  }
  };
 
@@ -134,8 +164,9 @@ export default function Reports() {
  allParties.forEach((p) => {
  const date = p.date?.split('T')[0] || p.date;
  if (!date || date.startsWith('TBC') || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
- if (!dailyRevenue[date]) dailyRevenue[date] = { date, revenue: 0, count: 0 };
+ if (!dailyRevenue[date]) dailyRevenue[date] = { date, revenue: 0, approxBill: 0, count: 0 };
  dailyRevenue[date].revenue += parseFloat(p.finalTotalAmount) || 0;
+ dailyRevenue[date].approxBill += parseFloat(p.approxBillAmount) || 0;
  dailyRevenue[date].count += 1;
  });
  const revenueTimeline = Object.values(dailyRevenue).sort((a, b) => a.date.localeCompare(b.date));
@@ -302,7 +333,7 @@ export default function Reports() {
 
  {/* Tabs */}
  <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-full sm:w-fit overflow-x-auto">
- {TABS.map((tab) => (
+ {ALL_TABS.filter((tab) => !tab.revenueOnly || canSeeRevenue).map((tab) => (
  <button
  key={tab.id}
  onClick={() => setActiveTab(tab.id)}
@@ -329,8 +360,8 @@ export default function Reports() {
  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
  <StatCard label="Total Parties" value={reportData?.total || 0} />
  <StatCard label="Confirmed" value={reportData?.confirmed || 0} color="text-green-600" />
- <StatCard label="Total Revenue" value={formatCurrency(reportData?.totalRevenue || 0)} color="text-[#af4408]" />
- <StatCard label="Pending Dues" value={formatCurrency(reportData?.pendingDues || 0)} color="text-orange-500" />
+ {canSeeRevenue && <StatCard label="Total Revenue" value={formatCurrency(reportData?.totalRevenue || 0)} color="text-[#af4408]" />}
+ {canSeeRevenue && <StatCard label="Pending Dues" value={formatCurrency(reportData?.pendingDues || 0)} color="text-orange-500" />}
  </div>
 
  {/* Bar Chart */}
@@ -360,13 +391,105 @@ export default function Reports() {
  {/* Financial Tab */}
  {activeTab === 'financial' && (
  <div className="space-y-6">
- <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
- <StatCard label="Total Revenue" value={formatCurrency(reportData?.totalRevenue || 0)} color="text-[#af4408]" />
+ {/* Row 1: Key financial cards */}
+ <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+ <StatCard label="Approx Bill (Est.)" value={formatCurrency(reportData?.totalApproxBill || 0)} color="text-purple-600" />
+ <StatCard label="Final Bill (Actual)" value={formatCurrency(reportData?.totalRevenue || 0)} color="text-[#af4408]" />
  <StatCard label="Advance Collected" value={formatCurrency(reportData?.totalAdvance || 0)} color="text-green-600" />
  <StatCard label="Amount Paid" value={formatCurrency(reportData?.amountPaid || 0)} color="text-blue-600" />
  <StatCard label="Pending Dues" value={formatCurrency(reportData?.pendingDues || 0)} color="text-orange-500" />
+ <StatCard
+  label="Variance"
+  value={(() => {
+  const approx = reportData?.confirmedApproxBill || 0;
+  const actual = reportData?.confirmedFinalBill || 0;
+  if (!approx) return '-';
+  const diff = actual - approx;
+  const pct = ((diff / approx) * 100).toFixed(1);
+  return `${diff >= 0 ? '+' : ''}${pct}%`;
+  })()}
+  color={((reportData?.confirmedFinalBill || 0) >= (reportData?.confirmedApproxBill || 0)) ? 'text-green-600' : 'text-red-500'}
+ />
  </div>
 
+ {/* Row 2: Approx vs Final Comparison (Confirmed only) */}
+ <div className="bg-white rounded-xl border border-gray-200 p-5">
+ <h3 className="text-sm font-semibold text-gray-800 mb-1">Approx Bill vs Final Bill (Confirmed Parties)</h3>
+ <p className="text-xs text-gray-400 mb-4">Comparing estimated billing vs actual billing for confirmed events</p>
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  {/* Visual comparison bars */}
+  <div className="space-y-4">
+  {(() => {
+   const approx = reportData?.confirmedApproxBill || 0;
+   const actual = reportData?.confirmedFinalBill || 0;
+   const max = Math.max(approx, actual, 1);
+   return (
+   <>
+    <div>
+    <div className="flex items-center justify-between mb-1">
+     <span className="text-xs font-medium text-purple-700">Approx Bill Amount</span>
+     <span className="text-sm font-bold text-purple-700">{formatCurrency(approx)}</span>
+    </div>
+    <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden">
+     <div className="h-full bg-purple-500 rounded-full transition-all" style={{ width: `${(approx / max) * 100}%` }} />
+    </div>
+    </div>
+    <div>
+    <div className="flex items-center justify-between mb-1">
+     <span className="text-xs font-medium text-[#af4408]">Final Bill Amount</span>
+     <span className="text-sm font-bold text-[#af4408]">{formatCurrency(actual)}</span>
+    </div>
+    <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden">
+     <div className="h-full bg-[#af4408] rounded-full transition-all" style={{ width: `${(actual / max) * 100}%` }} />
+    </div>
+    </div>
+    <div className="pt-2 border-t border-gray-100">
+    <div className="flex items-center justify-between">
+     <span className="text-xs text-gray-500">Difference</span>
+     <span className={`text-sm font-bold ${actual >= approx ? 'text-green-600' : 'text-red-500'}`}>
+     {actual >= approx ? '+' : ''}{formatCurrency(actual - approx)}
+     </span>
+    </div>
+    </div>
+   </>
+   );
+  })()}
+  </div>
+
+  {/* Bar chart per date: Approx vs Final */}
+  <div>
+  {(() => {
+   const confirmedParties = allParties.filter((p) => p.status === 'Confirmed');
+   const compData = [];
+   const dateMap = {};
+   confirmedParties.forEach((p) => {
+   const date = p.date?.split('T')[0] || p.date;
+   if (!date || date.startsWith('TBC') || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+   if (!dateMap[date]) dateMap[date] = { date, approx: 0, final: 0 };
+   dateMap[date].approx += parseFloat(p.approxBillAmount) || 0;
+   dateMap[date].final += parseFloat(p.finalTotalAmount) || 0;
+   });
+   const chartData = Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date));
+   if (chartData.length === 0) return <p className="text-center text-gray-400 py-10 text-sm">No confirmed party data</p>;
+   return (
+   <ResponsiveContainer width="100%" height={200}>
+    <BarChart data={chartData}>
+    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+    <XAxis dataKey="date" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={50} tickFormatter={(d) => { const p = d.split('-'); return `${p[2]}/${p[1]}`; }} />
+    <YAxis tick={{ fontSize: 10 }} width={50} tickFormatter={(v) => v >= 100000 ? `${(v / 100000).toFixed(1)}L` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : `${v}`} />
+    <Tooltip formatter={(v) => formatCurrency(v)} labelFormatter={(d) => { const p = d.split('-'); return `${p[2]}-${p[1]}-${p[0]}`; }} />
+    <Legend />
+    <Bar dataKey="approx" name="Approx Bill" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+    <Bar dataKey="final" name="Final Bill" fill="#af4408" radius={[4, 4, 0, 0]} />
+    </BarChart>
+   </ResponsiveContainer>
+   );
+  })()}
+  </div>
+ </div>
+ </div>
+
+ {/* Row 3: Revenue Timeline (dual line) */}
  <div className="bg-white rounded-xl border border-gray-200 p-5">
  <h3 className="text-sm font-semibold text-gray-800 mb-4">Revenue Timeline</h3>
  {revenueTimeline.length > 0 ? (
@@ -388,7 +511,9 @@ export default function Reports() {
   tickFormatter={(v) => v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : v >= 1000 ? `₹${(v / 1000).toFixed(0)}K` : `₹${v}`}
  />
  <Tooltip formatter={(v) => formatCurrency(v)} labelFormatter={(d) => { const parts = d.split('-'); return `${parts[2]}-${parts[1]}-${parts[0]}`; }} />
- <Line type="monotone" dataKey="revenue" stroke="#af4408" strokeWidth={2} dot={{ fill: '#af4408', r: 3 }} activeDot={{ r: 5 }} />
+ <Legend />
+ <Line type="monotone" dataKey="approxBill" name="Approx Bill" stroke="#8B5CF6" strokeWidth={2} dot={{ fill: '#8B5CF6', r: 2 }} strokeDasharray="5 5" />
+ <Line type="monotone" dataKey="revenue" name="Final Bill" stroke="#af4408" strokeWidth={2} dot={{ fill: '#af4408', r: 3 }} activeDot={{ r: 5 }} />
  </LineChart>
  </ResponsiveContainer>
  ) : (
@@ -475,7 +600,7 @@ export default function Reports() {
  {[
   { label: 'Conversion Rate', value: reportData?.total ? `${((reportData.confirmed / reportData.total) * 100).toFixed(1)}%` : '0%', desc: 'Confirmed / Total Enquiries' },
   { label: 'Cancellation Rate', value: reportData?.total ? `${((reportData.cancelled / reportData.total) * 100).toFixed(1)}%` : '0%', desc: 'Cancelled / Total Enquiries' },
-  { label: 'Collection Rate', value: reportData?.totalRevenue ? `${(((reportData.totalAdvance || 0) / reportData.totalRevenue) * 100).toFixed(1)}%` : '0%', desc: 'Advance Collected / Total Revenue' },
+  ...(canSeeRevenue ? [{ label: 'Collection Rate', value: reportData?.totalRevenue ? `${(((reportData.totalAdvance || 0) / reportData.totalRevenue) * 100).toFixed(1)}%` : '0%', desc: 'Advance Collected / Total Revenue' }] : []),
  ].map((metric) => (
   <div key={metric.label} className="flex items-center justify-between py-1.5 gap-2">
    <div className="min-w-0">
@@ -490,8 +615,364 @@ export default function Reports() {
  </div>
  </div>
  )}
+
+ {/* Feedback Analytics Tab */}
+ {activeTab === 'feedback' && (
+ <FeedbackAnalytics data={feedbackData} loading={feedbackLoading} />
+ )}
  </>
  )}
+ </div>
+ );
+}
+
+// =============================================================================
+// FEEDBACK ANALYTICS COMPONENT
+// =============================================================================
+function FeedbackAnalytics({ data, loading }) {
+ if (loading) {
+ return (
+  <div className="flex items-center justify-center py-20">
+  <Loader2 className="w-8 h-8 animate-spin text-[#af4408]" />
+  </div>
+ );
+ }
+
+ if (!data || data.length === 0) {
+ return (
+  <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+  <Star className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+  <h3 className="text-lg font-semibold text-gray-700 mb-1">No Feedback Yet</h3>
+  <p className="text-sm text-gray-500">Feedback analytics will appear here once guests submit reviews.</p>
+  </div>
+ );
+ }
+
+ // ---- Compute analytics ----
+ const total = data.length;
+
+ // Helper: safe parse int
+ const safeInt = (v) => parseInt(v) || 0;
+
+ // Overall rating stats
+ const overallRatings = data.map((f) => safeInt(f.overallRating)).filter((r) => r > 0);
+ const avgOverall = overallRatings.length > 0 ? (overallRatings.reduce((a, b) => a + b, 0) / overallRatings.length) : 0;
+
+ // Category averages
+ const categoryFields = [
+ { key: 'foodQualityRating', label: 'Food Quality', icon: '🍽️' },
+ { key: 'staffBehaviorRating', label: 'Staff Behavior', icon: '👤' },
+ { key: 'orderAccuracyRating', label: 'Order Accuracy', icon: '✅' },
+ { key: 'servingSpeedRating', label: 'Serving Speed', icon: '⚡' },
+ { key: 'beveragesRating', label: 'Beverages', icon: '🍷' },
+ { key: 'cleanlinessRating', label: 'Cleanliness', icon: '✨' },
+ { key: 'musicRating', label: 'Music & Entertainment', icon: '🎵' },
+ { key: 'seatingComfortRating', label: 'Seating Comfort', icon: '💺' },
+ ];
+ const categoryAvgs = categoryFields.map((cf) => {
+ const vals = data.map((f) => safeInt(f[cf.key])).filter((r) => r > 0);
+ const avg = vals.length > 0 ? (vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+ return { ...cf, avg, count: vals.length };
+ }).filter((c) => c.count > 0);
+
+ // Rating distribution (1-5)
+ const ratingDist = [5, 4, 3, 2, 1].map((r) => ({
+ rating: r,
+ label: RATING_LABELS[r],
+ count: overallRatings.filter((v) => v === r).length,
+ pct: overallRatings.length > 0 ? ((overallRatings.filter((v) => v === r).length / overallRatings.length) * 100) : 0,
+ }));
+
+ // Per-item dish ratings (parse JSON arrays)
+ const allDishRatings = [];
+ const parseItemRatings = (jsonStr) => {
+ if (!jsonStr) return [];
+ try {
+  const parsed = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+  return Array.isArray(parsed) ? parsed : [];
+ } catch { return []; }
+ };
+ data.forEach((f) => {
+ ['startersItemRatings', 'mainCourseItemRatings', 'sidesItemRatings', 'dessertItemRatings', 'addonItemRatings'].forEach((field) => {
+  parseItemRatings(f[field]).forEach((item) => {
+  if (item.item && safeInt(item.rating) > 0) {
+   allDishRatings.push({ name: item.item, rating: safeInt(item.rating), comment: item.comment || '' });
+  }
+  });
+ });
+ });
+
+ // Aggregate dish averages
+ const dishMap = {};
+ allDishRatings.forEach((d) => {
+ if (!dishMap[d.name]) dishMap[d.name] = { name: d.name, total: 0, count: 0 };
+ dishMap[d.name].total += d.rating;
+ dishMap[d.name].count += 1;
+ });
+ const dishAvgs = Object.values(dishMap).map((d) => ({ ...d, avg: d.total / d.count }));
+ const topDishes = [...dishAvgs].sort((a, b) => b.avg - a.avg || b.count - a.count).slice(0, 8);
+ const bottomDishes = [...dishAvgs].sort((a, b) => a.avg - b.avg || b.count - a.count).slice(0, 8);
+
+ // Package performance
+ const pkgMap = {};
+ data.forEach((f) => {
+ const pkg = f.packageType || 'Unknown';
+ const r = safeInt(f.overallRating);
+ if (r <= 0) return;
+ if (!pkgMap[pkg]) pkgMap[pkg] = { name: pkg, total: 0, count: 0 };
+ pkgMap[pkg].total += r;
+ pkgMap[pkg].count += 1;
+ });
+ const pkgPerf = Object.values(pkgMap).map((p) => ({ ...p, avg: p.total / p.count })).sort((a, b) => b.avg - a.avg);
+
+ // Complaints & suggestions
+ const complaints = data.filter((f) => f.complaint && f.complaint.trim()).map((f) => ({
+ guest: f.guestName || f.reviewerName || 'Guest',
+ date: f.dateOfEvent || f.submittedAt || '',
+ text: f.complaint,
+ wantsCallback: f.wantsCallback === 'Yes',
+ rating: safeInt(f.overallRating),
+ package: f.packageType || '',
+ }));
+ const suggestions = data.filter((f) => f.suggestion && f.suggestion.trim()).map((f) => ({
+ guest: f.guestName || f.reviewerName || 'Guest',
+ date: f.dateOfEvent || f.submittedAt || '',
+ text: f.suggestion,
+ rating: safeInt(f.overallRating),
+ }));
+ const callbackNeeded = data.filter((f) => f.wantsCallback === 'Yes');
+
+ // Stars renderer
+ const StarsSmall = ({ value }) => {
+ const r = Math.round(parseFloat(value) || 0);
+ return (
+  <div className="flex items-center gap-0.5">
+  {[1, 2, 3, 4, 5].map((i) => (
+   <Star key={i} className={`w-3.5 h-3.5 ${i <= r ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
+  ))}
+  </div>
+ );
+ };
+
+ // Rating bar color
+ const ratingBarColor = (avg) => avg >= 4 ? 'bg-green-500' : avg >= 3 ? 'bg-amber-400' : avg >= 2 ? 'bg-orange-500' : 'bg-red-500';
+ const ratingTextColor = (avg) => avg >= 4 ? 'text-green-600' : avg >= 3 ? 'text-amber-600' : avg >= 2 ? 'text-orange-600' : 'text-red-600';
+
+ return (
+ <div className="space-y-6">
+
+ {/* Row 1: Overall Score + Rating Distribution */}
+ <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  {/* Overall Score Card */}
+  <div className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col items-center justify-center">
+  <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wider">Overall Satisfaction</p>
+  <div className={`text-5xl font-black ${ratingTextColor(avgOverall)}`}>
+   {avgOverall.toFixed(1)}
+  </div>
+  <div className="flex items-center gap-0.5 mt-2">
+   {[1, 2, 3, 4, 5].map((i) => (
+   <Star key={i} className={`w-6 h-6 ${i <= Math.round(avgOverall) ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
+   ))}
+  </div>
+  <p className="text-sm text-gray-500 mt-2">{total} review{total !== 1 ? 's' : ''}</p>
+  <p className={`text-sm font-semibold mt-1 ${ratingTextColor(avgOverall)}`}>
+   {avgOverall >= 4.5 ? 'Outstanding' : avgOverall >= 4 ? 'Very Good' : avgOverall >= 3 ? 'Average' : avgOverall >= 2 ? 'Needs Improvement' : avgOverall > 0 ? 'Poor' : '-'}
+  </p>
+  </div>
+
+  {/* Rating Distribution */}
+  <div className="bg-white rounded-xl border border-gray-200 p-5 md:col-span-2">
+  <h3 className="text-sm font-semibold text-gray-800 mb-4">Rating Distribution</h3>
+  <div className="space-y-2.5">
+   {ratingDist.map((rd) => (
+   <div key={rd.rating} className="flex items-center gap-3">
+    <div className="flex items-center gap-1 w-20 shrink-0">
+    <span className="text-sm font-semibold text-gray-700">{rd.rating}</span>
+    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+    <span className="text-[10px] text-gray-400">{rd.label}</span>
+    </div>
+    <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+    <div
+     className="h-full rounded-full transition-all"
+     style={{ width: `${rd.pct}%`, backgroundColor: RATING_COLORS[rd.rating] }}
+    />
+    </div>
+    <span className="text-xs font-semibold text-gray-600 w-16 text-right">{rd.count} ({rd.pct.toFixed(0)}%)</span>
+   </div>
+   ))}
+  </div>
+  </div>
+ </div>
+
+ {/* Row 2: Category Breakdown */}
+ {categoryAvgs.length > 0 && (
+  <div className="bg-white rounded-xl border border-gray-200 p-5">
+  <h3 className="text-sm font-semibold text-gray-800 mb-4">Category Ratings</h3>
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   {categoryAvgs.map((cat) => (
+   <div key={cat.key} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+    <span className="text-xl">{cat.icon}</span>
+    <div className="flex-1 min-w-0">
+    <p className="text-xs font-medium text-gray-700 truncate">{cat.label}</p>
+    <div className="flex items-center gap-2 mt-1">
+     <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+     <div className={`h-full rounded-full ${ratingBarColor(cat.avg)}`} style={{ width: `${(cat.avg / 5) * 100}%` }} />
+     </div>
+     <span className={`text-sm font-bold ${ratingTextColor(cat.avg)}`}>{cat.avg.toFixed(1)}</span>
+    </div>
+    <p className="text-[10px] text-gray-400 mt-0.5">{cat.count} reviews</p>
+    </div>
+   </div>
+   ))}
+  </div>
+  </div>
+ )}
+
+ {/* Row 3: Top Dishes + Bottom Dishes */}
+ {dishAvgs.length > 0 && (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  {/* Top Rated */}
+  <div className="bg-white rounded-xl border border-gray-200 p-5">
+   <div className="flex items-center gap-2 mb-4">
+   <ThumbsUp className="w-4 h-4 text-green-600" />
+   <h3 className="text-sm font-semibold text-gray-800">Top Rated Dishes</h3>
+   </div>
+   <div className="space-y-2">
+   {topDishes.map((d, i) => (
+    <div key={d.name} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-gray-50">
+    <span className={`text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center ${i < 3 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{i + 1}</span>
+    <p className="text-sm text-gray-800 flex-1 truncate">{d.name}</p>
+    <StarsSmall value={d.avg} />
+    <span className={`text-sm font-bold ${ratingTextColor(d.avg)}`}>{d.avg.toFixed(1)}</span>
+    <span className="text-[10px] text-gray-400">({d.count})</span>
+    </div>
+   ))}
+   </div>
+  </div>
+
+  {/* Bottom Rated */}
+  <div className="bg-white rounded-xl border border-gray-200 p-5">
+   <div className="flex items-center gap-2 mb-4">
+   <ThumbsDown className="w-4 h-4 text-red-500" />
+   <h3 className="text-sm font-semibold text-gray-800">Needs Improvement</h3>
+   </div>
+   <div className="space-y-2">
+   {bottomDishes.map((d, i) => (
+    <div key={d.name} className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-gray-50">
+    <span className={`text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center ${i < 3 ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>{i + 1}</span>
+    <p className="text-sm text-gray-800 flex-1 truncate">{d.name}</p>
+    <StarsSmall value={d.avg} />
+    <span className={`text-sm font-bold ${ratingTextColor(d.avg)}`}>{d.avg.toFixed(1)}</span>
+    <span className="text-[10px] text-gray-400">({d.count})</span>
+    </div>
+   ))}
+   </div>
+  </div>
+  </div>
+ )}
+
+ {/* Row 4: Package Performance */}
+ {pkgPerf.length > 0 && (
+  <div className="bg-white rounded-xl border border-gray-200 p-5">
+  <div className="flex items-center gap-2 mb-4">
+   <ChefHat className="w-4 h-4 text-[#af4408]" />
+   <h3 className="text-sm font-semibold text-gray-800">Package Performance</h3>
+  </div>
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+   {pkgPerf.map((pkg) => (
+   <div key={pkg.name} className="p-4 rounded-lg border border-gray-100 bg-gray-50">
+    <p className="text-sm font-semibold text-gray-800 truncate">{pkg.name}</p>
+    <div className="flex items-center gap-2 mt-2">
+    <span className={`text-2xl font-black ${ratingTextColor(pkg.avg)}`}>{pkg.avg.toFixed(1)}</span>
+    <div className="flex items-center gap-0.5">
+     {[1, 2, 3, 4, 5].map((i) => (
+     <Star key={i} className={`w-3.5 h-3.5 ${i <= Math.round(pkg.avg) ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
+     ))}
+    </div>
+    </div>
+    <p className="text-[10px] text-gray-400 mt-1">{pkg.count} review{pkg.count !== 1 ? 's' : ''}</p>
+   </div>
+   ))}
+  </div>
+  </div>
+ )}
+
+ {/* Row 5: Complaints & Callback Needed */}
+ {(complaints.length > 0 || callbackNeeded.length > 0) && (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  {/* Complaints */}
+  {complaints.length > 0 && (
+   <div className="bg-white rounded-xl border border-red-200 p-5">
+   <div className="flex items-center gap-2 mb-4">
+    <AlertTriangle className="w-4 h-4 text-red-500" />
+    <h3 className="text-sm font-semibold text-red-800">Complaints ({complaints.length})</h3>
+   </div>
+   <div className="space-y-3 max-h-[400px] overflow-y-auto">
+    {complaints.map((c, i) => (
+    <div key={i} className="p-3 rounded-lg bg-red-50 border border-red-100">
+     <div className="flex items-center justify-between gap-2 mb-1">
+     <p className="text-xs font-semibold text-gray-800">{c.guest}</p>
+     <div className="flex items-center gap-2">
+      {c.wantsCallback && (
+      <span className="flex items-center gap-1 text-[10px] font-bold text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded-full">
+       <PhoneCall className="w-3 h-3" /> Callback
+      </span>
+      )}
+      <StarsSmall value={c.rating} />
+     </div>
+     </div>
+     <p className="text-sm text-gray-700">{c.text}</p>
+     {c.package && <p className="text-[10px] text-gray-400 mt-1">Package: {c.package}</p>}
+    </div>
+    ))}
+   </div>
+   </div>
+  )}
+
+  {/* Suggestions */}
+  {suggestions.length > 0 && (
+   <div className="bg-white rounded-xl border border-blue-200 p-5">
+   <div className="flex items-center gap-2 mb-4">
+    <MessageSquare className="w-4 h-4 text-blue-500" />
+    <h3 className="text-sm font-semibold text-blue-800">Suggestions ({suggestions.length})</h3>
+   </div>
+   <div className="space-y-3 max-h-[400px] overflow-y-auto">
+    {suggestions.map((s, i) => (
+    <div key={i} className="p-3 rounded-lg bg-blue-50 border border-blue-100">
+     <div className="flex items-center justify-between gap-2 mb-1">
+     <p className="text-xs font-semibold text-gray-800">{s.guest}</p>
+     <StarsSmall value={s.rating} />
+     </div>
+     <p className="text-sm text-gray-700">{s.text}</p>
+    </div>
+    ))}
+   </div>
+   </div>
+  )}
+  </div>
+ )}
+
+ {/* Callback Needed Alert */}
+ {callbackNeeded.length > 0 && (
+  <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+  <div className="flex items-center gap-2 mb-3">
+   <PhoneCall className="w-4 h-4 text-orange-600" />
+   <h3 className="text-sm font-semibold text-orange-800">Callback Requested ({callbackNeeded.length})</h3>
+  </div>
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+   {callbackNeeded.map((f, i) => (
+   <div key={i} className="flex items-center gap-3 p-3 bg-white rounded-lg border border-orange-100">
+    <div className="min-w-0 flex-1">
+    <p className="text-sm font-medium text-gray-800 truncate">{f.guestName || f.reviewerName || 'Guest'}</p>
+    <p className="text-[10px] text-gray-500">{f.phone || ''} {f.dateOfEvent ? `• ${f.dateOfEvent}` : ''}</p>
+    </div>
+    <StarsSmall value={safeInt(f.overallRating)} />
+   </div>
+   ))}
+  </div>
+  </div>
+ )}
+
  </div>
  );
 }

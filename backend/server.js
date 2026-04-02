@@ -153,7 +153,7 @@ cron.schedule('*/15 * * * *', async () => {
       const hoursSinceEnquiry = (now - enquiredDate) / (1000 * 60 * 60);
 
       const minutesSinceEnquiry = (now - enquiredDate) / (1000 * 60);
-      if (minutesSinceEnquiry >= 2) {
+      if (minutesSinceEnquiry >= 5) {
         staleParties.push({
           ...row,
           _hoursAgo: Math.floor(hoursSinceEnquiry),

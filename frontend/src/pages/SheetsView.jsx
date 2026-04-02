@@ -22,7 +22,7 @@ const SHEET_COLUMNS = [
   { key: 'lostReason', label: 'Lost Reason', width: 150 },
   { key: 'cancelledDate', label: 'Cancelled Date', width: 120 },
   { key: 'approxBillAmount', label: 'Approx Bill', width: 110 },
-  { key: 'approxBalanceAmount', label: 'Approx Balance', width: 120 },
+  { key: 'confirmedFinalRate', label: 'Confirmed Final Rate', width: 140 },
   { key: 'confirmedPax', label: 'Conf. Pax', width: 90 },
   { key: 'finalRate', label: 'Final Rate', width: 100 },
   { key: 'finalTotalAmount', label: 'Final Total', width: 110 },

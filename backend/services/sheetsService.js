@@ -36,7 +36,7 @@ const COLUMNS = [
   'Lost Reason',                 // O
   'Cancelled Date',              // P
   'Approx Bill Amount',          // Q
-  'Approx Balance Amount',       // R
+  'Confirmed Final Rate',         // R
   'Confirmed Pax',               // S
   'Final Rate',                  // T
   'Final Total Amount',          // U

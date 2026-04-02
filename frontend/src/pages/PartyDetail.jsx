@@ -38,8 +38,8 @@ const ROLE_FIELDS = {
   'specialRequirements', 'remarks', 'altContact', 'handledBy',
  ],
  CASHIER: [
-  'approxBillAmount', 'paymentStatus',
-  'billOrderId', 'balancePaymentDate',
+  'confirmedPax', 'finalRate', 'finalTotalAmount',
+  'paymentStatus', 'billOrderId', 'balancePaymentDate',
  ],
  ACCOUNTS: [
   'paymentStatus', 'balancePaymentDate', 'billOrderId',
@@ -48,8 +48,8 @@ const ROLE_FIELDS = {
   'date', 'hostName', 'phoneNumber', 'company', 'occasionType',
   'guestVisited', 'status', 'place', 'partyTime', 'expectedPax',
   'packageSelected', 'specialRequirements', 'remarks', 'handledBy',
-  'lostReason', 'fpIssued', 'approxBillAmount',
-  'confirmedPax', 'finalRate', 'paymentStatus',
+  'lostReason', 'fpIssued', 'approxBillAmount', 'confirmedFinalRate',
+  'paymentStatus',
   'altContact', 'guestEmail', 'balancePaymentDate', 'billOrderId',
  ],
  MANAGER: 'all',
@@ -76,6 +76,7 @@ const FIELD_LABELS = {
  lostReason: 'Lost Reason',
  cancelledDate: 'Cancelled Date',
  approxBillAmount: 'Approx Bill Amount',
+ confirmedFinalRate: 'Confirmed Final Rate',
  confirmedPax: 'Confirmed Pax',
  finalRate: 'Final Rate',
  finalTotalAmount: 'Final Total Amount',
@@ -92,12 +93,12 @@ const FIELD_LABELS = {
  altContact: 'Alt Contact',
  guestEmail: 'Guest Email',
  balancePaymentDate: 'Balance Payment Date',
- billOrderId: 'Bill Order ID',
+ billOrderId: 'Bill Order ID (POS Ref)',
  createdBy: 'Created By',
 };
 
 const READ_ONLY_FIELDS = [
- 'uniqueId', 'day', 'finalTotalAmount', 'totalAdvancePaid', 'totalPaid',
+ 'uniqueId', 'day', 'approxBillAmount', 'finalTotalAmount', 'totalAdvancePaid', 'totalPaid',
  'totalAmountPaid', 'dueAmount', 'enquiredAt', 'createdBy',
 ];
 
@@ -220,6 +221,11 @@ export default function PartyDetail() {
  };
 
  const handleSave = async () => {
+  // CASHIER must fill Bill Order ID (POS Ref) before saving
+  if (user?.role === 'CASHIER' && !(editData.billOrderId || '').trim()) {
+   alert('Bill Order ID (POS Ref) is mandatory for Cashier. Please enter the POS Bill Order ID before saving.');
+   return;
+  }
   setSaving(true);
   setError('');
   try {
@@ -241,20 +247,11 @@ export default function PartyDetail() {
   // Mandatory follow-up note for ALL status changes (what was discussed with guest)
   const currentStatus = (party.status || '').trim();
   if (currentStatus !== newStatus) {
-   // Block confirming without Confirmed Pax & Final Rate
+   // Block confirming without Confirmed Final Rate
    if (newStatus === 'Confirmed') {
-    const pax = party.confirmedPax || editData.confirmedPax;
-    const rate = party.finalRate || editData.finalRate;
-    if (!pax && !rate) {
-     alert('Confirmed Pax and Final Rate are required before confirming the event. Please fill in both fields first.');
-     return;
-    }
-    if (!pax) {
-     alert('Confirmed Pax is required before confirming the event. Please fill it in first.');
-     return;
-    }
-    if (!rate) {
-     alert('Final Rate is required before confirming the event. Please fill it in first.');
+    const cfRate = party.confirmedFinalRate || editData.confirmedFinalRate;
+    if (!cfRate) {
+     alert('Confirmed Final Rate is required before confirming the event. Please fill it in the Estimation section first.');
      return;
     }
    }
@@ -317,6 +314,13 @@ export default function PartyDetail() {
 
  const handleAddPayment = async () => {
   if (!paymentAmount || isNaN(paymentAmount)) return;
+  // CASHIER must have Bill Order ID (POS Ref) before adding payment
+  const isCashierRole = user?.role === 'CASHIER';
+  const currentBillOrderId = (editData.billOrderId || party.billOrderId || '').trim();
+  if (isCashierRole && !currentBillOrderId) {
+   alert('Bill Order ID (POS Ref) is mandatory. Please enter the POS Bill Order ID first.');
+   return;
+  }
   setAddingPayment(true);
   setError('');
   try {
@@ -409,11 +413,12 @@ export default function PartyDetail() {
   },
   {
    title: 'Estimation',
-   fields: ['approxBillAmount'],
+   fields: ['confirmedFinalRate', 'approxBillAmount'],
   },
   {
    title: 'Final Confirmation',
    fields: ['confirmedPax', 'finalRate', 'finalTotalAmount'],
+   restrictTo: ['ADMIN', 'CASHIER'],
   },
   {
    title: 'Payment Tracking',
@@ -426,7 +431,7 @@ export default function PartyDetail() {
  ];
 
  const isCurrencyField = (f) => [
-  'approxBillAmount', 'finalTotalAmount',
+  'approxBillAmount', 'confirmedFinalRate', 'finalRate', 'finalTotalAmount',
   'totalAdvancePaid', 'totalPaid', 'totalAmountPaid', 'dueAmount',
  ].includes(f);
 
@@ -503,13 +508,64 @@ export default function PartyDetail() {
     </select>
    );
   }
+  if (field === 'packageSelected') {
+   const packageOptions = [
+    'Platinum FL', 'Gold FL', 'Silver FL', 'IMFL Regular',
+    'Beer & Wine', 'Food & Beer', 'Food Only (Veg + Non-Veg)', 'Food Only (Veg)',
+   ];
+   return (
+    <select
+     value={editData[field] || ''}
+     onChange={(e) => setEditData((prev) => ({ ...prev, [field]: e.target.value }))}
+     className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
+    >
+     <option value="">Select Package...</option>
+     {packageOptions.map((pkg) => (
+      <option key={pkg} value={pkg}>{pkg}</option>
+     ))}
+     <option value="Custom">Custom</option>
+    </select>
+   );
+  }
   const isDateField = field.toLowerCase().includes('date') || field === 'date';
+
+  // Helper: extract least number from Expected Pax (e.g. "100-150" → 100, "80" → 80)
+  const parseLeastPax = (paxStr) => {
+   if (!paxStr) return 0;
+   const str = String(paxStr).trim();
+   const parts = str.split(/[-–\/]/).map((s) => parseFloat(s.trim())).filter((n) => !isNaN(n));
+   return parts.length > 0 ? Math.min(...parts) : (parseFloat(str) || 0);
+  };
+
+  // Auto-calculate Approx Bill Amount when confirmedFinalRate or expectedPax changes
+  const handleFieldChange = (f, val) => {
+   setEditData((prev) => {
+    const updated = { ...prev, [f]: val };
+    if (f === 'confirmedFinalRate' || f === 'expectedPax') {
+     const rate = parseFloat(f === 'confirmedFinalRate' ? val : (updated.confirmedFinalRate || '')) || 0;
+     const pax = parseLeastPax(f === 'expectedPax' ? val : (updated.expectedPax || ''));
+     if (rate > 0 && pax > 0) {
+      updated.approxBillAmount = String(Math.round(pax * rate));
+     }
+    }
+    // Auto-calculate Final Total Amount when confirmedPax or finalRate changes
+    if (f === 'confirmedPax' || f === 'finalRate') {
+     const cp = parseFloat(f === 'confirmedPax' ? val : (updated.confirmedPax || '')) || 0;
+     const fr = parseFloat(f === 'finalRate' ? val : (updated.finalRate || '')) || 0;
+     if (cp > 0 && fr > 0) {
+      updated.finalTotalAmount = String(Math.round(cp * fr));
+     }
+    }
+    return updated;
+   });
+  };
+
   return (
    <input
     type={isDateField ? 'date' : 'text'}
     value={editData[field] || ''}
     min={field === 'date' ? new Date().toISOString().split('T')[0] : undefined}
-    onChange={(e) => setEditData((prev) => ({ ...prev, [field]: e.target.value }))}
+    onChange={(e) => handleFieldChange(field, e.target.value)}
     className="w-full px-3 py-2 rounded-lg border border-[#af4408]/30 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
    />
   );
@@ -715,7 +771,7 @@ export default function PartyDetail() {
 
    {/* Detail sections */}
    <div className="space-y-4">
-    {sections.map((section) => (
+    {sections.filter((section) => !section.restrictTo || section.restrictTo.includes(user?.role)).map((section) => (
      <div key={section.title} className="bg-white rounded-xl border border-gray-200 p-5">
       <h3 className="text-sm font-semibold text-gray-800 mb-4">{section.title}</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

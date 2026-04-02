@@ -116,9 +116,7 @@ const ROLE_EDITABLE_FIELDS = {
     'FP Issued',
     'Lost Reason',
     'Approx Bill Amount',
-    'Approx Balance Amount',
-    'Confirmed Pax',
-    'Final Rate',
+    'Confirmed Final Rate',
     'Payment Log',
     'Payment Status',
     'Total Advance Paid',
@@ -333,6 +331,9 @@ router.get('/stats', async (req, res) => {
       contacted: rows.filter((r) => getStatus(r) === 'Contacted').length,
       unknown: rows.filter((r) => { const s = getStatus(r); return !s || !knownStatuses.includes(s); }).length,
       totalRevenue: rows.reduce((sum, r) => sum + (parseFloat(r['Final Total Amount']) || 0), 0),
+      totalApproxBill: rows.reduce((sum, r) => sum + (parseFloat(r['Approx Bill Amount']) || 0), 0),
+      confirmedApproxBill: rows.filter((r) => r['Status'] === 'Confirmed').reduce((sum, r) => sum + (parseFloat(r['Approx Bill Amount']) || 0), 0),
+      confirmedFinalBill: rows.filter((r) => r['Status'] === 'Confirmed').reduce((sum, r) => sum + (parseFloat(r['Final Total Amount']) || 0), 0),
       totalAdvance: rows.reduce(
         (sum, r) => sum + (parseFloat(r['Total Advance Paid']) || 0),
         0
@@ -346,6 +347,12 @@ router.get('/stats', async (req, res) => {
       todayConfirmed: rows.filter(
         (r) => normalizeDate(r['Date']) === todayStr() && r['Status'] === 'Confirmed'
       ).length,
+      todayExpectedIncome: rows
+        .filter((r) => normalizeDate(r['Date']) === todayStr() && r['Status'] === 'Confirmed')
+        .reduce((sum, r) => sum + (parseFloat(r['Approx Bill Amount']) || 0), 0),
+      todayConfirmedParties: rows
+        .filter((r) => normalizeDate(r['Date']) === todayStr() && r['Status'] === 'Confirmed')
+        .map((r) => ({ hostName: r['Host Name'], approxBill: parseFloat(r['Approx Bill Amount']) || 0, place: r['Place'] || '', partyTime: r['Party Time'] || '' })),
     };
 
     res.json({ success: true, stats });
@@ -641,22 +648,18 @@ router.put(
       // Merge with existing data for auto-calculations
       const merged = { ...existing, ...allowed };
 
-      // Block status change to "Confirmed" without Confirmed Pax & Final Rate
+      // Block status change to "Confirmed" without Confirmed Final Rate
       if (allowed['Status'] === 'Confirmed') {
-        const cPax = merged['Confirmed Pax'] || '';
-        const fRate = merged['Final Rate'] || '';
-        const missing = [];
-        if (!cPax) missing.push('Confirmed Pax');
-        if (!fRate) missing.push('Final Rate');
-        if (missing.length > 0) {
+        const cfRate = merged['Confirmed Final Rate'] || '';
+        if (!cfRate) {
           return res.status(400).json({
             success: false,
-            message: `${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} required before confirming the event.`,
+            message: 'Confirmed Final Rate is required before confirming the event.',
           });
         }
       }
 
-      applyAutoCalculations(merged);
+      applyAutoCalculations(merged, allowed);
 
       // Only update the fields that changed plus auto-calculated fields
       const updateData = { ...allowed };
@@ -835,17 +838,13 @@ router.put(
         updateData['Last Follow Up Date'] = new Date().toISOString().split('T')[0];
       }
 
-      // Block status change to "Confirmed" without Confirmed Pax & Final Rate
+      // Block status change to "Confirmed" without Confirmed Final Rate
       if (status === 'Confirmed') {
-        const cPax = existing['Confirmed Pax'] || '';
-        const fRate = existing['Final Rate'] || '';
-        const missing = [];
-        if (!cPax) missing.push('Confirmed Pax');
-        if (!fRate) missing.push('Final Rate');
-        if (missing.length > 0) {
+        const cfRate = existing['Confirmed Final Rate'] || '';
+        if (!cfRate) {
           return res.status(400).json({
             success: false,
-            message: `${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} required before confirming the event.`,
+            message: 'Confirmed Final Rate is required before confirming the event.',
           });
         }
       }
@@ -947,6 +946,17 @@ router.put(
       const existing = await sheetsService.getRow(rowIndex);
       if (!existing) {
         return res.status(404).json({ success: false, message: 'Party not found.' });
+      }
+
+      // CASHIER must have Bill Order ID (POS Ref) before adding payment
+      if (req.user.role === 'CASHIER') {
+        const billOrderId = (existing['Bill Order ID'] || '').trim();
+        if (!billOrderId) {
+          return res.status(400).json({
+            success: false,
+            message: 'Bill Order ID (POS Ref) is mandatory. Please enter the POS Bill Order ID before adding a payment.',
+          });
+        }
       }
 
       // Parse existing Payment Log

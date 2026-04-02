@@ -71,9 +71,13 @@ function calculatePaymentTotals(paymentLogStr) {
  * @param {object} data - Party data keyed by column name
  * @returns {object} data with calculated fields filled in
  */
-function applyAutoCalculations(data) {
+function applyAutoCalculations(data, changedFields) {
   // Final Total Amount = Confirmed Pax × Final Rate
-  if (data['Confirmed Pax'] !== undefined || data['Final Rate'] !== undefined) {
+  // Only auto-calc when Confirmed Pax or Final Rate is explicitly being changed
+  const cfChanged = changedFields
+    ? (changedFields['Confirmed Pax'] !== undefined || changedFields['Final Rate'] !== undefined)
+    : (data['Confirmed Pax'] !== undefined || data['Final Rate'] !== undefined);
+  if (cfChanged) {
     const total = calculateFinalTotal(data['Confirmed Pax'], data['Final Rate']);
     if (total > 0) {
       data['Final Total Amount'] = total;
@@ -103,11 +107,17 @@ function applyAutoCalculations(data) {
     data['Due Amount'] = Math.max(0, finalTotal - totalAmountPaid);
   }
 
-  // Approx Balance Amount = Approx Bill Amount - Total Amount Paid
-  if (data['Approx Bill Amount'] !== undefined) {
-    const approxBill = parseFloat(data['Approx Bill Amount']) || 0;
-    const totalPaid = parseFloat(data['Total Amount Paid']) || 0;
-    data['Approx Balance Amount'] = Math.max(0, approxBill - totalPaid);
+  // Auto-calculate Approx Bill Amount = least Expected Pax × Confirmed Final Rate
+  if (data['Confirmed Final Rate'] !== undefined || data['Expected Pax'] !== undefined) {
+    const rateStr = data['Confirmed Final Rate'] || '';
+    const paxStr = data['Expected Pax'] || '';
+    const rate = parseFloat(rateStr) || 0;
+    // Parse least pax from ranges like "100-150" or "80"
+    const paxParts = String(paxStr).split(/[-–\/]/).map((s) => parseFloat(s.trim())).filter((n) => !isNaN(n));
+    const leastPax = paxParts.length > 0 ? Math.min(...paxParts) : 0;
+    if (rate > 0 && leastPax > 0) {
+      data['Approx Bill Amount'] = Math.round(leastPax * rate);
+    }
   }
 
   return data;
