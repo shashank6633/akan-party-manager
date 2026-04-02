@@ -392,7 +392,20 @@ export default function Reports() {
  )}
 
  {/* Financial Tab */}
- {activeTab === 'financial' && (
+ {activeTab === 'financial' && (() => {
+ // Compute completed parties: confirmed + event date <= today
+ const todayStr = new Date().toISOString().split('T')[0];
+ const completedParties = allParties.filter((p) => {
+  if (p.status !== 'Confirmed') return false;
+  const d = p.date?.split('T')[0] || p.date;
+  return d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= todayStr;
+ });
+ const completedApprox = completedParties.reduce((s, p) => s + (parseFloat(p.approxBillAmount) || 0), 0);
+ const completedFinal = completedParties.reduce((s, p) => s + (parseFloat(p.finalTotalAmount) || 0), 0);
+ const varDiff = completedFinal - completedApprox;
+ const varPct = completedApprox ? ((varDiff / completedApprox) * 100).toFixed(1) : null;
+
+ return (
  <div className="space-y-6">
  {/* Row 1: Key financial cards */}
  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
@@ -402,29 +415,22 @@ export default function Reports() {
  <StatCard label="Amount Paid" value={formatCurrency(reportData?.amountPaid || 0)} color="text-blue-600" />
  <StatCard label="Pending Dues" value={formatCurrency(reportData?.pendingDues || 0)} color="text-orange-500" />
  <StatCard
-  label="Variance"
-  value={(() => {
-  const approx = reportData?.confirmedApproxBill || 0;
-  const actual = reportData?.confirmedFinalBill || 0;
-  if (!approx) return '-';
-  const diff = actual - approx;
-  const pct = ((diff / approx) * 100).toFixed(1);
-  return `${diff >= 0 ? '+' : ''}${pct}%`;
-  })()}
-  color={((reportData?.confirmedFinalBill || 0) >= (reportData?.confirmedApproxBill || 0)) ? 'text-green-600' : 'text-red-500'}
+  label="Variance (Completed)"
+  value={varPct !== null ? `${varDiff >= 0 ? '+' : ''}${varPct}%` : '-'}
+  color={completedFinal >= completedApprox ? 'text-green-600' : 'text-red-500'}
  />
  </div>
 
  {/* Row 2: Approx vs Final Comparison (Confirmed only) */}
  <div className="bg-white rounded-xl border border-gray-200 p-5">
- <h3 className="text-sm font-semibold text-gray-800 mb-1">Approx Bill vs Final Bill (Confirmed Parties)</h3>
- <p className="text-xs text-gray-400 mb-4">Comparing estimated billing vs actual billing for confirmed events</p>
+ <h3 className="text-sm font-semibold text-gray-800 mb-1">Approx Bill vs Final Bill (Completed Parties)</h3>
+ <p className="text-xs text-gray-400 mb-4">Comparing estimated billing vs actual billing for completed events only</p>
  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
   {/* Visual comparison bars */}
   <div className="space-y-4">
   {(() => {
-   const approx = reportData?.confirmedApproxBill || 0;
-   const actual = reportData?.confirmedFinalBill || 0;
+   const approx = completedApprox;
+   const actual = completedFinal;
    const max = Math.max(approx, actual, 1);
    return (
    <>
@@ -462,10 +468,9 @@ export default function Reports() {
   {/* Bar chart per date: Approx vs Final */}
   <div>
   {(() => {
-   const confirmedParties = allParties.filter((p) => p.status === 'Confirmed');
    const compData = [];
    const dateMap = {};
-   confirmedParties.forEach((p) => {
+   completedParties.forEach((p) => {
    const date = p.date?.split('T')[0] || p.date;
    if (!date || date.startsWith('TBC') || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
    if (!dateMap[date]) dateMap[date] = { date, approx: 0, final: 0 };
@@ -524,7 +529,8 @@ export default function Reports() {
  )}
  </div>
  </div>
- )}
+ );
+ })()}
 
  {/* Status Analysis Tab */}
  {activeTab === 'status' && (
