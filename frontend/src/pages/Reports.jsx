@@ -50,10 +50,13 @@ export default function Reports() {
  const canSeeRevenue = user?.role === 'ADMIN';
  const [activeTab, setActiveTab] = useState('overview');
  const [dateFrom, setDateFrom] = useState(() => {
- return `${new Date().getFullYear()}-01-01`;
+ const now = new Date();
+ return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
  });
  const [dateTo, setDateTo] = useState(() => {
- return `${new Date().getFullYear()}-12-31`;
+ const now = new Date();
+ const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+ return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
  });
  const [reportData, setReportData] = useState(null);
  const [loading, setLoading] = useState(true);
