@@ -143,6 +143,7 @@ export default function PartyDetail() {
  const isCashier = user?.role === 'CASHIER';
  const isAdmin = user?.role === 'ADMIN';
  const isViewer = user?.role === 'VIEWER';
+ const isGRE = user?.role === 'GRE';
  const canFollowUp = !isViewer && ['SALES', 'MANAGER', 'ADMIN'].includes(user?.role);
  const canAddPayment = !isViewer && ['CASHIER', 'SALES', 'MANAGER', 'ADMIN'].includes(user?.role);
 
@@ -637,7 +638,7 @@ export default function PartyDetail() {
      )}
 
      {/* Quick status actions - hidden for CASHIER & VIEWER */}
-     {!isCashier && !isViewer && party.status === 'Enquiry' && (
+     {!isCashier && !isViewer && !isGRE && party.status === 'Enquiry' && (
       <button
        onClick={() => handleStatusChange('Contacted')}
        className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors min-h-[44px]"
@@ -645,7 +646,7 @@ export default function PartyDetail() {
        Contacted
       </button>
      )}
-     {!isCashier && !isViewer && party.status !== 'Tentative' && party.status !== 'Confirmed' && party.status !== 'Cancelled' && (
+     {!isCashier && !isViewer && !isGRE && party.status !== 'Tentative' && party.status !== 'Confirmed' && party.status !== 'Cancelled' && (
       <button
        onClick={() => handleStatusChange('Tentative')}
        className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors min-h-[44px]"
@@ -653,7 +654,7 @@ export default function PartyDetail() {
        <Clock className="w-4 h-4" /> Tentative
       </button>
      )}
-     {!isCashier && !isViewer && party.status !== 'Confirmed' && party.status !== 'Cancelled' && (
+     {!isCashier && !isViewer && !isGRE && party.status !== 'Confirmed' && party.status !== 'Cancelled' && (
       <button
        onClick={() => handleStatusChange('Confirmed')}
        className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-colors min-h-[44px]"
@@ -661,7 +662,7 @@ export default function PartyDetail() {
        <CheckCircle className="w-4 h-4" /> Confirm
       </button>
      )}
-     {!isCashier && !isViewer && party.status !== 'Cancelled' && (
+     {!isCashier && !isViewer && !isGRE && party.status !== 'Cancelled' && (
       <button
        onClick={() => handleStatusChange('Cancelled')}
        className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-colors min-h-[44px]"
