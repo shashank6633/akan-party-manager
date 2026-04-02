@@ -360,10 +360,11 @@ export default function Reports() {
  {/* Overview Tab */}
  {activeTab === 'overview' && (
  <div className="space-y-6">
- <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+ <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
  <StatCard label="Total Parties" value={reportData?.total || 0} />
  <StatCard label="Confirmed" value={reportData?.confirmed || 0} color="text-green-600" />
- {canSeeRevenue && <StatCard label="Total Revenue" value={formatCurrency(reportData?.totalRevenue || 0)} color="text-[#af4408]" />}
+ {canSeeRevenue && <StatCard label="Approx Bill" value={formatCurrency(reportData?.totalApproxBill || 0)} color="text-purple-600" />}
+ {canSeeRevenue && <StatCard label="Final Bill" value={formatCurrency(reportData?.totalRevenue || 0)} color="text-[#af4408]" />}
  {canSeeRevenue && <StatCard label="Pending Dues" value={formatCurrency(reportData?.pendingDues || 0)} color="text-orange-500" />}
  </div>
 
@@ -388,6 +389,28 @@ export default function Reports() {
  <p className="text-center text-gray-400 py-10">No data for selected range</p>
  )}
  </div>
+
+ {/* Revenue Timeline with Approx & Final */}
+ {canSeeRevenue && (
+ <div className="bg-white rounded-xl border border-gray-200 p-5">
+ <h3 className="text-sm font-semibold text-gray-800 mb-4">Approx Bill vs Final Bill Timeline</h3>
+ {revenueTimeline.length > 0 ? (
+ <ResponsiveContainer width="100%" height={300}>
+ <BarChart data={revenueTimeline} margin={{ top: 5, right: 10, left: 10, bottom: 20 }}>
+ <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+ <XAxis dataKey="date" tick={{ fontSize: 9 }} angle={-45} textAnchor="end" height={50} tickFormatter={(d) => { const p = d.split('-'); return `${p[2]}/${p[1]}`; }} interval={Math.max(0, Math.floor(revenueTimeline.length / 12))} />
+ <YAxis tick={{ fontSize: 10 }} width={55} tickFormatter={(v) => v >= 100000 ? `₹${(v / 100000).toFixed(1)}L` : v >= 1000 ? `₹${(v / 1000).toFixed(0)}K` : `₹${v}`} />
+ <Tooltip formatter={(v) => formatCurrency(v)} labelFormatter={(d) => { const p = d.split('-'); return `${p[2]}-${p[1]}-${p[0]}`; }} />
+ <Legend />
+ <Bar dataKey="approxBill" name="Approx Bill" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+ <Bar dataKey="revenue" name="Final Bill" fill="#af4408" radius={[4, 4, 0, 0]} />
+ </BarChart>
+ </ResponsiveContainer>
+ ) : (
+ <p className="text-center text-gray-400 py-10">No revenue data for selected range</p>
+ )}
+ </div>
+ )}
  </div>
  )}
 
