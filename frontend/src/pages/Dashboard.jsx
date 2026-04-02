@@ -366,7 +366,7 @@ export default function Dashboard() {
    <h3 className="text-base font-bold text-white">
    {staleEnquiries.length} Enquir{staleEnquiries.length === 1 ? 'y' : 'ies'} Pending
    </h3>
-   <p className="text-xs text-red-100 mt-0.5">Not updated for over 2 minutes</p>
+   <p className="text-xs text-red-100 mt-0.5">Not updated for over 5 minutes</p>
   </div>
   </div>
   <button onClick={dismissStalePopup} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
