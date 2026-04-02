@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { RefreshCw, Search, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RefreshCw, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { partyAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -56,7 +55,6 @@ const PAGE_SIZE = 100;
 
 export default function SheetsView() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [parties, setParties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -203,8 +201,7 @@ export default function SheetsView() {
                   return (
                     <tr
                       key={party.uniqueId || rowIdx}
-                      className="hover:bg-blue-50/40 transition-colors cursor-pointer group"
-                      onClick={() => navigate(`/parties/${party._rowIndex || rowIdx + 2}`)}
+                      className="hover:bg-blue-50/40 transition-colors group"
                     >
                       {/* Row number */}
                       <td
