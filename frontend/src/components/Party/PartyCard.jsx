@@ -68,7 +68,7 @@ export default function PartyCard({ party, onQuickAction }) {
      )}
      {party.day && <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#af4408]/10 text-[#af4408]">{party.day.slice(0, 3)}</span>}
      {party.partyTime && (
-      <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+      <span className="text-xs font-semibold text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded">
        {party.partyTime}
       </span>
      )}
@@ -87,8 +87,8 @@ export default function PartyCard({ party, onQuickAction }) {
     )}
     {party.place && (
      <div className="flex items-center gap-2">
-      <MapPin className="w-3.5 h-3.5 shrink-0" />
-      <span className="truncate">{party.place}</span>
+      <MapPin className="w-3.5 h-3.5 shrink-0 text-blue-700" />
+      <span className="truncate font-semibold text-blue-700">{party.place}</span>
      </div>
     )}
     {party.expectedPax && (
@@ -105,7 +105,7 @@ export default function PartyCard({ party, onQuickAction }) {
      {party.handledBy && (
       <div className="flex items-center gap-1 flex-wrap">
        {party.handledBy.split(',').map((name, i) => (
-        <span key={i} className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{name.trim()}</span>
+        <span key={i} className="text-[10px] text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">{name.trim()}</span>
        ))}
       </div>
      )}

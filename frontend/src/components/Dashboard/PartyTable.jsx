@@ -162,8 +162,9 @@ export default function PartyTable({ parties, loading, onQuickAction, page, tota
            {party.day && <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#af4408]/10 text-[#af4408]">{party.day.slice(0, 3)}</span>}
            </div>
            {(party.partyTime || party.place) && (
-            <span className="block text-[10px] text-gray-400">
-             {party.partyTime}{party.partyTime && party.place ? ' · ' : ''}{party.place}
+            <span className="flex items-center gap-1 mt-0.5">
+             {party.partyTime && <span className="text-[10px] font-semibold text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded">{party.partyTime}</span>}
+             {party.place && <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">{party.place}</span>}
             </span>
            )}
           </td>
@@ -184,7 +185,7 @@ export default function PartyTable({ parties, loading, onQuickAction, page, tota
           <td className="px-4 py-3 text-sm text-gray-900">
            {party.expectedPax || '-'}
           </td>
-          <td className="px-4 py-3 text-sm text-gray-600 truncate max-w-[160px] lg:max-w-[200px]">
+          <td className="px-4 py-3 text-sm text-gray-700 truncate max-w-[160px] lg:max-w-[200px]">
            {party.handledBy || '-'}
            {party.createdBy && (
             <span className="block text-[10px] text-blue-500 mt-0.5">Added: {party.createdBy}</span>
