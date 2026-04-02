@@ -336,13 +336,13 @@ export default function Dashboard() {
      {party.day && <span className="px-1 py-0.5 rounded text-[9px] font-semibold bg-[#af4408]/10 text-[#af4408]">{party.day.slice(0, 3)}</span>}
     </span>
     {party.partyTime && (
-     <span className="text-[10px] text-gray-500 bg-orange-50 px-1.5 py-0.5 rounded">{party.partyTime}</span>
+     <span className="text-[10px] font-semibold text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded">{party.partyTime}</span>
     )}
     {party.place && (
-     <span className="text-[10px] text-gray-500 bg-blue-50 px-1.5 py-0.5 rounded">{party.place}</span>
+     <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">{party.place}</span>
     )}
     {party.handledBy && (
-     <span className="text-[10px] text-gray-500 bg-white px-1.5 py-0.5 rounded">{party.handledBy}</span>
+     <span className="text-[10px] text-gray-700 bg-white px-1.5 py-0.5 rounded">{party.handledBy}</span>
     )}
     </div>
    </div>
@@ -418,13 +418,13 @@ export default function Dashboard() {
   {party.day && <span className="px-1 py-0.5 rounded text-[9px] font-semibold bg-[#af4408]/10 text-[#af4408]">{party.day.slice(0, 3)}</span>}
   </span>
   {party.partyTime && (
-  <span className="text-[10px] text-gray-500 bg-orange-50 px-1.5 py-0.5 rounded">{party.partyTime}</span>
+  <span className="text-[10px] font-semibold text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded">{party.partyTime}</span>
   )}
   {party.place && (
-  <span className="text-[10px] text-gray-500 bg-blue-50 px-1.5 py-0.5 rounded">{party.place}</span>
+  <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">{party.place}</span>
   )}
   {party.handledBy && party.handledBy.split(',').map((name, i) => (
-  <span key={i} className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{name.trim()}</span>
+  <span key={i} className="text-[10px] text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">{name.trim()}</span>
   ))}
  </div>
  {/* Created By */}
