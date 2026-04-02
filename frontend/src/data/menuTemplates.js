@@ -166,7 +166,7 @@ export const PACKAGES = {
       rice: 1,
       dal: 1,
       salad: 1,
-      accompaniments: 1,
+      accompaniments: 5,
       desserts: 2,
     },
     drinks: [
@@ -203,7 +203,7 @@ export const PACKAGES = {
       rice: 1,
       dal: 1,
       salad: 1,
-      accompaniments: 1,
+      accompaniments: 5,
       desserts: 2,
     },
     drinks: [
@@ -240,7 +240,7 @@ export const PACKAGES = {
       rice: 1,
       dal: 1,
       salad: 1,
-      accompaniments: 1,
+      accompaniments: 5,
       desserts: 2,
     },
     drinks: [
@@ -278,7 +278,7 @@ export const PACKAGES = {
       rice: 1,
       dal: 1,
       salad: 1,
-      accompaniments: 1,
+      accompaniments: 5,
       desserts: 2,
     },
     drinks: [
@@ -310,7 +310,7 @@ export const PACKAGES = {
       rice: 1,
       dal: 1,
       salad: 1,
-      accompaniments: 1,
+      accompaniments: 5,
       desserts: 2,
     },
     drinks: [
@@ -335,7 +335,7 @@ export const PACKAGES = {
       rice: 1,
       dal: 1,
       salad: 1,
-      accompaniments: 1,
+      accompaniments: 5,
       desserts: 2,
     },
     drinks: [
@@ -359,7 +359,7 @@ export const PACKAGES = {
       rice: 1,
       dal: 1,
       salad: 1,
-      accompaniments: 1,
+      accompaniments: 5,
       desserts: 2,
     },
     drinks: [],
@@ -379,7 +379,7 @@ export const PACKAGES = {
       rice: 1,
       dal: 1,
       salad: 1,
-      accompaniments: 1,
+      accompaniments: 5,
       desserts: 2,
     },
     drinks: [],
