@@ -364,7 +364,7 @@ export const PACKAGES = {
     },
     drinks: [],
     cocktails: null,
-    mocktails: '2 Barman Special Mocktails',
+    mocktails: '3 Barman Special Mocktails',
     softDrinks: 'Aerated Drinks',
   },
   'Food Only (Veg)': {
@@ -384,7 +384,7 @@ export const PACKAGES = {
     },
     drinks: [],
     cocktails: null,
-    mocktails: '2 Barman Special Mocktails',
+    mocktails: '3 Barman Special Mocktails',
     softDrinks: 'Aerated Drinks',
   },
 };
