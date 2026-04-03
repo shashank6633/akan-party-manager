@@ -147,13 +147,20 @@ export function generateFpPdf(data) {
   // Min Guarantee: use least pax from paxExpected or minimumGuarantee
   const minGuarVal = data.minimumGuarantee || parseLeastPax(data.paxExpected) || '';
 
+  // Activities grand total for detail rows
+  let activitiesTotal = 0;
+  try {
+    const acts = typeof data.activities === 'string' ? JSON.parse(data.activities || '[]') : (data.activities || []);
+    activitiesTotal = acts.filter((a) => a.name).reduce((s, a) => s + ((parseFloat(a.pax) || 0) * (parseFloat(a.amount) || 0)), 0);
+  } catch { activitiesTotal = 0; }
+
   const detailRows = [
     ['Booking', formatDateIN(data.dateOfBooking), 'Event Date', formatDateIN(data.dateOfEvent), 'Day', d(data.dayOfEvent)],
     ['Time', d(data.timeOfEvent), 'Area', d(data.allocatedArea), 'Min Guar.', d(minGuarVal)],
     ['Guest', d(data.contactPerson), 'Phone', d(data.phone), 'Company', d(data.company)],
     ['Package', d(pkgDisplay), 'Reference', d(data.reference), 'Payment', d(data.modeOfPayment)],
     ['Rate/Head', d(data.ratePerHead ? `Rs.${data.ratePerHead}` : ''), 'Advance', d(data.advancePayment ? `Rs.${data.advancePayment}` : ''), 'Est. Bill', d(data.approxBillAmount ? `Rs.${Number(data.approxBillAmount).toLocaleString('en-IN')}` : '')],
-    ['Food Pref', d(foodPrefStr), '', '', '', ''],
+    ['Food Pref', d(foodPrefStr), 'Activities', d(activitiesTotal > 0 ? `Rs.${activitiesTotal.toLocaleString('en-IN')}` : ''), '', ''],
   ];
 
   autoTable(doc, {
