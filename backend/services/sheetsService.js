@@ -678,6 +678,7 @@ const FP_COLUMNS = [
   'Jain Food Pax',          // BG (number)
   'Vegan Food',             // BH (boolean)
   'Vegan Food Pax',         // BI (number)
+  'Entertainment Notes',    // BJ
 ];
 
 const FP_COLUMN_MAP = {};

@@ -1005,6 +1005,17 @@ export default function FPEditor() {
                 <Field {...fieldProps('decor')} label="Decor" placeholder="Decor details" />
                 <Field {...fieldProps('seatingArrangements')} label="Seating Arrangements" placeholder="e.g. Round tables" />
               </div>
+              <div className="mt-4">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Entertainment Notes</label>
+                <textarea
+                  value={form.entertainmentNotes || ''}
+                  onChange={(e) => updateField('entertainmentNotes', e.target.value)}
+                  readOnly={!canEdit}
+                  placeholder="Any additional notes for entertainment & arrangements..."
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#af4408]/30 resize-none"
+                />
+              </div>
             </div>
           )}
         </div>

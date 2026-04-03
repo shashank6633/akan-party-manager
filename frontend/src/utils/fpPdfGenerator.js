@@ -582,5 +582,6 @@ function buildEntItems(data) {
   if (data.mics) items.push(['Mics', data.mics]);
   if (data.decor) items.push(['Decor', data.decor]);
   if (data.seatingArrangements) items.push(['Seating', data.seatingArrangements]);
+  if (data.entertainmentNotes) items.push(['Notes', data.entertainmentNotes]);
   return items;
 }
