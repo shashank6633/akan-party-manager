@@ -687,7 +687,7 @@ FP_COLUMNS.forEach((name, idx) => {
   FP_COLUMN_MAP[name] = idx;
 });
 
-const FP_LAST_COL = 'BI';
+const FP_LAST_COL = 'BK';
 
 /**
  * Generate a unique ID for a new F&P record.
