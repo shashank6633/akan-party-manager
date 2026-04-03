@@ -458,7 +458,7 @@ export default function Dashboard() {
  <h3 className="text-sm font-semibold text-amber-800">Needs Follow-Up ({filteredFollowUps.length})</h3>
  <span className="text-[10px] text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full font-medium">Pending</span>
  </div>
- {user?.name && (
+ {user?.name && user?.role !== 'ACCOUNTS' && user?.role !== 'VIEWER' && (
  <button
   onClick={() => setMyFollowUps(!myFollowUps)}
   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
@@ -557,7 +557,7 @@ export default function Dashboard() {
  </p>
  </div>
  <div className="flex items-center gap-2">
- {user?.name && (
+ {user?.name && user?.role !== 'ACCOUNTS' && user?.role !== 'VIEWER' && (
  <button
   onClick={() => setMyUpcoming(!myUpcoming)}
   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
