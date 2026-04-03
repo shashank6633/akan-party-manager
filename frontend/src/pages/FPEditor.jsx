@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, Loader2, Download, ChevronDown, ChevronUp, AlertTriangle, Check, Mail,
@@ -126,6 +126,8 @@ export default function FPEditor() {
     decor: '',
     seatingArrangements: '',
     barNotes: '',
+    entertainmentNotes: '',
+    activities: '',
     drinksStartTime: '',
     drinksEndTime: '',
     managerName: '',
@@ -141,8 +143,11 @@ export default function FPEditor() {
 
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [fetchingParty, setFetchingParty] = useState(false);
+  const autoSaveTimer = useRef(null);
+  const formLoaded = useRef(false); // prevent auto-save on initial load
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [fpId, setFpId] = useState('');
@@ -318,8 +323,34 @@ export default function FPEditor() {
       setError('Failed to load F&P record.');
     } finally {
       setLoading(false);
+      // Mark form as loaded so auto-save can begin
+      setTimeout(() => { formLoaded.current = true; }, 500);
     }
   };
+
+  // Auto-save: debounced save 1.5s after any form change
+  useEffect(() => {
+    if (!formLoaded.current || isNew || !id || !canEdit) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      setAutoSaving(true);
+      try {
+        const payload = { ...form };
+        if (payload.otherItems && typeof payload.otherItems === 'object') {
+          payload.otherItems = JSON.stringify(payload.otherItems);
+        }
+        if (isPresetMenu) {
+          payload.presetMenuText = JSON.stringify(presetMenuText);
+        }
+        await fpAPI.update(id, payload);
+      } catch (err) {
+        console.warn('Auto-save failed:', err.message);
+      } finally {
+        setAutoSaving(false);
+      }
+    }, 1500);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  }, [form, presetMenuText]);
 
   const updateField = useCallback((field, value) => {
     setForm((prev) => {
@@ -585,10 +616,15 @@ export default function FPEditor() {
             </button>
           )}
           {canEdit && (
-            <button onClick={handleSave} disabled={saving} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold bg-[#af4408] text-white hover:bg-[#963a07] transition-colors disabled:opacity-50 min-h-[44px]">
+            <button onClick={handleSave} disabled={saving || autoSaving} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold bg-[#af4408] text-white hover:bg-[#963a07] transition-colors disabled:opacity-50 min-h-[44px]">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {saving ? 'Saving...' : 'Save F&P'}
             </button>
+          )}
+          {autoSaving && (
+            <span className="flex items-center gap-1 text-[10px] text-green-600 font-medium">
+              <Loader2 className="w-3 h-3 animate-spin" /> Auto-saving...
+            </span>
           )}
         </div>
       </div>
