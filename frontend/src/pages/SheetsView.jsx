@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RefreshCw, Search, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { partyAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -63,12 +63,44 @@ export default function SheetsView() {
   const [totalCount, setTotalCount] = useState(0);
   const tableRef = useRef(null);
 
+  // Month filter: null = all, or { year, month (0-indexed) }
+  const [monthFilter, setMonthFilter] = useState(null);
+
+  const getMonthRange = (year, month) => {
+    const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+    const last = new Date(year, month + 1, 0);
+    const to = `${year}-${String(month + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
+    return { from, to };
+  };
+
+  const monthLabel = monthFilter
+    ? new Date(monthFilter.year, monthFilter.month).toLocaleString('en-IN', { month: 'long', year: 'numeric' })
+    : 'All Time';
+
+  const shiftMonth = (dir) => {
+    if (!monthFilter) {
+      const now = new Date();
+      setMonthFilter({ year: now.getFullYear(), month: now.getMonth() });
+      return;
+    }
+    let { year, month } = monthFilter;
+    month += dir;
+    if (month > 11) { month = 0; year++; }
+    if (month < 0) { month = 11; year--; }
+    setMonthFilter({ year, month });
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
       const params = { page, limit: PAGE_SIZE, sort: 'date', order: 'desc' };
       if (search) params.search = search;
       if (statusFilter !== 'All') params.status = statusFilter;
+      if (monthFilter) {
+        const { from, to } = getMonthRange(monthFilter.year, monthFilter.month);
+        params.dateFrom = from;
+        params.dateTo = to;
+      }
       const res = await partyAPI.getAll(params);
       const data = res.data?.data || res.data || [];
       setParties(Array.isArray(data) ? data : data.parties || []);
@@ -80,7 +112,7 @@ export default function SheetsView() {
     }
   };
 
-  useEffect(() => { fetchData(); }, [page, statusFilter]);
+  useEffect(() => { fetchData(); }, [page, statusFilter, monthFilter]);
 
   useEffect(() => {
     const timer = setTimeout(() => { setPage(1); fetchData(); }, 400);
@@ -129,6 +161,36 @@ export default function SheetsView() {
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
+        {/* Month Filter */}
+        <div className="flex items-center gap-1 border border-gray-300 rounded bg-white">
+          <button onClick={() => shiftMonth(-1)} className="p-1.5 hover:bg-gray-100 rounded-l transition-colors">
+            <ChevronLeft className="w-3.5 h-3.5 text-gray-600" />
+          </button>
+          <button
+            onClick={() => {
+              if (monthFilter) { setMonthFilter(null); } else {
+                const now = new Date();
+                setMonthFilter({ year: now.getFullYear(), month: now.getMonth() });
+              }
+              setPage(1);
+            }}
+            className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold transition-colors ${monthFilter ? 'text-green-700 bg-green-50' : 'text-gray-600'}`}
+          >
+            <Calendar className="w-3 h-3" />
+            {monthLabel}
+          </button>
+          <button onClick={() => shiftMonth(1)} className="p-1.5 hover:bg-gray-100 rounded-r transition-colors">
+            <ChevronRight className="w-3.5 h-3.5 text-gray-600" />
+          </button>
+        </div>
+        {monthFilter && (
+          <button
+            onClick={() => { const now = new Date(); setMonthFilter({ year: now.getFullYear(), month: now.getMonth() }); setPage(1); }}
+            className="px-2 py-1 rounded border border-green-300 bg-green-50 text-[11px] font-semibold text-green-700 hover:bg-green-100 transition-colors"
+          >
+            This Month
+          </button>
+        )}
         <button
           onClick={() => { setPage(1); fetchData(); }}
           className="p-1.5 rounded border border-gray-300 bg-white hover:bg-gray-100 transition-colors"
@@ -137,7 +199,7 @@ export default function SheetsView() {
           <RefreshCw className={`w-3.5 h-3.5 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
         </button>
         <span className="text-[11px] text-gray-500 ml-auto">
-          {totalCount} records
+          {totalCount} records{monthFilter ? ` in ${monthLabel}` : ''}
         </span>
       </div>
 
