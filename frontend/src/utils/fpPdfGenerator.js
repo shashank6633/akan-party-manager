@@ -44,10 +44,9 @@ export function generateFpPdf(data) {
     { key: 'dal', label: 'Dal' },
     { key: 'salad', label: 'Salad' },
     { key: 'desserts', label: 'Desserts' },
-    { key: 'accompaniments', label: 'Accompaniments' },
   ];
 
-  const hasRegularMenu = !isPreset && [...pairedMenu.flatMap((p) => [p.left, p.right]), ...singleMenu.map((s) => s.key)]
+  const hasRegularMenu = !isPreset && [...pairedMenu.flatMap((p) => [p.left, p.right]), ...singleMenu.map((s) => s.key), 'accompaniments']
     .some((k) => data[k] && data[k].length > 0);
 
   const addonParts = buildAddonParts(data);
@@ -76,7 +75,6 @@ export function generateFpPdf(data) {
       ['vegMainCourse', 'nonVegMainCourse'],
       ['rice', 'dal'],
       ['salad', 'desserts'],
-      ['accompaniments', null],
     ];
     for (const [l, r] of presetPairs) {
       const lLines = (pmt[l] || '').split('\n').filter(Boolean).length;
@@ -266,7 +264,6 @@ export function generateFpPdf(data) {
         { left: 'vegMainCourse', leftLabel: 'Veg Main Course', right: 'nonVegMainCourse', rightLabel: 'Non-Veg Main Course' },
         { left: 'rice', leftLabel: 'Rice', right: 'dal', rightLabel: 'Dal' },
         { left: 'salad', leftLabel: 'Salad', right: 'desserts', rightLabel: 'Desserts' },
-        { left: 'accompaniments', leftLabel: 'Accompaniments', right: null, rightLabel: '' },
       ];
 
       for (const pair of presetPairs) {
@@ -292,6 +289,24 @@ export function generateFpPdf(data) {
           startY: y, body, theme: 'grid',
           bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10] },
           columnStyles: menuColStyles,
+          margin: { left: M, right: M },
+        });
+        y = doc.lastAutoTable.finalY;
+      }
+      // Accompaniments — single row for preset too
+      const presetAccLines = (pmt.accompaniments || '').split('\n').filter(Boolean);
+      const presetAccOthers = getOtherItems('accompaniments');
+      const presetAccAll = [...presetAccLines, ...presetAccOthers];
+      if (presetAccAll.length > 0) {
+        autoTable(doc, {
+          startY: y,
+          body: [['Accompaniments', presetAccAll.join(',  ')]],
+          theme: 'grid',
+          bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10], fontStyle: 'bold' },
+          columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 26, fillColor: C.gold, fontSize: fs - 0.5, textColor: [80, 50, 20] },
+            1: { fillColor: C.cream, cellWidth: CW - 26 },
+          },
           margin: { left: M, right: M },
         });
         y = doc.lastAutoTable.finalY;
@@ -348,6 +363,24 @@ export function generateFpPdf(data) {
           startY: y, body, theme: 'grid',
           bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10] },
           columnStyles: menuColStyles,
+          margin: { left: M, right: M },
+        });
+        y = doc.lastAutoTable.finalY;
+      }
+
+      // Accompaniments — single row, all items on one line, no numbering
+      const accItems = [...(data.accompaniments || []), ...getOtherItems('accompaniments')];
+      if (accItems.length > 0) {
+        const accLine = accItems.join(',  ');
+        autoTable(doc, {
+          startY: y,
+          body: [['Accompaniments', accLine]],
+          theme: 'grid',
+          bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10], fontStyle: 'bold' },
+          columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 26, fillColor: C.gold, fontSize: fs - 0.5, textColor: [80, 50, 20] },
+            1: { fillColor: C.cream, cellWidth: CW - 26 },
+          },
           margin: { left: M, right: M },
         });
         y = doc.lastAutoTable.finalY;
