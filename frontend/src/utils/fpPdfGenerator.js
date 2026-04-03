@@ -87,15 +87,17 @@ export function generateFpPdf(data) {
   let actCount = 0;
   try { const a = typeof data.activities === 'string' ? JSON.parse(data.activities || '[]') : (data.activities || []); actCount = a.filter((x) => x.name).length; } catch { actCount = 0; }
   const contentDensity = totalMenuRows + addonParts.length + (hasDrinks ? 3 : 0) + entItems.length + tcItems.length + actCount;
-  const isVeryDense = contentDensity > 35;
-  const isCompact = contentDensity > 25;
-  const cp = isVeryDense ? 1 : isCompact ? 1.5 : 2;         // cell padding
-  const fs = isVeryDense ? 6 : isCompact ? 6.5 : 7;         // body font size
-  const fsH = isVeryDense ? 6.5 : isCompact ? 7 : 7.5;      // header font size
-  const gap = isVeryDense ? 1 : isCompact ? 1.5 : 2.5;      // gap between sections
-  const signH = isVeryDense ? 8 : isCompact ? 10 : 14;      // sign-off box height
-  const tcFs = isVeryDense ? 4.5 : isCompact ? 5.5 : 6;     // T&C font size
-  const tcLh = isVeryDense ? 2 : isCompact ? 2.5 : 3;       // T&C line height
+  const isUltraDense = contentDensity > 40;
+  const isVeryDense = contentDensity > 30;
+  const isCompact = contentDensity > 20;
+  const cp = isUltraDense ? 0.6 : isVeryDense ? 0.8 : isCompact ? 1.2 : 2;
+  const fs = isUltraDense ? 5.5 : isVeryDense ? 6 : isCompact ? 6.5 : 7;
+  const fsH = isUltraDense ? 5.5 : isVeryDense ? 6 : isCompact ? 6.5 : 7.5;
+  const gap = isUltraDense ? 0.3 : isVeryDense ? 0.5 : isCompact ? 1 : 2.5;
+  const signH = isUltraDense ? 5 : isVeryDense ? 6 : isCompact ? 8 : 14;
+  const tcFs = isUltraDense ? 3.8 : isVeryDense ? 4.2 : isCompact ? 5 : 6;
+  const tcLh = isUltraDense ? 1.6 : isVeryDense ? 1.8 : isCompact ? 2.2 : 3;
+  const headerH = isVeryDense ? 10 : 14; // top banner height
 
   // ===== WATERMARK =====
   try {
@@ -113,25 +115,25 @@ export function generateFpPdf(data) {
   }
   doc.setTextColor(0, 0, 0);
 
-  // ===== HEADER (14mm) =====
+  // ===== HEADER =====
   doc.setFillColor(...C.akan);
-  doc.rect(0, 0, W, 14, 'F');
+  doc.rect(0, 0, W, headerH, 'F');
   doc.setFillColor(...C.gold);
-  doc.rect(0, 14, W, 1, 'F');
+  doc.rect(0, headerH, W, 0.6, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.text('AKAN', M + 1, 8);
-  doc.setFontSize(7);
+  doc.setFontSize(isVeryDense ? 11 : 14);
+  doc.text('AKAN', M + 1, headerH * 0.5);
+  doc.setFontSize(isVeryDense ? 5.5 : 7);
   doc.setFont('helvetica', 'normal');
-  doc.text(isPreset ? 'Preset Menu' : 'Function & Prospectus', M + 1, 12);
+  doc.text(isPreset ? 'Preset Menu' : 'Function & Prospectus', M + 1, headerH * 0.82);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  if (data.fpId) doc.text(data.fpId, W - M, 7, { align: 'right' });
-  doc.setFontSize(7);
-  if (data.status) doc.text(`Status: ${data.status}`, W - M, 12, { align: 'right' });
+  doc.setFontSize(isVeryDense ? 6.5 : 8);
+  if (data.fpId) doc.text(data.fpId, W - M, headerH * 0.45, { align: 'right' });
+  doc.setFontSize(isVeryDense ? 5.5 : 7);
+  if (data.status) doc.text(`Status: ${data.status}`, W - M, headerH * 0.82, { align: 'right' });
 
-  y = 17;
+  y = headerH + 1.5;
   doc.setTextColor(0, 0, 0);
 
   // ===== BOOKING & GUEST DETAILS =====
@@ -159,15 +161,18 @@ export function generateFpPdf(data) {
     ['Guest', d(data.contactPerson), 'Phone', d(data.phone), 'Company', d(data.company)],
     ['Package', d(pkgDisplay), 'Reference', d(data.reference), 'Payment', d(data.modeOfPayment)],
     ['Rate/Head', d(data.ratePerHead ? `Rs.${data.ratePerHead}` : ''), 'Advance', d(data.advancePayment ? `Rs.${data.advancePayment}` : ''), 'Est. Bill', d(data.approxBillAmount ? `Rs.${Number(data.approxBillAmount).toLocaleString('en-IN')}` : '')],
-    ['Food Pref', d(foodPrefStr), activitiesTotal > 0 ? '*** Activities ***' : '', activitiesTotal > 0 ? `*** Rs.${activitiesTotal.toLocaleString('en-IN')} ***` : '', '', ''],
   ];
+  // Only add Food Pref / Activities row if there's content
+  if (foodPrefStr || activitiesTotal > 0) {
+    detailRows.push(['Food Pref', d(foodPrefStr), activitiesTotal > 0 ? '*** Activities ***' : '', activitiesTotal > 0 ? `*** Rs.${activitiesTotal.toLocaleString('en-IN')} ***` : '', '', '']);
+  }
 
   autoTable(doc, {
     startY: y,
     head: [['BOOKING & GUEST DETAILS', '', '', '', '', '']],
     body: detailRows,
     theme: 'grid',
-    headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
+    headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
     bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [30, 30, 30] },
     columnStyles: {
       0: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, fontSize: fs - 0.5, valign: 'middle', halign: 'center' },
@@ -193,7 +198,7 @@ export function generateFpPdf(data) {
         hookData.cell.styles.textColor = [10, 10, 10];
       }
       // Highlight Activities amount row (last row, columns 2 & 3)
-      if (hookData.section === 'body' && hookData.row.index === 5 && activitiesTotal > 0 && (hookData.column.index === 2 || hookData.column.index === 3)) {
+      if (hookData.section === 'body' && hookData.row.index === detailRows.length - 1 && activitiesTotal > 0 && (hookData.column.index === 2 || hookData.column.index === 3)) {
         hookData.cell.styles.fillColor = [255, 240, 200];
         hookData.cell.styles.textColor = [200, 60, 0];
         hookData.cell.styles.fontStyle = 'bold';
@@ -211,7 +216,7 @@ export function generateFpPdf(data) {
       head: [[isPreset ? 'PRESET MENU' : 'MENU SELECTION', '']],
       body: [],
       theme: 'grid',
-      headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
+      headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
       didParseCell: (hookData) => {
         if (hookData.section === 'head' && hookData.column.index === 0) hookData.cell.colSpan = 2;
       },
@@ -403,7 +408,7 @@ export function generateFpPdf(data) {
       head: [['OTHER ITEM (Outside Menu)', '']],
       body: generalBody,
       theme: 'grid',
-      headStyles: { fillColor: [180, 130, 50], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
+      headStyles: { fillColor: [180, 130, 50], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
       bodyStyles: { fontSize: fs, cellPadding: cp, fillColor: [255, 250, 235], fontStyle: 'bold', textColor: [10, 10, 10] },
       columnStyles: {
         0: { cellWidth: 42, textColor: [120, 100, 60] },
@@ -424,7 +429,7 @@ export function generateFpPdf(data) {
       head: [['ADDONS (Extra Charges)']],
       body: addonParts.map((p) => [p]),
       theme: 'grid',
-      headStyles: { fillColor: [210, 100, 30], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
+      headStyles: { fillColor: [210, 100, 30], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
       bodyStyles: { fontSize: fs, cellPadding: cp, fillColor: C.orange, fontStyle: 'bold', textColor: [10, 10, 10] },
       margin: { left: M, right: M },
     });
@@ -452,7 +457,7 @@ export function generateFpPdf(data) {
       head: [['DRINKS & BAR   |   ALCOHOLIC { Pouring will be 30ml }   |   NOTE: DRINKS WILL BE SERVED AS PER AVAILABILITY', '', '', '']],
       body: dRows,
       theme: 'grid',
-      headStyles: { fillColor: [120, 60, 120], textColor: 255, fontStyle: 'bold', fontSize: fsH - 0.5, cellPadding: 1.5, halign: 'center' },
+      headStyles: { fillColor: [120, 60, 120], textColor: 255, fontStyle: 'bold', fontSize: fsH - 0.5, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
       bodyStyles: { fontSize: fs + 0.5, cellPadding: cp, overflow: 'linebreak', fontStyle: 'bold', textColor: [10, 10, 10] },
       columnStyles: {
         0: { fontStyle: 'bold', cellWidth: drinkLabelW, fillColor: [240, 230, 245], textColor: [80, 40, 80], fontSize: fs },
@@ -470,12 +475,26 @@ export function generateFpPdf(data) {
 
   // ===== ENTERTAINMENT =====
   if (entItems.length > 0) {
+    // When ultra/very dense, combine entertainment into paired rows to save space
+    let entBody = entItems;
+    if (isVeryDense && entItems.length > 2) {
+      entBody = [];
+      for (let i = 0; i < entItems.length; i += 2) {
+        const left = entItems[i];
+        const right = entItems[i + 1];
+        if (right) {
+          entBody.push([`${left[0]} / ${right[0]}`, `${left[1]}  |  ${right[1]}`]);
+        } else {
+          entBody.push(left);
+        }
+      }
+    }
     autoTable(doc, {
       startY: y,
       head: [['ENTERTAINMENT & ARRANGEMENTS', '']],
-      body: entItems,
+      body: entBody,
       theme: 'grid',
-      headStyles: { fillColor: [80, 120, 160], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
+      headStyles: { fillColor: [80, 120, 160], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
       bodyStyles: { fontSize: fs, cellPadding: cp, fontStyle: 'bold', textColor: [10, 10, 10] },
       columnStyles: {
         0: { fontStyle: 'bold', cellWidth: 22, fillColor: [225, 235, 245], textColor: [40, 60, 100] },
@@ -509,7 +528,7 @@ export function generateFpPdf(data) {
       head: [['ACTIVITIES', '', '', '']],
       body: actBody,
       theme: 'grid',
-      headStyles: { fillColor: [60, 130, 100], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
+      headStyles: { fillColor: [60, 130, 100], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
       bodyStyles: { fontSize: fs, cellPadding: cp, fontStyle: 'bold', textColor: [10, 10, 10] },
       columnStyles: {
         0: { fontStyle: 'bold', cellWidth: CW * 0.4, fillColor: C.cream },
@@ -532,16 +551,20 @@ export function generateFpPdf(data) {
   }
 
   // ===== SIGN-OFF =====
+  const signOffRows = isUltraDense ? [
+    ['F&P By', data.fpMadeBy || '', 'Manager', data.managerName || '', 'Guest', data.contactPerson || ''],
+    ['Kitchen', data.kitchenDept || '', 'Service / Bar', `${data.serviceDept || ''} / ${data.barDept || ''}`, 'Stores', data.storesDept || ''],
+  ] : [
+    ['F&P By', data.fpMadeBy || '', 'Manager', data.managerName || '', 'Guest', data.contactPerson || ''],
+    ['Kitchen', data.kitchenDept || '', 'Service', data.serviceDept || '', 'Bar', data.barDept || ''],
+    ['Stores', data.storesDept || '', 'Maint.', data.maintenance || '', 'Front Off.', data.frontOffice || ''],
+  ];
   autoTable(doc, {
     startY: y,
     head: [['SIGN-OFF & DISTRIBUTION', '', '', '', '', '']],
-    body: [
-      ['F&P By', data.fpMadeBy || '', 'Manager', data.managerName || '', 'Guest', data.contactPerson || ''],
-      ['Kitchen', data.kitchenDept || '', 'Service', data.serviceDept || '', 'Bar', data.barDept || ''],
-      ['Stores', data.storesDept || '', 'Maint.', data.maintenance || '', 'Front Off.', data.frontOffice || ''],
-    ],
+    body: signOffRows,
     theme: 'grid',
-    headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
+    headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
     bodyStyles: { fontSize: fs, cellPadding: { top: 2, bottom: signH - 6, left: 2, right: 2 }, fontStyle: 'bold', textColor: [10, 10, 10], minCellHeight: signH },
     columnStyles: {
       0: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, textColor: [80, 50, 20] },
@@ -559,7 +582,7 @@ export function generateFpPdf(data) {
   y = doc.lastAutoTable.finalY + gap;
 
   // ===== TERMS & CONDITIONS =====
-  const footerSpace = 8;
+  const footerSpace = 6;
   const remainingY = H - y - footerSpace;
   const tcHeaderH = 3.5;
 
@@ -628,13 +651,19 @@ export function generateFpPdf(data) {
   }
 
   // ===== FOOTER =====
+  doc.setPage(1); // Ensure we're on page 1 for footer
   doc.setDrawColor(...C.akan);
   doc.setLineWidth(0.4);
-  doc.line(M, H - 7, W - M, H - 7);
-  doc.setFontSize(5.5);
+  doc.line(M, H - 5, W - M, H - 5);
+  doc.setFontSize(5);
   doc.setTextColor(...C.gray);
   const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  doc.text(`Generated: ${dateStr}`, W - M, H - 4, { align: 'right' });
+  doc.text(`Generated: ${dateStr}`, W - M, H - 2.5, { align: 'right' });
+
+  // Force single page — remove any overflow pages
+  while (doc.getNumberOfPages() > 1) {
+    doc.deletePage(2);
+  }
 
   // ===== Save =====
   const filename = `FP_${data.fpId || 'draft'}_${(data.contactPerson || 'guest').replace(/\s+/g, '_')}.pdf`;
