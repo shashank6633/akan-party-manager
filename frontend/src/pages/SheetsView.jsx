@@ -63,8 +63,11 @@ export default function SheetsView() {
   const [totalCount, setTotalCount] = useState(0);
   const tableRef = useRef(null);
 
-  // Month filter: null = all, or { year, month (0-indexed) }
-  const [monthFilter, setMonthFilter] = useState(null);
+  // Month filter: null = all, or { year, month (0-indexed) } — default to This Month
+  const [monthFilter, setMonthFilter] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() };
+  });
 
   const getMonthRange = (year, month) => {
     const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
