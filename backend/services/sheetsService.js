@@ -679,6 +679,7 @@ const FP_COLUMNS = [
   'Vegan Food',             // BH (boolean)
   'Vegan Food Pax',         // BI (number)
   'Entertainment Notes',    // BJ
+  'Activities',             // BK (JSON - array of {name, pax, amount})
 ];
 
 const FP_COLUMN_MAP = {};

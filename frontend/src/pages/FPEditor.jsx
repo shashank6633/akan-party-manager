@@ -1016,6 +1016,149 @@ export default function FPEditor() {
                   className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#af4408]/30 resize-none"
                 />
               </div>
+
+              {/* Activities Section */}
+              <div className="mt-5 border-t border-gray-100 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">Activities</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const activities = form.activities ? (typeof form.activities === 'string' ? JSON.parse(form.activities) : form.activities) : [];
+                      if (activities.length === 0) {
+                        updateField('activities', JSON.stringify([{ name: '', pax: '', amount: '' }]));
+                      } else {
+                        updateField('activities', JSON.stringify([]));
+                      }
+                    }}
+                    disabled={!canEdit}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                      (() => {
+                        const acts = form.activities ? (typeof form.activities === 'string' ? JSON.parse(form.activities || '[]') : form.activities) : [];
+                        return acts.length > 0;
+                      })()
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-100 text-gray-600 border border-gray-300 hover:border-green-500 hover:text-green-700'
+                    }`}
+                  >
+                    {(() => {
+                      const acts = form.activities ? (typeof form.activities === 'string' ? JSON.parse(form.activities || '[]') : form.activities) : [];
+                      return acts.length > 0 ? 'YES' : 'NO';
+                    })()}
+                  </button>
+                </div>
+
+                {(() => {
+                  const activities = form.activities ? (typeof form.activities === 'string' ? JSON.parse(form.activities || '[]') : form.activities) : [];
+                  if (activities.length === 0) return null;
+
+                  const updateActivities = (newActivities) => {
+                    updateField('activities', JSON.stringify(newActivities));
+                  };
+
+                  const updateActivity = (idx, key, val) => {
+                    const updated = [...activities];
+                    updated[idx] = { ...updated[idx], [key]: val };
+                    updateActivities(updated);
+                  };
+
+                  const addActivity = () => {
+                    updateActivities([...activities, { name: '', pax: '', amount: '' }]);
+                  };
+
+                  const removeActivity = (idx) => {
+                    const updated = activities.filter((_, i) => i !== idx);
+                    if (updated.length === 0) updateField('activities', JSON.stringify([]));
+                    else updateActivities(updated);
+                  };
+
+                  const grandTotal = activities.reduce((sum, a) => {
+                    const pax = parseFloat(a.pax) || 0;
+                    const amt = parseFloat(a.amount) || 0;
+                    return sum + (pax * amt);
+                  }, 0);
+
+                  return (
+                    <div className="space-y-3">
+                      {activities.map((act, idx) => {
+                        const pax = parseFloat(act.pax) || 0;
+                        const amt = parseFloat(act.amount) || 0;
+                        const total = pax * amt;
+                        return (
+                          <div key={idx} className="grid grid-cols-12 gap-2 items-end bg-gray-50 rounded-lg p-3">
+                            <div className="col-span-4">
+                              <label className="block text-[10px] text-gray-500 mb-1">Activity Name</label>
+                              <input
+                                type="text"
+                                value={act.name || ''}
+                                onChange={(e) => updateActivity(idx, 'name', e.target.value)}
+                                readOnly={!canEdit}
+                                placeholder="e.g. Tattoo, Games"
+                                className="w-full px-2.5 py-2 rounded-lg border border-gray-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <label className="block text-[10px] text-gray-500 mb-1">No. of Pax</label>
+                              <input
+                                type="number"
+                                value={act.pax || ''}
+                                onChange={(e) => updateActivity(idx, 'pax', e.target.value)}
+                                readOnly={!canEdit}
+                                placeholder="0"
+                                className="w-full px-2.5 py-2 rounded-lg border border-gray-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <label className="block text-[10px] text-gray-500 mb-1">Amount/Pax (₹)</label>
+                              <input
+                                type="number"
+                                value={act.amount || ''}
+                                onChange={(e) => updateActivity(idx, 'amount', e.target.value)}
+                                readOnly={!canEdit}
+                                placeholder="0"
+                                className="w-full px-2.5 py-2 rounded-lg border border-gray-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
+                              />
+                            </div>
+                            <div className="col-span-3">
+                              <label className="block text-[10px] text-gray-500 mb-1">Total Amount</label>
+                              <div className="w-full px-2.5 py-2 rounded-lg border border-gray-200 bg-green-50 text-xs font-bold text-green-700">
+                                ₹{total.toLocaleString('en-IN')}
+                              </div>
+                            </div>
+                            <div className="col-span-1 flex justify-center">
+                              {canEdit && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeActivity(idx)}
+                                  className="p-1.5 rounded-full text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                  title="Remove"
+                                >
+                                  ✕
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      <div className="flex items-center justify-between pt-2">
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={addActivity}
+                            className="flex items-center gap-1 text-xs font-semibold text-[#af4408] hover:text-[#963a07] transition-colors"
+                          >
+                            + Add Activity
+                          </button>
+                        )}
+                        <div className="text-sm font-bold text-gray-800">
+                          Grand Total: <span className="text-green-700">₹{grandTotal.toLocaleString('en-IN')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           )}
         </div>

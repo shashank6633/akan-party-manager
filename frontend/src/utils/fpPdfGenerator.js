@@ -86,7 +86,9 @@ export function generateFpPdf(data) {
   }
 
   // Dynamic sizing: compact if lots of content
-  const contentDensity = totalMenuRows + addonParts.length + (hasDrinks ? 3 : 0) + entItems.length + tcItems.length;
+  let actCount = 0;
+  try { const a = typeof data.activities === 'string' ? JSON.parse(data.activities || '[]') : (data.activities || []); actCount = a.filter((x) => x.name).length; } catch { actCount = 0; }
+  const contentDensity = totalMenuRows + addonParts.length + (hasDrinks ? 3 : 0) + entItems.length + tcItems.length + actCount;
   const isCompact = contentDensity > 25;
   const cp = isCompact ? 1.5 : 2;       // cell padding
   const fs = isCompact ? 6.5 : 7;       // body font size
@@ -433,6 +435,48 @@ export function generateFpPdf(data) {
       },
       didParseCell: (hookData) => {
         if (hookData.section === 'head' && hookData.column.index === 0) hookData.cell.colSpan = 2;
+      },
+      margin: { left: M, right: M },
+    });
+    y = doc.lastAutoTable.finalY + gap;
+  }
+
+  // ===== ACTIVITIES =====
+  let activitiesArr = data.activities || [];
+  if (typeof activitiesArr === 'string') {
+    try { activitiesArr = JSON.parse(activitiesArr); } catch { activitiesArr = []; }
+  }
+  if (activitiesArr.length > 0 && activitiesArr.some((a) => a.name)) {
+    const actBody = activitiesArr.filter((a) => a.name).map((a) => {
+      const pax = parseFloat(a.pax) || 0;
+      const amt = parseFloat(a.amount) || 0;
+      const total = pax * amt;
+      return [a.name, String(pax), `Rs.${amt.toLocaleString('en-IN')}`, `Rs.${total.toLocaleString('en-IN')}`];
+    });
+    const grandTotal = activitiesArr.filter((a) => a.name).reduce((s, a) => s + ((parseFloat(a.pax) || 0) * (parseFloat(a.amount) || 0)), 0);
+    actBody.push(['', '', 'Grand Total', `Rs.${grandTotal.toLocaleString('en-IN')}`]);
+
+    autoTable(doc, {
+      startY: y,
+      head: [['ACTIVITIES', '', '', '']],
+      body: actBody,
+      theme: 'grid',
+      headStyles: { fillColor: [60, 130, 100], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: 1.5, halign: 'center' },
+      bodyStyles: { fontSize: fs, cellPadding: cp, fontStyle: 'bold', textColor: [10, 10, 10] },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: CW * 0.4, fillColor: C.cream },
+        1: { cellWidth: CW * 0.15, halign: 'center' },
+        2: { cellWidth: CW * 0.2, halign: 'right' },
+        3: { cellWidth: CW * 0.25, halign: 'right', fillColor: [235, 255, 240] },
+      },
+      didParseCell: (hookData) => {
+        if (hookData.section === 'head' && hookData.column.index === 0) hookData.cell.colSpan = 4;
+        // Style grand total row
+        if (hookData.section === 'body' && hookData.row.index === actBody.length - 1) {
+          hookData.cell.styles.fontStyle = 'bold';
+          hookData.cell.styles.fontSize = fs + 0.5;
+          if (hookData.column.index === 3) hookData.cell.styles.textColor = [0, 120, 60];
+        }
       },
       margin: { left: M, right: M },
     });
