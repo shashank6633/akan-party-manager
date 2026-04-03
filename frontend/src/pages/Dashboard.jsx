@@ -93,6 +93,9 @@ export default function Dashboard() {
  const [myFollowUps, setMyFollowUps] = useState(false);
  const [myUpcoming, setMyUpcoming] = useState(false);
 
+ // Pending Dues filter
+ const [pendingDuesOnly, setPendingDuesOnly] = useState(false);
+
  // Stale enquiry alerts
  const [staleEnquiries, setStaleEnquiries] = useState([]);
  const [showStalePopup, setShowStalePopup] = useState(false);
@@ -313,7 +316,7 @@ export default function Dashboard() {
   ))}
   </div>
  </div>
- <StatsCards stats={stats} loading={statsLoading} cashierView={isCashier} showRevenue={['CASHIER', 'ACCOUNTS', 'ADMIN'].includes(user?.role)} />
+ <StatsCards stats={stats} loading={statsLoading} cashierView={isCashier} showRevenue={['CASHIER', 'ACCOUNTS', 'ADMIN'].includes(user?.role)} onPendingDuesClick={() => { setStatusFilter('Confirmed'); setPendingDuesOnly(true); setPage(1); }} />
  </>
  )}
 
@@ -599,7 +602,7 @@ export default function Dashboard() {
  {(isCashier ? CASHIER_STATUS_OPTIONS : STATUS_OPTIONS).map((s) => (
  <button
   key={s}
-  onClick={() => { setStatusFilter(s); setPage(1); }}
+  onClick={() => { setStatusFilter(s); setPendingDuesOnly(false); setPage(1); }}
   className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
   statusFilter === s
    ? s === 'Confirmed' ? 'bg-green-100 text-green-700 ring-1 ring-green-300'
@@ -688,9 +691,21 @@ export default function Dashboard() {
  )}
  </div>
 
+ {/* Pending Dues filter banner */}
+ {pendingDuesOnly && (
+ <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg px-4 py-2.5">
+  <p className="text-xs font-semibold text-orange-700">Showing only Confirmed parties with Pending Dues</p>
+  <button onClick={() => { setPendingDuesOnly(false); setStatusFilter('All'); }} className="text-xs font-semibold text-orange-600 hover:text-orange-800 underline">Clear Filter</button>
+ </div>
+ )}
+
  {/* Party table */}
  <PartyTable
- parties={myUpcoming ? parties.filter((p) => p.handledBy && p.handledBy.toLowerCase().includes(user?.name?.toLowerCase())) : parties}
+ parties={(() => {
+  let list = myUpcoming ? parties.filter((p) => p.handledBy && p.handledBy.toLowerCase().includes(user?.name?.toLowerCase())) : parties;
+  if (pendingDuesOnly) list = list.filter((p) => parseFloat(p.dueAmount) > 0);
+  return list;
+ })()}
  loading={loading}
  onQuickAction={isViewer || isGRE ? null : handleQuickAction}
  page={page}
