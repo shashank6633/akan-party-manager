@@ -857,6 +857,7 @@ export default function PartyDetail() {
              <option value="Card">Card</option>
              <option value="Bank Transfer">Bank Transfer</option>
              <option value="Cheque">Cheque</option>
+             <option value="Razorpay">Razorpay</option>
             </select>
            </div>
            <div>
