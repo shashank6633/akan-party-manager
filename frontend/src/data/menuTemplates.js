@@ -161,8 +161,8 @@ export const PACKAGES = {
     limits: {
       vegStarters: 3,
       nonVegStarters: 3,
-      vegMainCourse: 3,
-      nonVegMainCourse: 3,
+      vegMainCourse: 2,
+      nonVegMainCourse: 2,
       rice: 1,
       dal: 1,
       salad: 1,
@@ -198,8 +198,8 @@ export const PACKAGES = {
     limits: {
       vegStarters: 3,
       nonVegStarters: 3,
-      vegMainCourse: 3,
-      nonVegMainCourse: 3,
+      vegMainCourse: 2,
+      nonVegMainCourse: 2,
       rice: 1,
       dal: 1,
       salad: 1,
