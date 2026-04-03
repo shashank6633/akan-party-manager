@@ -93,7 +93,7 @@ export default function SheetsView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const params = { page, limit: PAGE_SIZE, sort: 'date', order: 'desc' };
+      const params = { page, limit: PAGE_SIZE, sort: 'date', order: 'asc' };
       if (search) params.search = search;
       if (statusFilter !== 'All') params.status = statusFilter;
       if (monthFilter) {

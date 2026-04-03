@@ -178,7 +178,7 @@ router.get(
         return res.status(400).json({ success: false, errors: errors.array() });
       }
 
-      const { status, dateFrom, dateTo, search, partyType, page = 1, limit = 50 } = req.query;
+      const { status, dateFrom, dateTo, search, partyType, page = 1, limit = 50, order = 'asc' } = req.query;
 
       let rows = await sheetsService.getAllRows();
 
@@ -229,6 +229,13 @@ router.get(
             (r['Host Name'] || '').toLowerCase().includes(pt)
         );
       }
+
+      // Sort by date (ascending by default for A-Z date sequence)
+      rows.sort((a, b) => {
+        const dA = normalizeDate(a['Date']) || '9999-99-99';
+        const dB = normalizeDate(b['Date']) || '9999-99-99';
+        return order === 'desc' ? dB.localeCompare(dA) : dA.localeCompare(dB);
+      });
 
       // Pagination
       const total = rows.length;
