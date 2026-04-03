@@ -89,14 +89,15 @@ export function generateFpPdf(data) {
   let actCount = 0;
   try { const a = typeof data.activities === 'string' ? JSON.parse(data.activities || '[]') : (data.activities || []); actCount = a.filter((x) => x.name).length; } catch { actCount = 0; }
   const contentDensity = totalMenuRows + addonParts.length + (hasDrinks ? 3 : 0) + entItems.length + tcItems.length + actCount;
+  const isVeryDense = contentDensity > 35;
   const isCompact = contentDensity > 25;
-  const cp = isCompact ? 1.5 : 2;       // cell padding
-  const fs = isCompact ? 6.5 : 7;       // body font size
-  const fsH = isCompact ? 7 : 7.5;      // header font size
-  const gap = isCompact ? 1.5 : 2.5;    // gap between sections
-  const signH = isCompact ? 10 : 14;    // sign-off box height
-  const tcFs = isCompact ? 5.5 : 6;     // T&C font size
-  const tcLh = isCompact ? 2.5 : 3;     // T&C line height
+  const cp = isVeryDense ? 1 : isCompact ? 1.5 : 2;         // cell padding
+  const fs = isVeryDense ? 6 : isCompact ? 6.5 : 7;         // body font size
+  const fsH = isVeryDense ? 6.5 : isCompact ? 7 : 7.5;      // header font size
+  const gap = isVeryDense ? 1 : isCompact ? 1.5 : 2.5;      // gap between sections
+  const signH = isVeryDense ? 8 : isCompact ? 10 : 14;      // sign-off box height
+  const tcFs = isVeryDense ? 4.5 : isCompact ? 5.5 : 6;     // T&C font size
+  const tcLh = isVeryDense ? 2 : isCompact ? 2.5 : 3;       // T&C line height
 
   // ===== WATERMARK =====
   try {
@@ -525,7 +526,6 @@ export function generateFpPdf(data) {
   y = doc.lastAutoTable.finalY + gap;
 
   // ===== TERMS & CONDITIONS =====
-  // Calculate remaining space and adjust T&C to fit
   const footerSpace = 8;
   const remainingY = H - y - footerSpace;
   const tcHeaderH = 3.5;
@@ -539,28 +539,60 @@ export function generateFpPdf(data) {
   doc.setFontSize(tcFs);
   doc.setTextColor(50, 50, 50);
 
-  // Calculate if all T&C fits; if not, use even smaller font
+  // Calculate single-column height first
   let actualTcFs = tcFs;
   let actualTcLh = tcLh;
-  let totalTcHeight = 0;
-  tcItems.forEach((tc) => {
-    const lines = doc.splitTextToSize(`${tcItems.indexOf(tc) + 1}. ${tc}`, CW);
-    totalTcHeight += lines.length * actualTcLh;
-  });
-
-  if (totalTcHeight > remainingY - tcHeaderH) {
-    actualTcFs = Math.max(4.5, tcFs - 1);
-    actualTcLh = Math.max(2, tcLh - 0.5);
-    doc.setFontSize(actualTcFs);
-  }
-
+  let singleColHeight = 0;
   tcItems.forEach((tc, i) => {
     const lines = doc.splitTextToSize(`${i + 1}. ${tc}`, CW);
-    if (y + lines.length * actualTcLh < H - footerSpace) {
-      doc.text(lines, M, y);
-      y += lines.length * actualTcLh;
-    }
+    singleColHeight += lines.length * actualTcLh;
   });
+
+  const availableH = remainingY - tcHeaderH;
+
+  if (singleColHeight <= availableH) {
+    // Single column — fits fine
+    tcItems.forEach((tc, i) => {
+      const lines = doc.splitTextToSize(`${i + 1}. ${tc}`, CW);
+      if (y + lines.length * actualTcLh < H - footerSpace) {
+        doc.text(lines, M, y);
+        y += lines.length * actualTcLh;
+      }
+    });
+  } else {
+    // Two columns side by side — split T&C items into left/right
+    actualTcFs = Math.max(4, tcFs - 0.5);
+    actualTcLh = Math.max(1.8, tcLh - 0.5);
+    doc.setFontSize(actualTcFs);
+
+    const colW = (CW - 4) / 2; // 4mm gap between columns
+    const midItems = Math.ceil(tcItems.length / 2);
+    const leftItems = tcItems.slice(0, midItems);
+    const rightItems = tcItems.slice(midItems);
+
+    // Render left column
+    let yLeft = y;
+    leftItems.forEach((tc, i) => {
+      const lines = doc.splitTextToSize(`${i + 1}. ${tc}`, colW);
+      if (yLeft + lines.length * actualTcLh < H - footerSpace) {
+        doc.text(lines, M, yLeft);
+        yLeft += lines.length * actualTcLh;
+      }
+    });
+
+    // Render right column
+    let yRight = y;
+    rightItems.forEach((tc, i) => {
+      const num = midItems + i + 1;
+      const lines = doc.splitTextToSize(`${num}. ${tc}`, colW);
+      if (yRight + lines.length * actualTcLh < H - footerSpace) {
+        doc.text(lines, M + colW + 4, yRight);
+        yRight += lines.length * actualTcLh;
+      }
+    });
+
+    y = Math.max(yLeft, yRight);
+  }
 
   // ===== FOOTER =====
   doc.setDrawColor(...C.akan);
