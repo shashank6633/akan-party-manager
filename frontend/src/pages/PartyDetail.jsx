@@ -793,6 +793,32 @@ export default function PartyDetail() {
        })}
       </div>
 
+      {/* Activities Total in Estimation and Final Confirmation sections */}
+      {(section.title === 'Estimation' || section.title === 'Final Confirmation') && fpRecords.length > 0 && (() => {
+       let acts = fpRecords[0].activities || [];
+       if (typeof acts === 'string') { try { acts = JSON.parse(acts); } catch { acts = []; } }
+       const actTotal = acts.filter((a) => a.name).reduce((s, a) => s + ((parseFloat(a.pax) || 0) * (parseFloat(a.amount) || 0)), 0);
+       if (actTotal <= 0) return null;
+       return (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+          <span className="text-lg">⭐</span>
+          <div>
+           <p className="text-xs font-bold text-amber-800">Activities Total (from F&P)</p>
+           <p className="text-sm font-bold text-amber-900">₹{actTotal.toLocaleString('en-IN')}</p>
+           <p className="text-[10px] text-amber-600 mt-0.5">
+            {acts.filter((a) => a.name).map((a) => `${a.name} (${a.pax} pax × ₹${parseFloat(a.amount).toLocaleString('en-IN')})`).join(' | ')}
+           </p>
+          </div>
+          <div className="ml-auto text-right">
+           <p className="text-[10px] text-amber-600 font-semibold">Add to Final Bill</p>
+           <p className="text-[10px] text-amber-500">Don't forget!</p>
+          </div>
+         </div>
+        </div>
+       );
+      })()}
+
       {/* Add Payment button inside Payment Tracking section */}
       {section.title === 'Payment Tracking' && canAddPayment && (
        <div className="mt-4 pt-4 border-t border-gray-100">

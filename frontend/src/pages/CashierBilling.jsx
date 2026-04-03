@@ -13,7 +13,7 @@ import {
   Save,
   RotateCcw,
 } from 'lucide-react';
-import { partyAPI } from '../services/api';
+import { partyAPI, fpAPI } from '../services/api';
 import { formatCurrency, formatDate } from '../utils/helpers';
 
 export default function CashierBilling() {
@@ -24,6 +24,7 @@ export default function CashierBilling() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [duplicateWarning, setDuplicateWarning] = useState('');
+  const [activitiesData, setActivitiesData] = useState({ total: 0, items: [] });
 
   // Billing form
   const [form, setForm] = useState({
@@ -57,6 +58,23 @@ export default function CashierBilling() {
       if (res.data.duplicateWarning) {
         setDuplicateWarning(res.data.duplicateWarning);
       }
+      // Fetch F&P records for activities
+      try {
+        const fpRes = await fpAPI.getByParty(id);
+        const fpRecords = fpRes.data.data || [];
+        if (fpRecords.length > 0) {
+          let acts = fpRecords[0].activities || [];
+          if (typeof acts === 'string') { try { acts = JSON.parse(acts); } catch { acts = []; } }
+          const validActs = acts.filter((a) => a.name);
+          const actTotal = validActs.reduce((s, a) => s + ((parseFloat(a.pax) || 0) * (parseFloat(a.amount) || 0)), 0);
+          setActivitiesData({ total: actTotal, items: validActs });
+        } else {
+          setActivitiesData({ total: 0, items: [] });
+        }
+      } catch {
+        setActivitiesData({ total: 0, items: [] });
+      }
+
       // Pre-fill form with existing values
       setForm({
         confirmedPax: p.confirmedPax || '',
@@ -172,6 +190,7 @@ export default function CashierBilling() {
     setError('');
     setSuccess('');
     setDuplicateWarning('');
+    setActivitiesData({ total: 0, items: [] });
   };
 
   return (
@@ -301,6 +320,28 @@ export default function CashierBilling() {
               {party.lostReason && <p className="text-xs text-red-600 mt-1">Reason: {party.lostReason}</p>}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Activities Total Banner */}
+      {party && activitiesData.total > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">⭐</span>
+            <div className="flex-1">
+              <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Activities Total (from F&P)</p>
+              <p className="text-lg font-bold text-amber-900 mt-0.5">₹{activitiesData.total.toLocaleString('en-IN')}</p>
+              <p className="text-[10px] text-amber-600 mt-1">
+                {activitiesData.items.map((a) => `${a.name} (${a.pax} pax × ₹${parseFloat(a.amount).toLocaleString('en-IN')})`).join(' | ')}
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
+                ⚠️ Add to Final Bill
+              </p>
+              <p className="text-[10px] text-amber-600 mt-1 font-semibold">Don't forget!</p>
+            </div>
+          </div>
         </div>
       )}
 

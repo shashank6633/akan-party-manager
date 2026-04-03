@@ -160,7 +160,7 @@ export function generateFpPdf(data) {
     ['Guest', d(data.contactPerson), 'Phone', d(data.phone), 'Company', d(data.company)],
     ['Package', d(pkgDisplay), 'Reference', d(data.reference), 'Payment', d(data.modeOfPayment)],
     ['Rate/Head', d(data.ratePerHead ? `Rs.${data.ratePerHead}` : ''), 'Advance', d(data.advancePayment ? `Rs.${data.advancePayment}` : ''), 'Est. Bill', d(data.approxBillAmount ? `Rs.${Number(data.approxBillAmount).toLocaleString('en-IN')}` : '')],
-    ['Food Pref', d(foodPrefStr), 'Activities', d(activitiesTotal > 0 ? `Rs.${activitiesTotal.toLocaleString('en-IN')}` : ''), '', ''],
+    ['Food Pref', d(foodPrefStr), activitiesTotal > 0 ? '*** Activities ***' : '', activitiesTotal > 0 ? `*** Rs.${activitiesTotal.toLocaleString('en-IN')} ***` : '', '', ''],
   ];
 
   autoTable(doc, {
@@ -192,6 +192,13 @@ export function generateFpPdf(data) {
         hookData.cell.styles.fontStyle = 'bold';
         hookData.cell.styles.fontSize = fs;
         hookData.cell.styles.textColor = [10, 10, 10];
+      }
+      // Highlight Activities amount row (last row, columns 2 & 3)
+      if (hookData.section === 'body' && hookData.row.index === 5 && activitiesTotal > 0 && (hookData.column.index === 2 || hookData.column.index === 3)) {
+        hookData.cell.styles.fillColor = [255, 240, 200];
+        hookData.cell.styles.textColor = [200, 60, 0];
+        hookData.cell.styles.fontStyle = 'bold';
+        hookData.cell.styles.fontSize = fs + 0.5;
       }
     },
     margin: { left: M, right: M },
