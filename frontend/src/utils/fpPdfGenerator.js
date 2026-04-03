@@ -83,21 +83,45 @@ export function generateFpPdf(data) {
     }
   }
 
-  // Dynamic sizing: compact if lots of content
+  // Sizing tiers — from most spacious (tier 0) to most compressed (tier 4)
   let actCount = 0;
   try { const a = typeof data.activities === 'string' ? JSON.parse(data.activities || '[]') : (data.activities || []); actCount = a.filter((x) => x.name).length; } catch { actCount = 0; }
-  const contentDensity = totalMenuRows + addonParts.length + (hasDrinks ? 3 : 0) + entItems.length + tcItems.length + actCount;
-  const isUltraDense = contentDensity > 40;
-  const isVeryDense = contentDensity > 30;
-  const isCompact = contentDensity > 20;
-  const cp = isUltraDense ? 0.6 : isVeryDense ? 0.8 : isCompact ? 1.2 : 2;
-  const fs = isUltraDense ? 5.5 : isVeryDense ? 6 : isCompact ? 6.5 : 7;
-  const fsH = isUltraDense ? 5.5 : isVeryDense ? 6 : isCompact ? 6.5 : 7.5;
-  const gap = isUltraDense ? 0.3 : isVeryDense ? 0.5 : isCompact ? 1 : 2.5;
-  const signH = isUltraDense ? 5 : isVeryDense ? 6 : isCompact ? 8 : 14;
-  const tcFs = isUltraDense ? 3.8 : isVeryDense ? 4.2 : isCompact ? 5 : 6;
-  const tcLh = isUltraDense ? 1.6 : isVeryDense ? 1.8 : isCompact ? 2.2 : 3;
-  const headerH = isVeryDense ? 10 : 14; // top banner height
+  const TIERS = [
+    { cp: 2,   fs: 7.5, fsH: 8,   gap: 3,   signH: 14, tcFs: 6.5, tcLh: 3.2, headerH: 14, hpd: 1.5, dense: false, vdense: false, ultra: false },
+    { cp: 1.6, fs: 7,   fsH: 7.5, gap: 2,   signH: 12, tcFs: 6,   tcLh: 3,   headerH: 14, hpd: 1.5, dense: false, vdense: false, ultra: false },
+    { cp: 1.2, fs: 6.5, fsH: 6.5, gap: 1,   signH: 8,  tcFs: 5,   tcLh: 2.2, headerH: 12, hpd: 1,   dense: true,  vdense: false, ultra: false },
+    { cp: 0.8, fs: 6,   fsH: 6,   gap: 0.5, signH: 6,  tcFs: 4.2, tcLh: 1.8, headerH: 10, hpd: 0.8, dense: true,  vdense: true,  ultra: false },
+    { cp: 0.6, fs: 5.5, fsH: 5.5, gap: 0.3, signH: 5,  tcFs: 3.8, tcLh: 1.6, headerH: 10, hpd: 0.8, dense: true,  vdense: true,  ultra: true  },
+  ];
+
+  // Estimate content height per tier to pick the best fit
+  const estSectionCount = (hasRegularMenu || hasPresetText ? 1 : 0) + (addonParts.length > 0 ? 1 : 0) + (hasDrinks ? 1 : 0) + (entItems.length > 0 ? 1 : 0) + (actCount > 0 ? 1 : 0) + 2; // +2 = details + signoff
+  const estRows = totalMenuRows + addonParts.length + (hasDrinks ? 3 : 0) + entItems.length + actCount + 8 + 3; // 8 detail + 3 signoff
+
+  function estimateHeight(t) {
+    const rowH = t.fs * 0.4 + t.cp * 2;
+    const headH = t.fsH * 0.4 + t.hpd * 2;
+    const tcH = tcItems.length * t.tcLh * 0.6; // two-col estimate
+    return t.headerH + 2 + (estRows * rowH) + (estSectionCount * headH) + (estSectionCount * t.gap) + (t.signH * (t.ultra ? 2 : 3)) + tcH + 10 + 6;
+  }
+
+  // Pick the most spacious tier that fits
+  let tierIdx = 0;
+  for (let i = 0; i < TIERS.length; i++) {
+    tierIdx = i;
+    if (estimateHeight(TIERS[i]) <= H || i === TIERS.length - 1) break;
+  }
+  const T = TIERS[tierIdx];
+  const cp = T.cp;
+  const fs = T.fs;
+  const fsH = T.fsH;
+  const gap = T.gap;
+  const signH = T.signH;
+  const tcFs = T.tcFs;
+  const tcLh = T.tcLh;
+  const headerH = T.headerH;
+  const isVeryDense = T.vdense;
+  const isUltraDense = T.ultra;
 
   // ===== WATERMARK =====
   try {
