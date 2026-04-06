@@ -690,7 +690,9 @@ export function generateFpPdf(data) {
   }
 
   // ===== Save =====
-  const filename = `FP_${data.fpId || 'draft'}_${(data.contactPerson || 'guest').replace(/\s+/g, '_')}.pdf`;
+  const rawDate = formatDateIN(data.dateOfEvent).replace(/\//g, '-');
+  const guestName = (data.contactPerson || 'guest').replace(/\s+/g, '_');
+  const filename = `${rawDate}_${guestName}.pdf`;
   doc.save(filename.replace(/[^a-zA-Z0-9_.-]/g, '_'));
 }
 
