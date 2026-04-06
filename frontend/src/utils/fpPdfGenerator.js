@@ -184,11 +184,11 @@ export function generateFpPdf(data) {
     ['Time', d(data.timeOfEvent), 'Area', d(data.allocatedArea), 'Min Guar.', d(minGuarVal)],
     ['Guest', d(data.contactPerson), 'Phone', d(data.phone), 'Company', d(data.company)],
     ['Package', d(pkgDisplay), 'Reference', d(data.reference), 'Payment', d(data.modeOfPayment)],
-    ['Rate/Head', d(data.ratePerHead ? `Rs.${data.ratePerHead}` : ''), 'Advance', d(data.advancePayment ? `Rs.${data.advancePayment}` : ''), 'Est. Bill', d(data.approxBillAmount ? `Rs.${Number(data.approxBillAmount).toLocaleString('en-IN')}` : '')],
+    ['Rate/Head', d(data.ratePerHead ? `Rs.${data.ratePerHead}` : ''), 'Advance', d(data.advancePayment ? `Rs.${data.advancePayment}` : ''), 'Est. Bill', d((data.approxBillAmount || activitiesTotal) ? `Rs.${((Number(data.approxBillAmount) || 0) + activitiesTotal).toLocaleString('en-IN')}` : '')],
   ];
   // Only add Food Pref / Activities row if there's content
   if (foodPrefStr || activitiesTotal > 0) {
-    detailRows.push(['Food Pref', d(foodPrefStr), activitiesTotal > 0 ? '*** Activities ***' : '', activitiesTotal > 0 ? `*** Rs.${activitiesTotal.toLocaleString('en-IN')} ***` : '', '', '']);
+    detailRows.push(['Food Pref', d(foodPrefStr), activitiesTotal > 0 ? '***Activities' : '', activitiesTotal > 0 ? `***Rs.${activitiesTotal.toLocaleString('en-IN')}` : '', '', '']);
   }
 
   autoTable(doc, {
