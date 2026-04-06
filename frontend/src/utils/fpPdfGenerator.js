@@ -132,7 +132,7 @@ export function generateFpPdf(data) {
     doc.addImage(AKAN_LOGO_BASE64, 'PNG', (W - logoW) / 2, (H - logoH) / 2 - 10, logoW, logoH);
     doc.restoreGraphicsState();
   } catch (e) {
-    doc.setTextColor(245, 230, 215);
+    doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(90);
     doc.text('AKAN', W / 2, H / 2, { align: 'center', baseline: 'middle', angle: 45 });
@@ -197,7 +197,7 @@ export function generateFpPdf(data) {
     body: detailRows,
     theme: 'grid',
     headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
-    bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [30, 30, 30] },
+    bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [0, 0, 0] },
     columnStyles: {
       0: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, fontSize: fs - 0.5, valign: 'middle', halign: 'center' },
       1: { fontStyle: 'bold', cellWidth: CW / 3 - 20 },
@@ -211,7 +211,7 @@ export function generateFpPdf(data) {
         hookData.cell.colSpan = 6;
       }
       if (hookData.section === 'body' && (hookData.column.index % 2 === 0)) {
-        hookData.cell.styles.textColor = [80, 50, 20];
+        hookData.cell.styles.textColor = [0, 0, 0];
         hookData.cell.styles.fontSize = fs - 0.5;
         hookData.cell.styles.valign = 'middle';
         hookData.cell.styles.halign = 'center';
@@ -219,12 +219,12 @@ export function generateFpPdf(data) {
       if (hookData.section === 'body' && (hookData.column.index % 2 === 1)) {
         hookData.cell.styles.fontStyle = 'bold';
         hookData.cell.styles.fontSize = fs;
-        hookData.cell.styles.textColor = [10, 10, 10];
+        hookData.cell.styles.textColor = [0, 0, 0];
       }
       // Highlight Activities amount row (last row, columns 2 & 3)
       if (hookData.section === 'body' && hookData.row.index === detailRows.length - 1 && activitiesTotal > 0 && (hookData.column.index === 2 || hookData.column.index === 3)) {
         hookData.cell.styles.fillColor = [255, 240, 200];
-        hookData.cell.styles.textColor = [200, 60, 0];
+        hookData.cell.styles.textColor = [0, 0, 0];
         hookData.cell.styles.fontStyle = 'bold';
         hookData.cell.styles.fontSize = fs + 0.5;
       }
@@ -280,9 +280,9 @@ export function generateFpPdf(data) {
     };
 
     const menuColStyles = {
-      0: { fontStyle: 'bold', cellWidth: 26, fillColor: C.gold, fontSize: fs - 0.5, textColor: [80, 50, 20] },
+      0: { fontStyle: 'bold', cellWidth: 26, fillColor: C.gold, fontSize: fs - 0.5, textColor: [0, 0, 0] },
       1: { fontStyle: 'bold', cellWidth: halfW - 26, fillColor: C.cream },
-      2: { fontStyle: 'bold', cellWidth: 26, fillColor: C.gold, fontSize: fs - 0.5, textColor: [80, 50, 20] },
+      2: { fontStyle: 'bold', cellWidth: 26, fillColor: C.gold, fontSize: fs - 0.5, textColor: [0, 0, 0] },
       3: { fontStyle: 'bold', cellWidth: halfW - 26, fillColor: C.cream },
     };
 
@@ -316,7 +316,7 @@ export function generateFpPdf(data) {
         }
         autoTable(doc, {
           startY: y, body, theme: 'grid',
-          bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10] },
+          bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [0, 0, 0] },
           columnStyles: menuColStyles,
           margin: { left: M, right: M },
         });
@@ -331,9 +331,9 @@ export function generateFpPdf(data) {
           startY: y,
           body: [['Accompaniments', presetAccAll.join(',  ')]],
           theme: 'grid',
-          bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10], fontStyle: 'bold' },
+          bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [0, 0, 0], fontStyle: 'bold' },
           columnStyles: {
-            0: { fontStyle: 'bold', cellWidth: 26, fillColor: C.gold, fontSize: fs - 0.5, textColor: [80, 50, 20] },
+            0: { fontStyle: 'bold', cellWidth: 26, fillColor: C.gold, fontSize: fs - 0.5, textColor: [0, 0, 0] },
             1: { fillColor: C.cream, cellWidth: CW - 26 },
           },
           margin: { left: M, right: M },
@@ -360,7 +360,7 @@ export function generateFpPdf(data) {
         }
         autoTable(doc, {
           startY: y, body, theme: 'grid',
-          bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10] },
+          bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [0, 0, 0] },
           columnStyles: menuColStyles,
           margin: { left: M, right: M },
         });
@@ -390,7 +390,7 @@ export function generateFpPdf(data) {
         }
         autoTable(doc, {
           startY: y, body, theme: 'grid',
-          bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10] },
+          bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [0, 0, 0] },
           columnStyles: menuColStyles,
           margin: { left: M, right: M },
         });
@@ -405,9 +405,9 @@ export function generateFpPdf(data) {
           startY: y,
           body: [['Accompaniments', accLine]],
           theme: 'grid',
-          bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [10, 10, 10], fontStyle: 'bold' },
+          bodyStyles: { fontSize: fs, cellPadding: cp, textColor: [0, 0, 0], fontStyle: 'bold' },
           columnStyles: {
-            0: { fontStyle: 'bold', cellWidth: 26, fillColor: C.gold, fontSize: fs - 0.5, textColor: [80, 50, 20] },
+            0: { fontStyle: 'bold', cellWidth: 26, fillColor: C.gold, fontSize: fs - 0.5, textColor: [0, 0, 0] },
             1: { fillColor: C.cream, cellWidth: CW - 26 },
           },
           margin: { left: M, right: M },
@@ -433,7 +433,7 @@ export function generateFpPdf(data) {
       body: generalBody,
       theme: 'grid',
       headStyles: { fillColor: [180, 130, 50], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
-      bodyStyles: { fontSize: fs, cellPadding: cp, fillColor: [255, 250, 235], fontStyle: 'bold', textColor: [10, 10, 10] },
+      bodyStyles: { fontSize: fs, cellPadding: cp, fillColor: [255, 250, 235], fontStyle: 'bold', textColor: [0, 0, 0] },
       columnStyles: {
         0: { cellWidth: 42, textColor: [120, 100, 60] },
         1: { fillColor: [255, 250, 235] },
@@ -454,7 +454,7 @@ export function generateFpPdf(data) {
       body: addonParts.map((p) => [p]),
       theme: 'grid',
       headStyles: { fillColor: [210, 100, 30], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
-      bodyStyles: { fontSize: fs, cellPadding: cp, fillColor: C.orange, fontStyle: 'bold', textColor: [10, 10, 10] },
+      bodyStyles: { fontSize: fs, cellPadding: cp, fillColor: C.orange, fontStyle: 'bold', textColor: [0, 0, 0] },
       margin: { left: M, right: M },
     });
     y = doc.lastAutoTable.finalY + gap;
@@ -482,7 +482,7 @@ export function generateFpPdf(data) {
       body: dRows,
       theme: 'grid',
       headStyles: { fillColor: [120, 60, 120], textColor: 255, fontStyle: 'bold', fontSize: fsH - 0.5, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
-      bodyStyles: { fontSize: fs + 0.5, cellPadding: cp, overflow: 'linebreak', fontStyle: 'bold', textColor: [10, 10, 10] },
+      bodyStyles: { fontSize: fs + 0.5, cellPadding: cp, overflow: 'linebreak', fontStyle: 'bold', textColor: [0, 0, 0] },
       columnStyles: {
         0: { fontStyle: 'bold', cellWidth: drinkLabelW, fillColor: [240, 230, 245], textColor: [80, 40, 80], fontSize: fs },
         1: { fillColor: C.cream, cellWidth: mainValW },
@@ -519,7 +519,7 @@ export function generateFpPdf(data) {
       body: entBody,
       theme: 'grid',
       headStyles: { fillColor: [80, 120, 160], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
-      bodyStyles: { fontSize: fs, cellPadding: cp, fontStyle: 'bold', textColor: [10, 10, 10] },
+      bodyStyles: { fontSize: fs, cellPadding: cp, fontStyle: 'bold', textColor: [0, 0, 0] },
       columnStyles: {
         0: { fontStyle: 'bold', cellWidth: 22, fillColor: [225, 235, 245], textColor: [40, 60, 100] },
         1: { fillColor: C.cream },
@@ -553,7 +553,7 @@ export function generateFpPdf(data) {
       body: actBody,
       theme: 'grid',
       headStyles: { fillColor: [60, 130, 100], textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
-      bodyStyles: { fontSize: fs, cellPadding: cp, fontStyle: 'bold', textColor: [10, 10, 10] },
+      bodyStyles: { fontSize: fs, cellPadding: cp, fontStyle: 'bold', textColor: [0, 0, 0] },
       columnStyles: {
         0: { fontStyle: 'bold', cellWidth: CW * 0.4, fillColor: C.cream },
         1: { cellWidth: CW * 0.15, halign: 'center' },
@@ -566,7 +566,7 @@ export function generateFpPdf(data) {
         if (hookData.section === 'body' && hookData.row.index === actBody.length - 1) {
           hookData.cell.styles.fontStyle = 'bold';
           hookData.cell.styles.fontSize = fs + 0.5;
-          if (hookData.column.index === 3) hookData.cell.styles.textColor = [0, 120, 60];
+          if (hookData.column.index === 3) hookData.cell.styles.textColor = [0, 0, 0];
         }
       },
       margin: { left: M, right: M },
@@ -589,13 +589,13 @@ export function generateFpPdf(data) {
     body: signOffRows,
     theme: 'grid',
     headStyles: { fillColor: C.akan, textColor: 255, fontStyle: 'bold', fontSize: fsH, cellPadding: isVeryDense ? 0.8 : 1.5, halign: 'center' },
-    bodyStyles: { fontSize: fs, cellPadding: { top: 2, bottom: signH - 6, left: 2, right: 2 }, fontStyle: 'bold', textColor: [10, 10, 10], minCellHeight: signH },
+    bodyStyles: { fontSize: fs, cellPadding: { top: 2, bottom: signH - 6, left: 2, right: 2 }, fontStyle: 'bold', textColor: [0, 0, 0], minCellHeight: signH },
     columnStyles: {
-      0: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, textColor: [80, 50, 20] },
+      0: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, textColor: [0, 0, 0] },
       1: { cellWidth: CW / 3 - 20 },
-      2: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, textColor: [80, 50, 20] },
+      2: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, textColor: [0, 0, 0] },
       3: { cellWidth: CW / 3 - 20 },
-      4: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, textColor: [80, 50, 20] },
+      4: { fontStyle: 'bold', cellWidth: 20, fillColor: C.gold, textColor: [0, 0, 0] },
       5: { cellWidth: CW / 3 - 20 },
     },
     didParseCell: (hookData) => {
@@ -611,13 +611,13 @@ export function generateFpPdf(data) {
   const tcHeaderH = 3.5;
 
   doc.setFontSize(tcFs + 1);
-  doc.setTextColor(60, 60, 60);
+  doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'bold');
   doc.text('TERMS & CONDITIONS', M, y);
   y += tcHeaderH;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(tcFs);
-  doc.setTextColor(50, 50, 50);
+  doc.setTextColor(0, 0, 0);
 
   // Calculate single-column height first
   let actualTcFs = tcFs;
@@ -680,7 +680,7 @@ export function generateFpPdf(data) {
   doc.setLineWidth(0.4);
   doc.line(M, H - 5, W - M, H - 5);
   doc.setFontSize(5);
-  doc.setTextColor(...C.gray);
+  doc.setTextColor(0, 0, 0);
   const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   doc.text(`Generated: ${dateStr}`, W - M, H - 2.5, { align: 'right' });
 
