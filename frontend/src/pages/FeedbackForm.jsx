@@ -145,31 +145,50 @@ export default function FeedbackForm() {
           try { return JSON.parse(val); } catch { return []; }
         };
 
+        // Parse otherItems (custom items per category)
+        let otherItemsObj = fp.otherItems || {};
+        if (typeof otherItemsObj === 'string') {
+          try { otherItemsObj = JSON.parse(otherItemsObj); } catch { otherItemsObj = {}; }
+        }
+        const getOther = (catKey) => {
+          const raw = otherItemsObj[catKey] && otherItemsObj[catKey].trim();
+          if (!raw) return [];
+          return raw.split(',').map((s) => s.trim()).filter(Boolean);
+        };
+
         // Starters
         const allStarters = [
-          ...parse(fp.vegStarters).map((i) => `${i}`),
-          ...parse(fp.nonVegStarters).map((i) => `${i}`),
+          ...parse(fp.vegStarters),
+          ...getOther('vegStarters'),
+          ...parse(fp.nonVegStarters),
+          ...getOther('nonVegStarters'),
         ];
         setStarterRatings(initRatings(allStarters));
 
         // Main course
         const allMain = [
           ...parse(fp.vegMainCourse),
+          ...getOther('vegMainCourse'),
           ...parse(fp.nonVegMainCourse),
+          ...getOther('nonVegMainCourse'),
         ];
         setMainCourseRatings(initRatings(allMain));
 
         // Sides
         const allSides = [
           ...parse(fp.rice),
+          ...getOther('rice'),
           ...parse(fp.dal),
+          ...getOther('dal'),
           ...parse(fp.salad),
+          ...getOther('salad'),
           ...parse(fp.accompaniments),
+          ...getOther('accompaniments'),
         ];
         setSidesRatings(initRatings(allSides));
 
         // Desserts
-        setDessertRatings(initRatings(parse(fp.desserts)));
+        setDessertRatings(initRatings([...parse(fp.desserts), ...getOther('desserts')]));
 
         // Addons
         const allAddons = [
@@ -180,6 +199,16 @@ export default function FeedbackForm() {
           ...parse(fp.addonExtras),
         ];
         if (allAddons.length > 0) setAddonRatings(initRatings(allAddons));
+
+        // General other items (outside menu)
+        const generalOther = getOther('_general');
+        if (generalOther.length > 0) {
+          setAddonRatings((prev) => {
+            const merged = { ...prev };
+            generalOther.forEach((item) => { merged[item] = { rating: 0, comment: '' }; });
+            return merged;
+          });
+        }
       } catch (err) {
         setError('Failed to load F&P record.');
       } finally {
