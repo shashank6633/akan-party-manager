@@ -104,6 +104,32 @@ const READ_ONLY_FIELDS = [
 
 const PAYMENT_STATUS_OPTIONS = ['Unpaid', 'Partial', 'Paid', 'Refunded'];
 
+const PLACE_OPTIONS = {
+ '1st Floor': [
+  '1st Floor Exclusive',
+  '1st Floor FA Area Full',
+  '1st Floor FA Corner',
+  '1st Floor FA Entrance',
+  '1st Floor FB Area Full',
+  '1st Floor FB Front',
+  '1st Floor FB Back',
+  '1st Floor FBR Area Full',
+ ],
+ '2nd Floor': [
+  '2nd Floor Exclusive',
+  '2nd Floor Indoor Exclusive',
+  '2nd Floor Outdoor',
+  '2nd Floor SA Full',
+  '2nd Floor SB Full',
+ ],
+ '3rd Floor': [
+  '3rd Floor Rooftop Exclusive',
+  '3rd Floor Lake View',
+  '3rd Floor Stage Side',
+  '3rd Floor Bar Side',
+ ],
+};
+
 export default function PartyDetail() {
  const { id } = useParams();
  const navigate = useNavigate();
@@ -140,6 +166,7 @@ export default function PartyDetail() {
  const [editHistory, setEditHistory] = useState([]);
  const [showEditHistory, setShowEditHistory] = useState(false);
  const [loadingHistory, setLoadingHistory] = useState(false);
+ const [customPlaceMode, setCustomPlaceMode] = useState(false);
 
  // Auto-save
  const [autoSaving, setAutoSaving] = useState(false);
@@ -493,6 +520,51 @@ export default function PartyDetail() {
      <option value="Corporate">Corporate</option>
      <option value="Family">Family</option>
      <option value="Others">Others</option>
+    </select>
+   );
+  }
+  if (field === 'place') {
+   const allPlaces = Object.values(PLACE_OPTIONS).flat();
+   const isCustom = customPlaceMode || (editData.place && !allPlaces.includes(editData.place));
+   if (isCustom) {
+    return (
+     <div className="flex gap-2">
+      <input
+       type="text"
+       value={editData[field] || ''}
+       onChange={(e) => setEditData((prev) => ({ ...prev, [field]: e.target.value }))}
+       placeholder="Enter custom place..."
+       className="flex-1 px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
+       autoFocus
+      />
+      <button
+       type="button"
+       onClick={() => { setCustomPlaceMode(false); setEditData((prev) => ({ ...prev, place: '' })); }}
+       className="px-3 py-2 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200"
+      >Back</button>
+     </div>
+    );
+   }
+   return (
+    <select
+     value={editData[field] || ''}
+     onChange={(e) => {
+      if (e.target.value === '__other__') {
+       setCustomPlaceMode(true);
+       setEditData((prev) => ({ ...prev, place: '' }));
+      } else {
+       setEditData((prev) => ({ ...prev, [field]: e.target.value }));
+      }
+     }}
+     className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
+    >
+     <option value="">Select Place...</option>
+     {Object.entries(PLACE_OPTIONS).map(([floor, places]) => (
+      <optgroup key={floor} label={floor}>
+       {places.map((p) => <option key={p} value={p}>{p}</option>)}
+      </optgroup>
+     ))}
+     <option value="__other__">Other (type custom)</option>
     </select>
    );
   }

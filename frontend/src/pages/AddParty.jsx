@@ -28,6 +28,32 @@ const MONTHS = [
  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+const PLACE_OPTIONS = {
+ '1st Floor': [
+  '1st Floor Exclusive',
+  '1st Floor FA Area Full',
+  '1st Floor FA Corner',
+  '1st Floor FA Entrance',
+  '1st Floor FB Area Full',
+  '1st Floor FB Front',
+  '1st Floor FB Back',
+  '1st Floor FBR Area Full',
+ ],
+ '2nd Floor': [
+  '2nd Floor Exclusive',
+  '2nd Floor Indoor Exclusive',
+  '2nd Floor Outdoor',
+  '2nd Floor SA Full',
+  '2nd Floor SB Full',
+ ],
+ '3rd Floor': [
+  '3rd Floor Rooftop Exclusive',
+  '3rd Floor Lake View',
+  '3rd Floor Stage Side',
+  '3rd Floor Bar Side',
+ ],
+};
+
 const EMPTY_FORM = {
  date: new Date().toISOString().split('T')[0],
  dateNotConfirmed: false,
@@ -262,6 +288,53 @@ export default function AddParty() {
  </div>
  );
 
+ const ALL_PLACES = Object.values(PLACE_OPTIONS).flat();
+ const [customPlaceMode, setCustomPlaceMode] = useState(false);
+
+ const renderPlaceSelect = () => (
+ <div>
+ <label className="block text-xs font-medium text-gray-600 mb-1">Place</label>
+ {customPlaceMode ? (
+  <div className="flex gap-2">
+  <input
+   type="text"
+   value={form.place}
+   onChange={(e) => handleChange('place', e.target.value)}
+   placeholder="Enter custom place..."
+   className="flex-1 px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30 focus:border-[#af4408]"
+   autoFocus
+  />
+  <button
+   type="button"
+   onClick={() => { setCustomPlaceMode(false); handleChange('place', ''); }}
+   className="px-3 py-2.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200"
+  >Back</button>
+  </div>
+ ) : (
+  <select
+  value={ALL_PLACES.includes(form.place) ? form.place : ''}
+  onChange={(e) => {
+   if (e.target.value === '__other__') {
+   setCustomPlaceMode(true);
+   handleChange('place', '');
+   } else {
+   handleChange('place', e.target.value);
+   }
+  }}
+  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
+  >
+  <option value="">Select Place...</option>
+  {Object.entries(PLACE_OPTIONS).map(([floor, places]) => (
+   <optgroup key={floor} label={floor}>
+   {places.map((p) => <option key={p} value={p}>{p}</option>)}
+   </optgroup>
+  ))}
+  <option value="__other__">Other (type custom)</option>
+  </select>
+ )}
+ </div>
+ );
+
  const renderSectionHeader = (title, open, onToggle) => (
  <button
  type="button"
@@ -446,7 +519,7 @@ export default function AddParty() {
  {renderSelect('Occasion Type', 'occasionType', ['Corporate', 'Family', 'Others'])}
  {renderSelect('Guest Visited', 'guestVisited', ['Yes', 'No'])}
  {renderSelect('Status', 'status', ['Enquiry'], { required: true })}
- {renderInput('Place', 'place', { placeholder: 'Venue / Hall' })}
+ {renderPlaceSelect()}
  {renderInput('Party Time', 'partyTime', { placeholder: 'e.g. Lunch 12:30 PM, Dinner 7:30 PM' })}
  {renderInput('Expected Pax', 'expectedPax', { required: isGRE, placeholder: 'e.g. 50 or 40-60' })}
  <div className="md:col-span-2">
@@ -488,7 +561,7 @@ export default function AddParty() {
  {renderInput('Alt Contact', 'altContact', { placeholder: 'Alt person / phone (e.g. John - 9876543210)' })}
  {renderSelect('Handled By', 'handledBy', handlerUsers)}
  {renderInput('Guest Email', 'guestEmail', { type: 'email', placeholder: 'guest@example.com' })}
- {renderInput('Place', 'place', { placeholder: 'Venue / Hall' })}
+ {renderPlaceSelect()}
  {renderSelect('Status', 'status', ['Enquiry', 'Contacted'], { required: true })}
  </div>
  </div>
