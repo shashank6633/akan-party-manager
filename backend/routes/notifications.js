@@ -240,7 +240,7 @@ router.get(
         if (!enquiredAt) continue;
 
         const minutesSince = (now - new Date(enquiredAt)) / (1000 * 60);
-        if (minutesSince >= 5) {
+        if (minutesSince >= 40) {
           stale.push({
             ...toCamelCase(row),
             hoursAgo: Math.floor(minutesSince / 60),

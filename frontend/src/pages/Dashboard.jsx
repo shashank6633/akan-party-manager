@@ -166,26 +166,23 @@ export default function Dashboard() {
  }
  }, [canFollowUp]);
 
+ // Initial fetch
  useEffect(() => {
  fetchStaleEnquiries();
  }, [fetchStaleEnquiries]);
 
- // Auto-show popup only once when NEW stale enquiries appear (not after dismissal)
- const [staleDismissedIds, setStaleDismissedIds] = useState([]);
+ // Show popup whenever stale enquiries are fetched and there are any
  useEffect(() => {
  if (staleEnquiries.length > 0) {
-  const newIds = staleEnquiries.map((p) => p.rowIndex);
-  const hasNew = newIds.some((id) => !staleDismissedIds.includes(id));
-  if (hasNew) setShowStalePopup(true);
+  setShowStalePopup(true);
  }
  }, [staleEnquiries]);
 
  const dismissStalePopup = () => {
  setShowStalePopup(false);
- setStaleDismissedIds(staleEnquiries.map((p) => p.rowIndex));
  };
 
- // Auto-refresh every 5 minutes
+ // Auto-refresh every 5 minutes — re-fetches stale enquiries (popup will reappear if any exist)
  useEffect(() => {
  const interval = setInterval(() => {
  fetchParties();
@@ -369,7 +366,7 @@ export default function Dashboard() {
    <h3 className="text-base font-bold text-white">
    {staleEnquiries.length} Enquir{staleEnquiries.length === 1 ? 'y' : 'ies'} Pending
    </h3>
-   <p className="text-xs text-red-100 mt-0.5">Not updated for over 5 minutes</p>
+   <p className="text-xs text-red-100 mt-0.5">Not updated for over 40 minutes</p>
   </div>
   </div>
   <button onClick={dismissStalePopup} className="p-1.5 rounded-lg hover:bg-white/20 transition-colors">
@@ -427,7 +424,7 @@ export default function Dashboard() {
     )}
     <span className="flex items-center gap-1 text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full">
     <Timer className="w-3 h-3" />
-    {party.minutesAgo != null ? `${party.minutesAgo}m ago` : `${party.hoursAgo}h ago`}
+    {party.minutesAgo >= 60 ? `${party.hoursAgo}h ${party.minutesAgo % 60}m ago` : `${party.minutesAgo}m ago`}
     </span>
    </div>
    </div>

@@ -13,6 +13,9 @@ const STATUS_COLORS = {
   Cancelled: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300', dot: 'bg-red-500' },
 };
 
+const STATUS_ORDER = { Confirmed: 0, Tentative: 1, Contacted: 2, Enquiry: 3, Cancelled: 4 };
+const sortByStatus = (a, b) => (STATUS_ORDER[(a.status || '').trim()] ?? 99) - (STATUS_ORDER[(b.status || '').trim()] ?? 99);
+
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -58,7 +61,7 @@ export default function CalendarView() {
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const goToday = () => setCurrentDate(new Date());
 
-  // Group parties by day
+  // Group parties by day, sorted by status: Confirmed → Tentative → Contacted → Enquiry → Cancelled
   const partyMap = {};
   parties.forEach((p) => {
     const date = p.date;
@@ -67,6 +70,7 @@ export default function CalendarView() {
     if (!partyMap[day]) partyMap[day] = [];
     partyMap[day].push(p);
   });
+  Object.values(partyMap).forEach((arr) => arr.sort(sortByStatus));
 
   // Build calendar grid cells
   const cells = [];
@@ -92,7 +96,7 @@ export default function CalendarView() {
   const contacted = parties.filter((p) => (p.status || '').trim() === 'Contacted').length;
   const cancelled = parties.filter((p) => (p.status || '').trim() === 'Cancelled').length;
 
-  const selectedParties = selectedDay ? (partyMap[selectedDay] || []) : [];
+  const selectedParties = selectedDay ? ([...(partyMap[selectedDay] || [])].sort(sortByStatus)) : [];
 
   return (
     <div className="space-y-4">
