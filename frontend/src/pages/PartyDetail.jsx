@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
  ArrowLeft,
@@ -110,7 +110,7 @@ export default function PartyDetail() {
  const { user } = useAuth();
  const [party, setParty] = useState(null);
  const [editData, setEditData] = useState({});
- const [editing, setEditing] = useState(false);
+ const [editing, setEditing] = useState(true);
  const [loading, setLoading] = useState(true);
  const [saving, setSaving] = useState(false);
  const [error, setError] = useState('');
@@ -141,14 +141,21 @@ export default function PartyDetail() {
  const [showEditHistory, setShowEditHistory] = useState(false);
  const [loadingHistory, setLoadingHistory] = useState(false);
 
+ // Auto-save
+ const [autoSaving, setAutoSaving] = useState(false);
+ const autoSaveTimer = useRef(null);
+ const dataLoaded = useRef(false);
+
  const isCashier = user?.role === 'CASHIER';
  const isAdmin = user?.role === 'ADMIN';
  const isViewer = user?.role === 'VIEWER';
  const isGRE = user?.role === 'GRE';
  const canFollowUp = !isViewer && ['SALES', 'MANAGER', 'ADMIN'].includes(user?.role);
  const canAddPayment = !isViewer && ['CASHIER', 'SALES', 'MANAGER', 'ADMIN'].includes(user?.role);
+ const canEditParty = !isViewer && !['GRE', 'ACCOUNTS'].includes(user?.role);
 
  useEffect(() => {
+  dataLoaded.current = false;
   fetchParty();
  }, [id]);
 
@@ -160,6 +167,7 @@ export default function PartyDetail() {
    setParty(data);
    setEditData(data);
    fetchFpRecords(data.uniqueId);
+   setTimeout(() => { dataLoaded.current = true; }, 500);
   } catch (err) {
    setError('Failed to load party details.');
   } finally {
@@ -219,6 +227,24 @@ export default function PartyDetail() {
   if (allowed === 'all') return true;
   return Array.isArray(allowed) && allowed.includes(field);
  };
+
+ // Auto-save: debounced 1.5s after any edit
+ useEffect(() => {
+  if (!dataLoaded.current || !editing || !id || isViewer) return;
+  if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+  autoSaveTimer.current = setTimeout(async () => {
+   setAutoSaving(true);
+   try {
+    await partyAPI.update(id, editData);
+    setParty({ ...editData });
+   } catch (err) {
+    console.warn('Auto-save failed:', err.message);
+   } finally {
+    setAutoSaving(false);
+   }
+  }, 1500);
+  return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+ }, [editData]);
 
  const handleSave = async () => {
   // CASHIER must fill Bill Order ID (POS Ref) before saving
@@ -727,6 +753,11 @@ export default function PartyDetail() {
       </button>
      )}
 
+     {autoSaving && (
+      <span className="flex items-center gap-1.5 px-3 py-2 text-xs text-amber-600 font-medium">
+       <Loader2 className="w-3.5 h-3.5 animate-spin" /> Auto-saving...
+      </span>
+     )}
      {!isViewer && editing ? (
       <>
        <button onClick={() => { setEditing(false); setEditData(party); }} className="px-3 py-2.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
