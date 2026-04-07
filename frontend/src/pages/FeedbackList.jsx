@@ -15,6 +15,7 @@ export default function FeedbackList() {
   const [fpRecords, setFpRecords] = useState([]);
   const [showFpPicker, setShowFpPicker] = useState(false);
   const [fpSearch, setFpSearch] = useState('');
+  const [fpFilterToday, setFpFilterToday] = useState(true);
 
   const fetchFeedback = async () => {
     setLoading(true);
@@ -67,7 +68,9 @@ export default function FeedbackList() {
     );
   };
 
+  const todayStr = new Date().toISOString().split('T')[0];
   const filteredFps = fpRecords.filter((fp) => {
+    if (fpFilterToday && fp.dateOfEvent !== todayStr) return false;
     if (!fpSearch) return true;
     const s = fpSearch.toLowerCase();
     return (
@@ -77,6 +80,7 @@ export default function FeedbackList() {
       (fp.partyUniqueId || '').toLowerCase().includes(s)
     );
   });
+  const todayCount = fpRecords.filter((fp) => fp.dateOfEvent === todayStr).length;
 
   return (
     <div className="space-y-4">
@@ -170,6 +174,20 @@ export default function FeedbackList() {
             <div className="p-4 border-b">
               <h3 className="font-bold text-gray-900">Select F&P Record</h3>
               <p className="text-xs text-gray-500 mt-0.5">Choose the event to collect feedback for</p>
+              <div className="flex items-center gap-2 mt-3">
+                <button
+                  onClick={() => setFpFilterToday(true)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${fpFilterToday ? 'bg-[#af4408] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                  Today ({todayCount})
+                </button>
+                <button
+                  onClick={() => setFpFilterToday(false)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${!fpFilterToday ? 'bg-[#af4408] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                  All
+                </button>
+              </div>
               <div className="relative mt-3">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
