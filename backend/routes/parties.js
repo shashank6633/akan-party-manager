@@ -75,6 +75,7 @@ const ROLE_EDITABLE_FIELDS = {
     'Special Requirements',
     'Alt Contact',
     'Handled By',
+    'Guest Contacts Status',
   ],
   CASHIER: [
     'Confirmed Pax',

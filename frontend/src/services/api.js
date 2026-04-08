@@ -84,6 +84,17 @@ export const feedbackAPI = {
   submit: (data) => api.post('/feedback', data),
 };
 
+export const guestContactAPI = {
+  getAll: (params) => api.get('/guest-contacts', { params }),
+  getStats: () => api.get('/guest-contacts/stats'),
+  getTasks: () => api.get('/guest-contacts/tasks'),
+  getAdminRequests: () => api.get('/guest-contacts/admin-requests'),
+  create: (data) => api.post('/guest-contacts', data),
+  requestNoContacts: (rowIndex, reason) => api.put(`/guest-contacts/no-contacts/${rowIndex}`, { reason }),
+  approveNoContacts: (rowIndex) => api.put(`/guest-contacts/approve-no-contacts/${rowIndex}`),
+  delete: (rowIndex) => api.delete(`/guest-contacts/${rowIndex}`),
+};
+
 export const reportAPI = {
   getDaily: (date) => api.get('/reports/daily', { params: { date } }),
   getRange: (from, to) => api.get('/reports/range', { params: { from, to } }),

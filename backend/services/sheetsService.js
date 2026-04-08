@@ -1,4 +1,4 @@
-const { getSheetsClient, SHEET_NAMES } = require('../config/google-sheets');
+const { getSheetsClient, SHEET_NAMES, GUEST_CONTACTS_SHEET_ID } = require('../config/google-sheets');
 
 // Date format: Google Sheets and frontend both use YYYY-MM-DD
 const DATE_COLUMNS = [];
@@ -57,6 +57,7 @@ const COLUMNS = [
   'Bill Order ID',               // AJ
   'Day',                         // AK  (Auto-calculated from Date)
   'Created By',                  // AL  (Who created this party: "Name (ROLE)")
+  'Guest Contacts Status',       // AM  (Pending / Completed / No Contacts Requested / No Contacts Approved)
 ];
 
 /**
@@ -68,7 +69,7 @@ COLUMNS.forEach((name, idx) => {
 });
 
 // Last column letter for range references
-const LAST_COL = 'AL';
+const LAST_COL = 'AM';
 
 // Retry wrapper for transient Google API errors
 const MAX_RETRIES = 3;
@@ -1350,6 +1351,151 @@ async function getFeedbackRow(rowIndex) {
   });
 }
 
+// ===========================================================================
+// GUEST CONTACTS SHEET
+// ===========================================================================
+const GUEST_CONTACT_COLUMNS = [
+  'Party Unique ID',       // A - Link to party
+  'Party Date',            // B - Auto-fetched from party
+  'Host Name',             // C - Auto-fetched from party
+  'Company',               // D - Auto-fetched from party
+  'Guest Name',            // E - Entered by GRE
+  'Guest Phone',           // F - Entered by GRE
+  'Entered By',            // G - Who entered this record
+  'Entered At',            // H - Timestamp
+];
+
+const GUEST_CONTACT_COLUMN_MAP = {};
+GUEST_CONTACT_COLUMNS.forEach((name, idx) => { GUEST_CONTACT_COLUMN_MAP[name] = idx; });
+
+function generateContactId() {
+  const ts = Date.now().toString(36).toUpperCase();
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `GC-${ts}-${rand}`;
+}
+
+/**
+ * Get the Guest Contacts spreadsheet ID (separate Google Sheet).
+ * Falls back to main sheet if GUEST_CONTACTS_SHEET_ID is not set.
+ */
+function getGuestContactsSheetId() {
+  const id = GUEST_CONTACTS_SHEET_ID;
+  if (!id) throw new Error('GUEST_CONTACTS_SHEET_ID environment variable is not set. Create a new Google Sheet for Guest Contacts and add its ID to .env');
+  return id;
+}
+
+const GUEST_CONTACTS_TAB = 'Guest Contacts';
+
+async function ensureGuestContactsSheet() {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const spreadsheetId = getGuestContactsSheetId();
+    const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties.title' });
+    const sheetTitles = meta.data.sheets.map((s) => s.properties.title);
+
+    // Check if our tab exists; if not, rename Sheet1 or create it
+    if (!sheetTitles.includes(GUEST_CONTACTS_TAB)) {
+      if (sheetTitles.length === 1) {
+        // Rename the default first sheet
+        const firstSheetId = meta.data.sheets[0].properties.sheetId;
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId,
+          requestBody: {
+            requests: [{
+              updateSheetProperties: {
+                properties: { sheetId: firstSheetId, title: GUEST_CONTACTS_TAB },
+                fields: 'title',
+              },
+            }],
+          },
+        });
+      } else {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId,
+          requestBody: {
+            requests: [
+              { addSheet: { properties: { title: GUEST_CONTACTS_TAB, gridProperties: { columnCount: Math.max(GUEST_CONTACT_COLUMNS.length, 26) } } } },
+            ],
+          },
+        });
+      }
+    }
+
+    // Ensure header row exists
+    const endCol = indexToColumnLetter(GUEST_CONTACT_COLUMNS.length - 1);
+    const headerRes = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `'${GUEST_CONTACTS_TAB}'!A1:${endCol}1`,
+    });
+    const header = (headerRes.data.values && headerRes.data.values[0]) || [];
+    if (header.length < GUEST_CONTACT_COLUMNS.length) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `'${GUEST_CONTACTS_TAB}'!A1:${endCol}1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [GUEST_CONTACT_COLUMNS] },
+      });
+      console.log('Guest Contacts: Header row created/updated in separate sheet.');
+    }
+  });
+}
+
+async function getAllGuestContactRows() {
+  return withRetry(async () => {
+    const endCol = indexToColumnLetter(GUEST_CONTACT_COLUMNS.length - 1);
+    const res = await getSheetsClient().spreadsheets.values.get({
+      spreadsheetId: getGuestContactsSheetId(),
+      range: `'${GUEST_CONTACTS_TAB}'!A2:${endCol}`,
+    });
+    const rows = res.data.values || [];
+    return rows.map((row, idx) => {
+      const obj = {};
+      GUEST_CONTACT_COLUMNS.forEach((col, i) => {
+        obj[col] = row[i] || '';
+      });
+      obj._rowIndex = idx + 2;
+      return obj;
+    });
+  });
+}
+
+async function appendGuestContactRow(data) {
+  return withRetry(async () => {
+    const values = GUEST_CONTACT_COLUMNS.map((col) => {
+      const val = data[col];
+      return val !== undefined && val !== null ? String(val) : '';
+    });
+    const endCol = indexToColumnLetter(GUEST_CONTACT_COLUMNS.length - 1);
+    await getSheetsClient().spreadsheets.values.append({
+      spreadsheetId: getGuestContactsSheetId(),
+      range: `'${GUEST_CONTACTS_TAB}'!A:${endCol}`,
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [values] },
+    });
+  });
+}
+
+async function deleteGuestContactRow(rowIndex) {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const spreadsheetId = getGuestContactsSheetId();
+    const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: 'sheets.properties' });
+    const sheet = meta.data.sheets.find((s) => s.properties.title === GUEST_CONTACTS_TAB);
+    if (!sheet) throw new Error('Guest Contacts tab not found');
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [{
+          deleteDimension: {
+            range: { sheetId: sheet.properties.sheetId, dimension: 'ROWS', startIndex: rowIndex - 1, endIndex: rowIndex },
+          },
+        }],
+      },
+    });
+  });
+}
+
 module.exports = {
   COLUMNS,
   COLUMN_MAP,
@@ -1397,4 +1543,12 @@ module.exports = {
   getAllFeedbackRows,
   appendFeedbackRow,
   getFeedbackRow,
+  // Guest Contacts
+  GUEST_CONTACT_COLUMNS,
+  GUEST_CONTACT_COLUMN_MAP,
+  generateContactId,
+  ensureGuestContactsSheet,
+  getAllGuestContactRows,
+  appendGuestContactRow,
+  deleteGuestContactRow,
 };

@@ -19,6 +19,7 @@ import FeedbackList from './pages/FeedbackList';
 import FeedbackForm from './pages/FeedbackForm';
 import FeedbackDetail from './pages/FeedbackDetail';
 import SheetsView from './pages/SheetsView';
+import GuestContacts from './pages/GuestContacts';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children, adminOnly = false, hideForRoles = [] }) {
@@ -140,6 +141,11 @@ export default function App() {
  </RoleGuard>
  } />
  <Route path="cashier-billing" element={<CashierBilling />} />
+ <Route path="guest-contacts" element={
+  <RoleGuard hideForRoles={['CASHIER', 'ACCOUNTS', 'VIEWER', 'SALES', 'MANAGER']}>
+   <GuestContacts />
+  </RoleGuard>
+ } />
  <Route path="profile" element={<Profile />} />
  <Route path="reports" element={
  <RoleGuard hideForRoles={['GRE', 'CASHIER']}>

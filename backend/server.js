@@ -13,6 +13,7 @@ const reportRoutes = require('./routes/reports');
 const notificationRoutes = require('./routes/notifications');
 const fpRoutes = require('./routes/fp');
 const feedbackRoutes = require('./routes/feedback');
+const guestContactRoutes = require('./routes/guestContacts');
 const reportService = require('./services/reportService');
 const emailService = require('./services/emailService');
 const sheetsService = require('./services/sheetsService');
@@ -61,6 +62,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/fp', fpRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/guest-contacts', guestContactRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

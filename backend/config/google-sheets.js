@@ -7,6 +7,7 @@ const SHEET_NAMES = {
   REMINDER_LOG: 'Payment Reminder Log',
   FP_RECORDS: 'F&P Records',
   FEEDBACK: 'Feedback',
+  GUEST_CONTACTS: 'Guest Contacts',
 };
 
 /**
@@ -37,4 +38,5 @@ module.exports = {
   getAuthClient,
   SHEET_NAMES,
   SPREADSHEET_ID: process.env.GOOGLE_SHEETS_ID,
+  GUEST_CONTACTS_SHEET_ID: process.env.GUEST_CONTACTS_SHEET_ID,
 };

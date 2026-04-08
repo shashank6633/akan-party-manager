@@ -13,6 +13,7 @@ import {
   FileText,
   MessageSquare,
   Table2,
+  UserPlus,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -20,6 +21,7 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
   { to: '/add-party', icon: PlusCircle, label: 'Add Party', hideFor: ['CASHIER', 'ACCOUNTS', 'VIEWER'] },
+  { to: '/guest-contacts', icon: UserPlus, label: 'Guest Contacts', showFor: ['GRE', 'ADMIN'] },
   { to: '/cashier-billing', icon: Receipt, label: 'Billing', showFor: ['CASHIER', 'ACCOUNTS', 'ADMIN', 'MANAGER'] },
   { to: '/fp', icon: FileText, label: 'F&P', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS'] },
   { to: '/sheets', icon: Table2, label: 'Sheets View', hideFor: ['CASHIER'] },
