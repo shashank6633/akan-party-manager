@@ -1421,21 +1421,87 @@ async function ensureGuestContactsSheet() {
       }
     }
 
-    // Ensure header row exists
+    // Ensure header row exists and matches current columns
     const endCol = indexToColumnLetter(GUEST_CONTACT_COLUMNS.length - 1);
+    // Read wider range to detect old headers (up to column L = 12 cols)
     const headerRes = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `'${GUEST_CONTACTS_TAB}'!A1:${endCol}1`,
+      range: `'${GUEST_CONTACTS_TAB}'!A1:L1`,
     });
     const header = (headerRes.data.values && headerRes.data.values[0]) || [];
-    if (header.length < GUEST_CONTACT_COLUMNS.length) {
-      await sheets.spreadsheets.values.update({
-        spreadsheetId,
-        range: `'${GUEST_CONTACTS_TAB}'!A1:${endCol}1`,
-        valueInputOption: 'RAW',
-        requestBody: { values: [GUEST_CONTACT_COLUMNS] },
-      });
-      console.log('Guest Contacts: Header row created/updated in separate sheet.');
+    const headerMatches = header.length === GUEST_CONTACT_COLUMNS.length &&
+      GUEST_CONTACT_COLUMNS.every((col, i) => header[i] === col);
+
+    if (!headerMatches) {
+      // Detect old 12-column format and migrate data
+      const OLD_COLUMNS = ['Contact ID', 'Party Unique ID', 'Party Date', 'Host Name', 'Company', 'Place', 'Guest Name', 'Guest Phone', 'Guest Email', 'Notes', 'Entered By', 'Entered At'];
+      const isOldFormat = header.length >= 12 && header[0] === 'Contact ID' && header[1] === 'Party Unique ID';
+
+      if (isOldFormat) {
+        console.log('Guest Contacts: Detected old 12-column format. Migrating data...');
+        // Read all existing data (old format: A-L)
+        const dataRes = await sheets.spreadsheets.values.get({
+          spreadsheetId,
+          range: `'${GUEST_CONTACTS_TAB}'!A2:L`,
+        });
+        const oldRows = dataRes.data.values || [];
+
+        // Map old columns to new columns
+        // Old: Contact ID(0), Party Unique ID(1), Party Date(2), Host Name(3), Company(4), Place(5), Guest Name(6), Guest Phone(7), Guest Email(8), Notes(9), Entered By(10), Entered At(11)
+        // New: Party Unique ID(0), Party Date(1), Host Name(2), Company(3), Guest Name(4), Guest Phone(5), Entered By(6), Entered At(7)
+        const migratedRows = oldRows.map((row) => [
+          row[1] || '',  // Party Unique ID (was col 1)
+          row[2] || '',  // Party Date (was col 2)
+          row[3] || '',  // Host Name (was col 3)
+          row[4] || '',  // Company (was col 4)
+          row[6] || '',  // Guest Name (was col 6)
+          row[7] || '',  // Guest Phone (was col 7)
+          row[10] || '', // Entered By (was col 10)
+          row[11] || '', // Entered At (was col 11)
+        ]);
+
+        // Clear the entire sheet first (old data + old header)
+        await sheets.spreadsheets.values.clear({
+          spreadsheetId,
+          range: `'${GUEST_CONTACTS_TAB}'!A1:L`,
+        });
+
+        // Write new header
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${GUEST_CONTACTS_TAB}'!A1:${endCol}1`,
+          valueInputOption: 'RAW',
+          requestBody: { values: [GUEST_CONTACT_COLUMNS] },
+        });
+
+        // Write migrated data if any
+        if (migratedRows.length > 0) {
+          await sheets.spreadsheets.values.update({
+            spreadsheetId,
+            range: `'${GUEST_CONTACTS_TAB}'!A2:${endCol}${migratedRows.length + 1}`,
+            valueInputOption: 'RAW',
+            requestBody: { values: migratedRows },
+          });
+        }
+        console.log(`Guest Contacts: Migrated ${migratedRows.length} rows from old format to new 8-column format.`);
+      } else {
+        // Not old format, just write/update header
+        // Clear any extra columns beyond our range first
+        if (header.length > GUEST_CONTACT_COLUMNS.length) {
+          const oldEndCol = indexToColumnLetter(header.length - 1);
+          await sheets.spreadsheets.values.clear({
+            spreadsheetId,
+            range: `'${GUEST_CONTACTS_TAB}'!A1:${oldEndCol}1`,
+          });
+        }
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: `'${GUEST_CONTACTS_TAB}'!A1:${endCol}1`,
+          valueInputOption: 'RAW',
+          requestBody: { values: [GUEST_CONTACT_COLUMNS] },
+        });
+        console.log('Guest Contacts: Header row created/updated in separate sheet.');
+      }
     }
   });
 }
