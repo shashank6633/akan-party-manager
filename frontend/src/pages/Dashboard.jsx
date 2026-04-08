@@ -498,110 +498,6 @@ export default function Dashboard() {
  </div>
  )}
 
- {/* Guest Contacts Tasks for GRE */}
- {(isGRE || isAdmin) && gcTasks.length > 0 && (
-  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-   <div className="flex items-center gap-2 mb-3">
-    <UserPlus className="w-4 h-4 text-blue-600" />
-    <h3 className="text-sm font-semibold text-blue-800">Guest Contacts Pending ({gcTasks.length})</h3>
-    <span className="text-[10px] text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full font-medium">Tasks</span>
-   </div>
-   <div className="space-y-2 max-h-64 overflow-y-auto">
-    {gcTasks.map((task) => (
-     <div key={task.uniqueId} className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-100">
-      <div className="flex-1 min-w-0">
-       <div className="flex items-center gap-2">
-        <p className="text-sm font-medium text-gray-900 truncate">{task.hostName || 'No Host'}</p>
-        {task.company && <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{task.company}</span>}
-       </div>
-       <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-        <span>{formatDate(task.date)}</span>
-        <span className="font-semibold text-blue-600">{task.contactsEntered}/{task.confirmedPax} contacts ({task.percentDone}%)</span>
-        {task.gcStatus === 'No Contacts Requested' && <span className="text-amber-600 font-semibold">Awaiting Admin Approval</span>}
-       </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0 ml-3">
-       <button
-        onClick={() => navigate('/guest-contacts')}
-        className="text-xs font-semibold text-white bg-[#af4408] px-3 py-1.5 rounded-lg hover:bg-[#963a07] transition-colors"
-       >
-        Enter Contacts
-       </button>
-       {task.gcStatus !== 'No Contacts Requested' && (
-        <button
-         onClick={() => setNoContactParty(task)}
-         className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1.5 rounded-lg hover:bg-gray-200 transition-colors"
-        >
-         No Contacts
-        </button>
-       )}
-      </div>
-     </div>
-    ))}
-   </div>
-
-   {/* No Contacts Reason Modal */}
-   {noContactParty && (
-    <div className="mt-3 p-4 bg-amber-50 rounded-lg border border-amber-200">
-     <p className="text-xs font-semibold text-amber-800 mb-2">
-      No contacts for: {noContactParty.hostName} ({formatDate(noContactParty.date)})
-     </p>
-     <p className="text-[10px] text-amber-600 mb-2">Enter reason — this will be sent to Admin for approval</p>
-     <div className="flex gap-2">
-      <input
-       type="text"
-       value={noContactReason}
-       onChange={(e) => setNoContactReason(e.target.value)}
-       placeholder="e.g., Guest refused to share, Walk-in party..."
-       className="flex-1 px-3 py-2 rounded-lg border border-amber-300 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
-      />
-      <button
-       onClick={handleNoContactRequest}
-       disabled={gcLoading || !noContactReason.trim()}
-       className="px-4 py-2 rounded-lg text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
-      >
-       Send Request
-      </button>
-      <button
-       onClick={() => { setNoContactParty(null); setNoContactReason(''); }}
-       className="px-2 py-2 rounded-lg text-xs text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
-      >
-       Cancel
-      </button>
-     </div>
-    </div>
-   )}
-  </div>
- )}
-
- {/* Admin: "No Contacts" Approval Requests */}
- {isAdmin && gcAdminRequests.length > 0 && (
-  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-   <div className="flex items-center gap-2 mb-3">
-    <AlertCircle className="w-4 h-4 text-amber-600" />
-    <h3 className="text-sm font-semibold text-amber-800">No Contacts Requests ({gcAdminRequests.length})</h3>
-    <span className="text-[10px] text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full font-medium">Needs Approval</span>
-   </div>
-   <div className="space-y-2">
-    {gcAdminRequests.map((req) => (
-     <div key={req.uniqueId} className="flex items-center justify-between p-3 bg-white rounded-lg border border-amber-100">
-      <div>
-       <p className="text-sm font-medium text-gray-900">{req.hostName || 'No Host'} {req.company ? `(${req.company})` : ''}</p>
-       <p className="text-xs text-gray-500 mt-0.5">{formatDate(req.date)} | {req.remarks || 'No reason provided'}</p>
-      </div>
-      <button
-       onClick={() => handleApproveNoContacts(req.rowIndex)}
-       disabled={gcLoading}
-       className="text-xs font-semibold text-white bg-green-600 px-4 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-      >
-       Approve
-      </button>
-     </div>
-    ))}
-   </div>
-  </div>
- )}
-
  {/* Follow-up tracking for Sales/Manager */}
  {canFollowUp && pendingFollowUps.length > 0 && (() => {
  const filteredFollowUps = myFollowUps
@@ -866,6 +762,110 @@ export default function Dashboard() {
  totalPages={totalPages}
  onPageChange={setPage}
  />
+
+ {/* Guest Contacts Tasks for GRE */}
+ {(isGRE || isAdmin) && gcTasks.length > 0 && (
+  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+   <div className="flex items-center gap-2 mb-3">
+    <UserPlus className="w-4 h-4 text-blue-600" />
+    <h3 className="text-sm font-semibold text-blue-800">Guest Contacts Pending ({gcTasks.length})</h3>
+    <span className="text-[10px] text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full font-medium">Tasks</span>
+   </div>
+   <div className="space-y-2 max-h-64 overflow-y-auto">
+    {gcTasks.map((task) => (
+     <div key={task.uniqueId} className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-100">
+      <div className="flex-1 min-w-0">
+       <div className="flex items-center gap-2">
+        <p className="text-sm font-medium text-gray-900 truncate">{task.hostName || 'No Host'}</p>
+        {task.company && <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{task.company}</span>}
+       </div>
+       <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+        <span>{formatDate(task.date)}</span>
+        <span className="font-semibold text-blue-600">{task.contactsEntered}/{task.confirmedPax} contacts ({task.percentDone}%)</span>
+        {task.gcStatus === 'No Contacts Requested' && <span className="text-amber-600 font-semibold">Awaiting Admin Approval</span>}
+       </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0 ml-3">
+       <button
+        onClick={() => navigate('/guest-contacts')}
+        className="text-xs font-semibold text-white bg-[#af4408] px-3 py-1.5 rounded-lg hover:bg-[#963a07] transition-colors"
+       >
+        Enter Contacts
+       </button>
+       {task.gcStatus !== 'No Contacts Requested' && (
+        <button
+         onClick={() => setNoContactParty(task)}
+         className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+        >
+         No Contacts
+        </button>
+       )}
+      </div>
+     </div>
+    ))}
+   </div>
+
+   {/* No Contacts Reason Modal */}
+   {noContactParty && (
+    <div className="mt-3 p-4 bg-amber-50 rounded-lg border border-amber-200">
+     <p className="text-xs font-semibold text-amber-800 mb-2">
+      No contacts for: {noContactParty.hostName} ({formatDate(noContactParty.date)})
+     </p>
+     <p className="text-[10px] text-amber-600 mb-2">Enter reason — this will be sent to Admin for approval</p>
+     <div className="flex gap-2">
+      <input
+       type="text"
+       value={noContactReason}
+       onChange={(e) => setNoContactReason(e.target.value)}
+       placeholder="e.g., Guest refused to share, Walk-in party..."
+       className="flex-1 px-3 py-2 rounded-lg border border-amber-300 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400/30"
+      />
+      <button
+       onClick={handleNoContactRequest}
+       disabled={gcLoading || !noContactReason.trim()}
+       className="px-4 py-2 rounded-lg text-xs font-semibold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 transition-colors"
+      >
+       Send Request
+      </button>
+      <button
+       onClick={() => { setNoContactParty(null); setNoContactReason(''); }}
+       className="px-2 py-2 rounded-lg text-xs text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
+      >
+       Cancel
+      </button>
+     </div>
+    </div>
+   )}
+  </div>
+ )}
+
+ {/* Admin: "No Contacts" Approval Requests */}
+ {isAdmin && gcAdminRequests.length > 0 && (
+  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+   <div className="flex items-center gap-2 mb-3">
+    <AlertCircle className="w-4 h-4 text-amber-600" />
+    <h3 className="text-sm font-semibold text-amber-800">No Contacts Requests ({gcAdminRequests.length})</h3>
+    <span className="text-[10px] text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full font-medium">Needs Approval</span>
+   </div>
+   <div className="space-y-2">
+    {gcAdminRequests.map((req) => (
+     <div key={req.uniqueId} className="flex items-center justify-between p-3 bg-white rounded-lg border border-amber-100">
+      <div>
+       <p className="text-sm font-medium text-gray-900">{req.hostName || 'No Host'} {req.company ? `(${req.company})` : ''}</p>
+       <p className="text-xs text-gray-500 mt-0.5">{formatDate(req.date)} | {req.remarks || 'No reason provided'}</p>
+      </div>
+      <button
+       onClick={() => handleApproveNoContacts(req.rowIndex)}
+       disabled={gcLoading}
+       className="text-xs font-semibold text-white bg-green-600 px-4 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+      >
+       Approve
+      </button>
+     </div>
+    ))}
+   </div>
+  </div>
+ )}
 
  {/* Quick action modal */}
  {modal.open && (
