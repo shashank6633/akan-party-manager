@@ -74,13 +74,17 @@ function calculatePaymentTotals(paymentLogStr) {
 function applyAutoCalculations(data, changedFields) {
   // Final Total Amount = Confirmed Pax × Final Rate
   // Only auto-calc when Confirmed Pax or Final Rate is explicitly being changed
-  const cfChanged = changedFields
-    ? (changedFields['Confirmed Pax'] !== undefined || changedFields['Final Rate'] !== undefined)
-    : (data['Confirmed Pax'] !== undefined || data['Final Rate'] !== undefined);
-  if (cfChanged) {
-    const total = calculateFinalTotal(data['Confirmed Pax'], data['Final Rate']);
-    if (total > 0) {
-      data['Final Total Amount'] = total;
+  // If Final Total Amount is explicitly provided, respect it (e.g. includes activities)
+  const finalTotalExplicit = changedFields && changedFields['Final Total Amount'] !== undefined;
+  if (!finalTotalExplicit) {
+    const cfChanged = changedFields
+      ? (changedFields['Confirmed Pax'] !== undefined || changedFields['Final Rate'] !== undefined)
+      : (data['Confirmed Pax'] !== undefined || data['Final Rate'] !== undefined);
+    if (cfChanged) {
+      const total = calculateFinalTotal(data['Confirmed Pax'], data['Final Rate']);
+      if (total > 0) {
+        data['Final Total Amount'] = total;
+      }
     }
   }
 
