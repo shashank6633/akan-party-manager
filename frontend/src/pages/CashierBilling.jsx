@@ -14,6 +14,8 @@ import {
   RotateCcw,
   Plus,
   History,
+  Pencil,
+  Check,
 } from 'lucide-react';
 import { partyAPI, fpAPI } from '../services/api';
 import { formatCurrency, formatDate } from '../utils/helpers';
@@ -30,6 +32,8 @@ export default function CashierBilling() {
   const [duplicateWarning, setDuplicateWarning] = useState('');
   const [activitiesData, setActivitiesData] = useState({ total: 0, items: [] });
   const [activitiesAdded, setActivitiesAdded] = useState(false);
+  const [editableActivitiesTotal, setEditableActivitiesTotal] = useState('');
+  const [editingActivities, setEditingActivities] = useState(false);
 
   // Payment system states
   const [showPaymentForm, setShowPaymentForm] = useState(false);
@@ -182,7 +186,7 @@ export default function CashierBilling() {
       // Final Total = Final Rate × Confirmed Pax + Activities (if added)
       if (field === 'confirmedPax' || field === 'finalRate') {
         const base = confirmedPax && finalRate ? (confirmedPax * finalRate) : parseFloat(updated.finalTotalAmount) || 0;
-        const actAmount = activitiesAdded ? activitiesData.total : 0;
+        const actAmount = activitiesAdded ? (parseFloat(editableActivitiesTotal) || 0) : 0;
         updated.finalTotalAmount = confirmedPax && finalRate ? (base + actAmount).toString() : updated.finalTotalAmount;
       }
 
@@ -273,6 +277,8 @@ export default function CashierBilling() {
     setDuplicateWarning('');
     setActivitiesData({ total: 0, items: [] });
     setActivitiesAdded(false);
+    setEditableActivitiesTotal('');
+    setEditingActivities(false);
     setShowPaymentForm(false);
     setPaymentAmount('');
     setPaymentType('advance');
@@ -421,9 +427,58 @@ export default function CashierBilling() {
               <p className={`text-xs font-bold uppercase tracking-wide ${activitiesAdded ? 'text-green-800' : 'text-amber-800'}`}>
                 Activities Total (from F&P) {activitiesAdded && '— Added to Bill'}
               </p>
-              <p className={`text-lg font-bold mt-0.5 ${activitiesAdded ? 'text-green-900' : 'text-amber-900'}`}>
-                ₹{activitiesData.total.toLocaleString('en-IN')}
-              </p>
+              {/* Editable amount when added to bill */}
+              {activitiesAdded && editingActivities ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`text-lg font-bold ${activitiesAdded ? 'text-green-900' : 'text-amber-900'}`}>₹</span>
+                  <input
+                    type="number"
+                    value={editableActivitiesTotal}
+                    onChange={(e) => setEditableActivitiesTotal(e.target.value)}
+                    className="w-32 px-2 py-1 text-lg font-bold rounded-lg border-2 border-green-400 bg-white text-green-900 focus:outline-none focus:ring-2 focus:ring-green-500/30"
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => {
+                      const newActAmount = parseFloat(editableActivitiesTotal) || 0;
+                      const oldActAmount = parseFloat(editableActivitiesTotal) || 0;
+                      setEditingActivities(false);
+                      // Recalculate final total with new activities amount
+                      setForm((prev) => {
+                        const confirmedPax = parseFloat(prev.confirmedPax) || 0;
+                        const finalRate = parseFloat(prev.finalRate) || 0;
+                        const base = confirmedPax && finalRate ? confirmedPax * finalRate : 0;
+                        const newTotal = base + newActAmount;
+                        const totalAmountPaid = parseFloat(prev.totalAmountPaid) || 0;
+                        return {
+                          ...prev,
+                          finalTotalAmount: newTotal.toString(),
+                          dueAmount: (newTotal - totalAmountPaid).toString(),
+                        };
+                      });
+                    }}
+                    className="p-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
+                    title="Save"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className={`text-lg font-bold ${activitiesAdded ? 'text-green-900' : 'text-amber-900'}`}>
+                    ₹{(parseFloat(editableActivitiesTotal) || activitiesData.total).toLocaleString('en-IN')}
+                  </p>
+                  {activitiesAdded && (
+                    <button
+                      onClick={() => setEditingActivities(true)}
+                      className="p-1 rounded-md bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                      title="Edit amount"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
               <p className={`text-[10px] mt-1 ${activitiesAdded ? 'text-green-600' : 'text-amber-600'}`}>
                 {activitiesData.items.map((a) => `${a.name} (${a.pax} pax × ₹${parseFloat(a.amount).toLocaleString('en-IN')})`).join(' | ')}
               </p>
@@ -433,9 +488,11 @@ export default function CashierBilling() {
                 <button
                   onClick={() => {
                     setActivitiesAdded(false);
+                    setEditingActivities(false);
+                    const actAmount = parseFloat(editableActivitiesTotal) || 0;
                     setForm((prev) => {
                       const currentTotal = parseFloat(prev.finalTotalAmount) || 0;
-                      const newTotal = currentTotal - activitiesData.total;
+                      const newTotal = currentTotal - actAmount;
                       const totalAmountPaid = parseFloat(prev.totalAmountPaid) || 0;
                       return { ...prev, finalTotalAmount: Math.max(0, newTotal).toString(), dueAmount: (Math.max(0, newTotal) - totalAmountPaid).toString() };
                     });
@@ -447,10 +504,12 @@ export default function CashierBilling() {
               ) : (
                 <button
                   onClick={() => {
+                    const actAmount = activitiesData.total;
+                    setEditableActivitiesTotal(actAmount.toString());
                     setActivitiesAdded(true);
                     setForm((prev) => {
                       const currentTotal = parseFloat(prev.finalTotalAmount) || 0;
-                      const newTotal = currentTotal + activitiesData.total;
+                      const newTotal = currentTotal + actAmount;
                       const totalAmountPaid = parseFloat(prev.totalAmountPaid) || 0;
                       return { ...prev, finalTotalAmount: newTotal.toString(), dueAmount: (newTotal - totalAmountPaid).toString() };
                     });
