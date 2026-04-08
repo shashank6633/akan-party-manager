@@ -92,17 +92,31 @@ export default function GuestContacts() {
     }
   };
 
-  const selectParty = (p) => {
+  const selectParty = async (p) => {
     setSelectedParty(p);
     setError('');
-    // Pre-fill empty rows based on Confirmed Pax
-    const pax = parseInt(p.confirmedPax) || parseInt(p.expectedPax) || 5;
-    const rows = Array.from({ length: pax }, () => ({ guestName: '', guestPhone: '', saved: false }));
-    setContacts(rows);
     // Clear any pending auto-save timers
     Object.values(autoSaveTimers.current).forEach(clearTimeout);
     autoSaveTimers.current = {};
     savingRows.current.clear();
+
+    // Fetch existing contacts for this party
+    let existingContacts = [];
+    try {
+      const res = await guestContactAPI.getAll({ partyId: p.uniqueId });
+      existingContacts = (res.data.data || []).map((c) => ({
+        guestName: c.guestName || '',
+        guestPhone: c.guestPhone || '',
+        saved: true,
+      }));
+    } catch { /* ignore */ }
+
+    // Calculate remaining empty rows
+    const pax = parseInt(p.confirmedPax) || parseInt(p.expectedPax) || 5;
+    const remaining = Math.max(pax - existingContacts.length, 3);
+    const emptyRows = Array.from({ length: remaining }, () => ({ guestName: '', guestPhone: '', saved: false }));
+
+    setContacts([...existingContacts, ...emptyRows]);
   };
 
   const addContactRow = () => {
@@ -117,33 +131,39 @@ export default function GuestContacts() {
   // Auto-save a single row
   const autoSaveRow = useCallback(async (index) => {
     if (!selectedParty) return;
+    if (savingRows.current.has(index)) return;
+
+    // Read current contact data
+    let contactData = null;
     setContacts((prev) => {
       const c = prev[index];
-      if (!c || c.saved || savingRows.current.has(index)) return prev;
-      if (!c.guestName.trim() || !c.guestPhone || c.guestPhone.length !== 10) return prev;
+      if (c && !c.saved && c.guestName.trim() && c.guestPhone && c.guestPhone.length === 10) {
+        contactData = { guestName: c.guestName, guestPhone: c.guestPhone };
+      }
+      return prev; // no mutation
+    });
 
-      // Mark as saving
-      savingRows.current.add(index);
-      setAutoSaving(true);
+    if (!contactData) return;
 
-      guestContactAPI.create({
+    savingRows.current.add(index);
+    setAutoSaving(true);
+
+    try {
+      await guestContactAPI.create({
         partyUniqueId: selectedParty.uniqueId,
         partyDate: selectedParty.date || '',
         hostName: selectedParty.hostName || '',
         company: selectedParty.company || '',
-        contacts: [{ guestName: c.guestName, guestPhone: c.guestPhone }],
-      }).then(() => {
-        setContacts((p) => p.map((r, i) => i === index ? { ...r, saved: true } : r));
-        fetchStats();
-      }).catch(() => {
-        // silently fail — user can retry
-      }).finally(() => {
-        savingRows.current.delete(index);
-        setAutoSaving(false);
+        contacts: [contactData],
       });
-
-      return prev;
-    });
+      setContacts((prev) => prev.map((r, i) => i === index ? { ...r, saved: true } : r));
+      fetchStats();
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      savingRows.current.delete(index);
+      setAutoSaving(false);
+    }
   }, [selectedParty]);
 
   const updateContact = (index, field, value) => {
