@@ -231,8 +231,8 @@ export default function GuestContacts() {
         </div>
         {stats && (
           <div className="flex items-center gap-4 text-xs text-gray-500">
-            <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {stats.totalContacts} total</span>
-            <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" /> {stats.uniquePhones} unique</span>
+            <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {stats.totalContacts} contacts</span>
+            <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" /> {stats.partiesWithContacts} parties</span>
           </div>
         )}
       </div>
@@ -546,12 +546,12 @@ export default function GuestContacts() {
                               )}
                             </div>
                           </div>
-                          {canAdd && (
+                          {canAdd && c.rowIndex && (
                             <button
-                              onClick={() => handleDelete(c.rowIndex)}
-                              className="p-1.5 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                              onClick={(e) => { e.stopPropagation(); handleDelete(c.rowIndex); }}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-colors"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-3.5 h-3.5" /> Delete
                             </button>
                           )}
                         </div>
