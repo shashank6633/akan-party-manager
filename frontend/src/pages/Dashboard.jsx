@@ -366,7 +366,7 @@ export default function Dashboard() {
   ))}
   </div>
  </div>
- <StatsCards stats={stats} loading={statsLoading} cashierView={isCashier} showRevenue={['CASHIER', 'ACCOUNTS', 'ADMIN'].includes(user?.role)} onPendingDuesClick={() => { setStatusFilter('Confirmed'); setPendingDuesOnly(true); setPage(1); }} />
+ <StatsCards stats={stats} loading={statsLoading} cashierView={isCashier} showRevenue={['CASHIER', 'ACCOUNTS', 'ADMIN'].includes(user?.role)} onPendingDuesClick={() => { setStatusFilter('Confirmed'); setPendingDuesOnly(true); setPage(1); }} onEnquiryClick={() => { setStatusFilter('Enquiry'); setPendingDuesOnly(false); setPage(1); }} />
  </>
  )}
 
