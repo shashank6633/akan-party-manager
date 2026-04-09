@@ -546,7 +546,7 @@ export default function GuestContacts() {
                               )}
                             </div>
                           </div>
-                          {canAdd && c.rowIndex && (
+                          {user?.role === 'ADMIN' && c.rowIndex && (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleDelete(c.rowIndex); }}
                               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 transition-colors"

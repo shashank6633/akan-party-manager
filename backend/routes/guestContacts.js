@@ -312,7 +312,7 @@ router.post(
 // ---------------------------------------------------------------------------
 router.delete(
   '/:rowIndex',
-  roleCheck(ROLES.GRE, ROLES.SALES, ROLES.MANAGER),
+  roleCheck(ROLES.ADMIN),
   async (req, res) => {
     try {
       const rowIndex = parseInt(req.params.rowIndex);
