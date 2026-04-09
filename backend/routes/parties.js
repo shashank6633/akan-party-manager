@@ -310,6 +310,9 @@ router.get('/stats', async (req, res) => {
   try {
     let rows = await sheetsService.getAllRows();
 
+    // Save all rows before filtering for today's enquiry stats (based on Enquired At, not event date)
+    const allRowsUnfiltered = rows;
+
     // CASHIER only sees confirmed party stats
     const userRole = req.user?.role?.toUpperCase();
     if (userRole === 'CASHIER') {
@@ -361,12 +364,12 @@ router.get('/stats', async (req, res) => {
       todayConfirmedParties: rows
         .filter((r) => normalizeDate(r['Date']) === todayStr() && r['Status'] === 'Confirmed')
         .map((r) => ({ hostName: r['Host Name'], approxBill: parseFloat(r['Approx Bill Amount']) || 0, place: r['Place'] || '', partyTime: r['Party Time'] || '' })),
-      todayEnquiredCount: rows.filter((r) => {
+      todayEnquiredCount: allRowsUnfiltered.filter((r) => {
         const ea = r['Enquired At'];
         if (!ea) return false;
         return ea.substring(0, 10) === todayStr();
       }).length,
-      todayEnquiredParties: rows.filter((r) => {
+      todayEnquiredParties: allRowsUnfiltered.filter((r) => {
         const ea = r['Enquired At'];
         if (!ea) return false;
         return ea.substring(0, 10) === todayStr();
