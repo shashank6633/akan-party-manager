@@ -65,7 +65,9 @@ export default function GuestContacts() {
   const loadRecentParties = async () => {
     setPartiesLoading(true);
     try {
-      const res = await partyAPI.getAll({ limit: 200, order: 'desc', status: 'Confirmed' });
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const res = await partyAPI.getAll({ limit: 200, order: 'desc', status: 'Confirmed', dateTo: todayStr });
       setRecentParties(res.data.parties || []);
     } catch { /* ignore */ }
     finally { setPartiesLoading(false); }
