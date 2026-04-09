@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
  ArrowLeft,
  Save,
@@ -133,6 +133,8 @@ const PLACE_OPTIONS = {
 export default function PartyDetail() {
  const { id } = useParams();
  const navigate = useNavigate();
+ const location = useLocation();
+ const backPath = location.state?.from === 'calendar' ? '/calendar' : '/';
  const { user } = useAuth();
  const [party, setParty] = useState(null);
  const [editData, setEditData] = useState({});
@@ -441,7 +443,7 @@ export default function PartyDetail() {
   return (
    <div className="text-center py-20">
     <p className="text-gray-500">{error || 'Party not found.'}</p>
-    <button onClick={() => navigate('/')} className="mt-4 text-[#af4408] hover:underline text-sm">Back to Dashboard</button>
+    <button onClick={() => navigate(backPath)} className="mt-4 text-[#af4408] hover:underline text-sm">{backPath === '/calendar' ? 'Back to Calendar' : 'Back to Dashboard'}</button>
    </div>
   );
  }
@@ -726,7 +728,7 @@ export default function PartyDetail() {
    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
     <div className="flex items-center gap-3">
      <button
-      onClick={() => navigate('/')}
+      onClick={() => navigate(backPath)}
       className="p-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
      >
       <ArrowLeft className="w-5 h-5 text-gray-600" />

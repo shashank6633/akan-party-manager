@@ -165,7 +165,7 @@ export default function CalendarView() {
                           return (
                             <div
                               key={pi}
-                              onClick={(e) => { e.stopPropagation(); if (!isViewOnly) navigate(`/parties/${p.rowIndex}`); }}
+                              onClick={(e) => { e.stopPropagation(); if (!isViewOnly) navigate(`/parties/${p.rowIndex}`, { state: { from: 'calendar' } }); }}
                               className={`${colors.bg} ${colors.text} ${colors.border} border rounded px-1 py-0.5 text-[9px] sm:text-[11px] font-medium truncate ${isViewOnly ? '' : 'cursor-pointer hover:opacity-80'} transition-opacity`}
                               title={`${p.hostName} - ${status}`}
                             >
@@ -198,7 +198,7 @@ export default function CalendarView() {
                   return (
                     <div
                       key={i}
-                      onClick={() => !isViewOnly && navigate(`/parties/${p.rowIndex}`)}
+                      onClick={() => !isViewOnly && navigate(`/parties/${p.rowIndex}`, { state: { from: 'calendar' } })}
                       className={`flex items-center justify-between p-3 rounded-lg border ${colors.border} ${colors.bg} ${isViewOnly ? '' : 'cursor-pointer hover:opacity-90'} transition-opacity`}
                     >
                       <div className="min-w-0 flex-1">
