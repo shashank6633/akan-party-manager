@@ -6,18 +6,17 @@ import {
  XCircle,
  IndianRupee,
  PhoneCall,
- HelpCircle,
  AlertTriangle,
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/helpers';
 
 const cards = [
- { key: 'totalEnquiries', label: 'Total Enquiries', icon: MessageSquare, color: 'text-yellow-500', bg: 'bg-yellow-50' },
+ { key: 'enquiry', label: 'Enquiry', icon: MessageSquare, color: 'text-yellow-500', bg: 'bg-yellow-50' },
  { key: 'contacted', label: 'Contacted', icon: PhoneCall, color: 'text-purple-500', bg: 'bg-purple-50' },
- { key: 'confirmed', label: 'Confirmed', icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50' },
  { key: 'tentative', label: 'Tentative', icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50' },
+ { key: 'confirmed', label: 'Confirmed', icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50' },
  { key: 'cancelled', label: 'Cancelled', icon: XCircle, color: 'text-red-500', bg: 'bg-red-50' },
- { key: 'unknown', label: 'Unknown', icon: HelpCircle, color: 'text-gray-500', bg: 'bg-gray-100' },
+ { key: 'totalEnquiries', label: 'Total Enquiries', icon: MessageSquare, color: 'text-gray-500', bg: 'bg-gray-100' },
  { key: 'totalRevenue', label: 'Total Revenue', icon: IndianRupee, color: 'text-[#af4408]', bg: 'bg-[#af4408]/10', isCurrency: true, revenueOnly: true },
  { key: 'pendingDues', label: 'Pending Dues', icon: AlertTriangle, color: 'text-orange-500', bg: 'bg-orange-50', isCurrency: true, revenueOnly: true },
 ];
