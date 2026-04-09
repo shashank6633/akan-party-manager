@@ -130,22 +130,20 @@ export default function GuestContacts() {
     setContacts((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Ref to always have latest contacts for auto-save reads
+  const contactsRef = useRef(contacts);
+  useEffect(() => { contactsRef.current = contacts; }, [contacts]);
+
   // Auto-save a single row
   const autoSaveRow = useCallback(async (index) => {
     if (!selectedParty) return;
     if (savingRows.current.has(index)) return;
 
-    // Read current contact data
-    let contactData = null;
-    setContacts((prev) => {
-      const c = prev[index];
-      if (c && !c.saved && c.guestName.trim() && c.guestPhone && c.guestPhone.length === 10) {
-        contactData = { guestName: c.guestName, guestPhone: c.guestPhone };
-      }
-      return prev; // no mutation
-    });
+    // Read current contact data from ref (always up-to-date)
+    const c = contactsRef.current[index];
+    if (!c || c.saved || !c.guestName?.trim() || !c.guestPhone || c.guestPhone.length !== 10) return;
 
-    if (!contactData) return;
+    const contactData = { guestName: c.guestName, guestPhone: c.guestPhone };
 
     savingRows.current.add(index);
     setAutoSaving(true);
@@ -160,8 +158,9 @@ export default function GuestContacts() {
       });
       setContacts((prev) => prev.map((r, i) => i === index ? { ...r, saved: true } : r));
       fetchStats();
-    } catch {
-      // silently fail — user can retry
+    } catch (err) {
+      console.error('Auto-save failed:', err);
+      setError('Auto-save failed. Please try again.');
     } finally {
       savingRows.current.delete(index);
       setAutoSaving(false);
