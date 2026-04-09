@@ -18,16 +18,16 @@ import {
 import { useAuth } from '../context/AuthContext';
 
 const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
-  { to: '/add-party', icon: PlusCircle, label: 'Add Party', hideFor: ['CASHIER', 'ACCOUNTS', 'VIEWER'] },
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard', hideFor: ['FEEDBACK'] },
+  { to: '/calendar', icon: CalendarDays, label: 'Calendar', hideFor: ['FEEDBACK'] },
+  { to: '/add-party', icon: PlusCircle, label: 'Add Party', hideFor: ['CASHIER', 'ACCOUNTS', 'VIEWER', 'FEEDBACK'] },
   { to: '/guest-contacts', icon: UserPlus, label: 'Guest Contacts', showFor: ['GRE', 'ADMIN'] },
   { to: '/cashier-billing', icon: Receipt, label: 'Billing', showFor: ['CASHIER', 'ACCOUNTS', 'ADMIN', 'MANAGER'] },
-  { to: '/fp', icon: FileText, label: 'F&P', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS'] },
-  { to: '/sheets', icon: Table2, label: 'Sheets View', hideFor: ['CASHIER'] },
+  { to: '/fp', icon: FileText, label: 'F&P', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS', 'FEEDBACK'] },
+  { to: '/sheets', icon: Table2, label: 'Sheets View', hideFor: ['CASHIER', 'FEEDBACK'] },
   { to: '/feedback', icon: MessageSquare, label: 'Feedback', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS', 'VIEWER'] },
-  { to: '/reports', icon: BarChart3, label: 'Reports', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS'] },
-  { to: '/settings', icon: Settings, label: 'Settings', hideFor: ['GRE', 'SALES', 'MANAGER', 'CASHIER', 'ACCOUNTS', 'VIEWER'] },
+  { to: '/reports', icon: BarChart3, label: 'Reports', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS', 'FEEDBACK'] },
+  { to: '/settings', icon: Settings, label: 'Settings', hideFor: ['GRE', 'SALES', 'MANAGER', 'CASHIER', 'ACCOUNTS', 'VIEWER', 'FEEDBACK'] },
 ];
 
 export default function Sidebar({ collapsed, onToggle, onClose }) {
@@ -41,6 +41,7 @@ export default function Sidebar({ collapsed, onToggle, onClose }) {
     ACCOUNTS: 'bg-indigo-100 text-indigo-700',
     GRE: 'bg-green-100 text-green-700',
     VIEWER: 'bg-gray-100 text-gray-700',
+    FEEDBACK: 'bg-amber-100 text-amber-700',
   };
 
   return (

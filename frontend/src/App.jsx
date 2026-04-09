@@ -54,8 +54,9 @@ function ProtectedRoute({ children, adminOnly = false, hideForRoles = [] }) {
 // Lightweight role guard for nested routes (no loading/auth check — parent handles that)
 function RoleGuard({ children, adminOnly = false, hideForRoles = [] }) {
  const { user } = useAuth();
- if (adminOnly && user?.role !== 'ADMIN') return <Navigate to="/" replace />;
- if (hideForRoles.length > 0 && hideForRoles.includes(user?.role)) return <Navigate to="/" replace />;
+ const fallback = user?.role === 'FEEDBACK' ? '/feedback' : '/';
+ if (adminOnly && user?.role !== 'ADMIN') return <Navigate to={fallback} replace />;
+ if (hideForRoles.length > 0 && hideForRoles.includes(user?.role)) return <Navigate to={fallback} replace />;
  return children;
 }
 
@@ -97,26 +98,38 @@ export default function App() {
  </ProtectedRoute>
  }
  >
- <Route index element={<Dashboard />} />
- <Route path="calendar" element={<CalendarView />} />
+ <Route index element={
+  <RoleGuard hideForRoles={['FEEDBACK']}>
+   <Dashboard />
+  </RoleGuard>
+ } />
+ <Route path="calendar" element={
+  <RoleGuard hideForRoles={['FEEDBACK']}>
+   <CalendarView />
+  </RoleGuard>
+ } />
  <Route path="add-party" element={
- <RoleGuard hideForRoles={['CASHIER', 'VIEWER']}>
+ <RoleGuard hideForRoles={['CASHIER', 'VIEWER', 'FEEDBACK']}>
  <AddParty />
  </RoleGuard>
  } />
- <Route path="parties/:id" element={<PartyDetail />} />
+ <Route path="parties/:id" element={
+  <RoleGuard hideForRoles={['FEEDBACK']}>
+   <PartyDetail />
+  </RoleGuard>
+ } />
  <Route path="fp" element={
-  <RoleGuard hideForRoles={['GRE', 'CASHIER']}>
+  <RoleGuard hideForRoles={['GRE', 'CASHIER', 'FEEDBACK']}>
    <FPList />
   </RoleGuard>
  } />
  <Route path="fp/new" element={
-  <RoleGuard hideForRoles={['GRE', 'CASHIER']}>
+  <RoleGuard hideForRoles={['GRE', 'CASHIER', 'FEEDBACK']}>
    <FPEditor />
   </RoleGuard>
  } />
  <Route path="fp/:id" element={
-  <RoleGuard hideForRoles={['GRE', 'CASHIER']}>
+  <RoleGuard hideForRoles={['GRE', 'CASHIER', 'FEEDBACK']}>
    <FPEditor />
   </RoleGuard>
  } />
@@ -136,19 +149,19 @@ export default function App() {
   </RoleGuard>
  } />
  <Route path="sheets" element={
- <RoleGuard hideForRoles={['CASHIER']}>
+ <RoleGuard hideForRoles={['CASHIER', 'FEEDBACK']}>
   <SheetsView />
  </RoleGuard>
  } />
  <Route path="cashier-billing" element={<CashierBilling />} />
  <Route path="guest-contacts" element={
-  <RoleGuard hideForRoles={['CASHIER', 'ACCOUNTS', 'VIEWER', 'SALES', 'MANAGER']}>
+  <RoleGuard hideForRoles={['CASHIER', 'ACCOUNTS', 'VIEWER', 'SALES', 'MANAGER', 'FEEDBACK']}>
    <GuestContacts />
   </RoleGuard>
  } />
  <Route path="profile" element={<Profile />} />
  <Route path="reports" element={
- <RoleGuard hideForRoles={['GRE', 'CASHIER']}>
+ <RoleGuard hideForRoles={['GRE', 'CASHIER', 'FEEDBACK']}>
  <Reports />
  </RoleGuard>
  } />

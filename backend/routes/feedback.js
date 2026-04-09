@@ -100,7 +100,7 @@ router.get('/by-fp/:fpId', async (req, res) => {
 // ---------------------------------------------------------------------------
 router.post(
   '/',
-  roleCheck(ROLES.SALES, ROLES.MANAGER, ROLES.ADMIN),
+  roleCheck(ROLES.SALES, ROLES.MANAGER, ROLES.FEEDBACK, ROLES.ADMIN),
   async (req, res) => {
     try {
       await sheetsService.ensureFeedbackSheet();

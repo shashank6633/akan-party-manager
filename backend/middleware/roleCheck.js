@@ -10,6 +10,7 @@ const ROLES = {
   MANAGER: 'MANAGER',
   ADMIN: 'ADMIN',
   VIEWER: 'VIEWER',
+  FEEDBACK: 'FEEDBACK',
 };
 
 /**

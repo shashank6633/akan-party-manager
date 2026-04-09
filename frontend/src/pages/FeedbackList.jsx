@@ -7,7 +7,8 @@ import { useAuth } from '../context/AuthContext';
 export default function FeedbackList() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canCreate = ['SALES', 'MANAGER', 'ADMIN'].includes(user?.role);
+  const canCreate = ['SALES', 'MANAGER', 'FEEDBACK', 'ADMIN'].includes(user?.role);
+  const isFeedbackRole = user?.role === 'FEEDBACK';
 
   const [feedback, setFeedback] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -88,7 +89,7 @@ export default function FeedbackList() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-gray-900">Feedback</h2>
-          <p className="text-sm text-gray-500">Guest feedback from events</p>
+          <p className="text-sm text-gray-500">{isFeedbackRole ? "Collect feedback for today's confirmed parties" : 'Guest feedback from events'}</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={fetchFeedback} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
@@ -181,12 +182,14 @@ export default function FeedbackList() {
                 >
                   Today ({todayCount})
                 </button>
-                <button
-                  onClick={() => setFpFilterToday(false)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${!fpFilterToday ? 'bg-[#af4408] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                >
-                  All
-                </button>
+                {!isFeedbackRole && (
+                  <button
+                    onClick={() => setFpFilterToday(false)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${!fpFilterToday ? 'bg-[#af4408] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  >
+                    All
+                  </button>
+                )}
               </div>
               <div className="relative mt-3">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
