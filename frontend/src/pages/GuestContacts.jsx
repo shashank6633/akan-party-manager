@@ -33,7 +33,8 @@ export default function GuestContacts() {
   const [selectedParty, setSelectedParty] = useState(null);
 
   // Add tab — guest entries
-  const [contacts, setContacts] = useState([{ guestName: '', guestPhone: '', saved: false }]);
+  // Each contact: { guestName, guestPhone, saved, rowIndex (from sheet), locked (loaded from API, cannot edit) }
+  const [contacts, setContacts] = useState([{ guestName: '', guestPhone: '', saved: false, rowIndex: null, locked: false }]);
   const [saving, setSaving] = useState(false);
   const [autoSaving, setAutoSaving] = useState(false);
   const autoSaveTimers = useRef({});
@@ -110,19 +111,21 @@ export default function GuestContacts() {
         guestName: c.guestName || '',
         guestPhone: c.guestPhone || '',
         saved: true,
+        rowIndex: c.rowIndex || null,
+        locked: true, // Loaded from API — cannot edit
       }));
     } catch { /* ignore */ }
 
     // Calculate remaining empty rows
     const pax = parseInt(p.confirmedPax) || parseInt(p.expectedPax) || 5;
     const remaining = Math.max(pax - existingContacts.length, 3);
-    const emptyRows = Array.from({ length: remaining }, () => ({ guestName: '', guestPhone: '', saved: false }));
+    const emptyRows = Array.from({ length: remaining }, () => ({ guestName: '', guestPhone: '', saved: false, rowIndex: null, locked: false }));
 
     setContacts([...existingContacts, ...emptyRows]);
   };
 
   const addContactRow = () => {
-    setContacts((prev) => [...prev, { guestName: '', guestPhone: '', saved: false }]);
+    setContacts((prev) => [...prev, { guestName: '', guestPhone: '', saved: false, rowIndex: null, locked: false }]);
   };
 
   const removeContactRow = (index) => {
@@ -134,14 +137,14 @@ export default function GuestContacts() {
   const contactsRef = useRef(contacts);
   useEffect(() => { contactsRef.current = contacts; }, [contacts]);
 
-  // Auto-save a single row
+  // Auto-save a single row (create new or update existing)
   const autoSaveRow = useCallback(async (index) => {
     if (!selectedParty) return;
     if (savingRows.current.has(index)) return;
 
     // Read current contact data from ref (always up-to-date)
     const c = contactsRef.current[index];
-    if (!c || c.saved || !c.guestName?.trim() || !c.guestPhone || c.guestPhone.length !== 10) return;
+    if (!c || c.locked || !c.guestName?.trim() || !c.guestPhone || c.guestPhone.length !== 10) return;
 
     const contactData = { guestName: c.guestName, guestPhone: c.guestPhone };
 
@@ -149,14 +152,32 @@ export default function GuestContacts() {
     setAutoSaving(true);
 
     try {
-      await guestContactAPI.create({
-        partyUniqueId: selectedParty.uniqueId,
-        partyDate: selectedParty.date || '',
-        hostName: selectedParty.hostName || '',
-        company: selectedParty.company || '',
-        contacts: [contactData],
-      });
-      setContacts((prev) => prev.map((r, i) => i === index ? { ...r, saved: true } : r));
+      if (c.saved && c.rowIndex) {
+        // Update existing row
+        await guestContactAPI.update(c.rowIndex, {
+          ...contactData,
+          partyUniqueId: selectedParty.uniqueId,
+          partyDate: selectedParty.date || '',
+          hostName: selectedParty.hostName || '',
+          company: selectedParty.company || '',
+        });
+        setContacts((prev) => prev.map((r, i) => i === index ? { ...r, saved: true } : r));
+      } else if (!c.saved) {
+        // Create new row
+        const res = await guestContactAPI.create({
+          partyUniqueId: selectedParty.uniqueId,
+          partyDate: selectedParty.date || '',
+          hostName: selectedParty.hostName || '',
+          company: selectedParty.company || '',
+          contacts: [contactData],
+        });
+        // Get the rowIndex from the returned contacts
+        const savedContacts = res.data.contacts || [];
+        const match = savedContacts.find((sc) =>
+          sc.guestName === contactData.guestName && sc.guestPhone === contactData.guestPhone
+        );
+        setContacts((prev) => prev.map((r, i) => i === index ? { ...r, saved: true, rowIndex: match?.rowIndex || null } : r));
+      }
       fetchStats();
     } catch (err) {
       console.error('Auto-save failed:', err);
@@ -170,8 +191,8 @@ export default function GuestContacts() {
   const updateContact = (index, field, value) => {
     setContacts((prev) => prev.map((c, i) => {
       if (i !== index) return c;
-      // If already saved, don't allow edit (it's already in the sheet)
-      if (c.saved) return c;
+      // If locked (loaded from API / previous session), don't allow edit
+      if (c.locked) return c;
       return { ...c, [field]: value };
     }));
 
@@ -390,8 +411,10 @@ export default function GuestContacts() {
 
                 <div className="space-y-2">
                   {contacts.map((contact, index) => (
-                    <div key={index} className={`flex items-center gap-2 ${contact.saved ? 'opacity-70' : ''}`}>
-                      {contact.saved ? (
+                    <div key={index} className={`flex items-center gap-2 ${contact.locked ? 'opacity-60' : ''}`}>
+                      {contact.locked ? (
+                        <CheckCircle className="w-5 h-5 text-gray-400 shrink-0" />
+                      ) : contact.saved ? (
                         <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
                       ) : (
                         <span className="text-xs font-bold text-gray-300 w-5 text-center shrink-0">{index + 1}</span>
@@ -401,10 +424,12 @@ export default function GuestContacts() {
                         value={contact.guestName}
                         onChange={(e) => updateContact(index, 'guestName', e.target.value)}
                         placeholder="Guest Name"
-                        readOnly={contact.saved}
+                        readOnly={contact.locked}
                         className={`flex-1 px-3 py-3 rounded-lg border text-sm transition-colors ${
-                          contact.saved
-                            ? 'border-green-200 bg-green-50 text-green-800 cursor-not-allowed'
+                          contact.locked
+                            ? 'border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed'
+                            : contact.saved
+                            ? 'border-green-200 bg-green-50 text-green-800 focus:outline-none focus:ring-2 focus:ring-green-300'
                             : 'border-gray-200 bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30'
                         }`}
                       />
@@ -417,16 +442,18 @@ export default function GuestContacts() {
                         }}
                         placeholder="Mobile Number"
                         maxLength={10}
-                        readOnly={contact.saved}
+                        readOnly={contact.locked}
                         className={`flex-1 px-3 py-3 rounded-lg border text-sm transition-colors ${
-                          contact.saved
-                            ? 'border-green-200 bg-green-50 text-green-800 cursor-not-allowed'
+                          contact.locked
+                            ? 'border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed'
+                            : contact.saved
+                            ? 'border-green-200 bg-green-50 text-green-800 focus:outline-none focus:ring-2 focus:ring-green-300'
                             : contact.guestPhone && contact.guestPhone.length !== 10
                             ? 'border-red-300 bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30'
                             : 'border-gray-200 bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30'
                         }`}
                       />
-                      {!contact.saved && contacts.length > 1 && (
+                      {!contact.saved && !contact.locked && contacts.filter(c => !c.saved && !c.locked).length > 1 && (
                         <button
                           onClick={() => removeContactRow(index)}
                           className="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
@@ -434,8 +461,11 @@ export default function GuestContacts() {
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}
-                      {contact.saved && (
-                        <span className="text-[10px] text-green-600 font-semibold shrink-0 w-8">Saved</span>
+                      {contact.locked && (
+                        <span className="text-[10px] text-gray-400 font-semibold shrink-0 w-10 text-center">Locked</span>
+                      )}
+                      {contact.saved && !contact.locked && (
+                        <span className="text-[10px] text-green-600 font-semibold shrink-0 w-10 text-center">Saved</span>
                       )}
                     </div>
                   ))}

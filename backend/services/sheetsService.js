@@ -1545,6 +1545,22 @@ async function appendGuestContactRow(data) {
   });
 }
 
+async function updateGuestContactRow(rowIndex, data) {
+  return withRetry(async () => {
+    const values = GUEST_CONTACT_COLUMNS.map((col) => {
+      const val = data[col];
+      return val !== undefined && val !== null ? String(val) : '';
+    });
+    const endCol = indexToColumnLetter(GUEST_CONTACT_COLUMNS.length - 1);
+    await getSheetsClient().spreadsheets.values.update({
+      spreadsheetId: getGuestContactsSheetId(),
+      range: `'${GUEST_CONTACTS_TAB}'!A${rowIndex}:${endCol}${rowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [values] },
+    });
+  });
+}
+
 async function deleteGuestContactRow(rowIndex) {
   return withRetry(async () => {
     const sheets = getSheetsClient();
@@ -1619,5 +1635,6 @@ module.exports = {
   ensureGuestContactsSheet,
   getAllGuestContactRows,
   appendGuestContactRow,
+  updateGuestContactRow,
   deleteGuestContactRow,
 };

@@ -90,6 +90,7 @@ export const guestContactAPI = {
   getTasks: () => api.get('/guest-contacts/tasks'),
   getAdminRequests: () => api.get('/guest-contacts/admin-requests'),
   create: (data) => api.post('/guest-contacts', data),
+  update: (rowIndex, data) => api.put(`/guest-contacts/${rowIndex}`, data),
   requestNoContacts: (rowIndex, reason) => api.put(`/guest-contacts/no-contacts/${rowIndex}`, { reason }),
   approveNoContacts: (rowIndex) => api.put(`/guest-contacts/approve-no-contacts/${rowIndex}`),
   delete: (rowIndex) => api.delete(`/guest-contacts/${rowIndex}`),

@@ -295,14 +295,69 @@ router.post(
       // Auto-check if task is completed (>= 50% of pax)
       checkAndUpdateTaskStatus(partyUniqueId);
 
+      // Fetch the latest rows for this party to return rowIndexes
+      const allRows = await sheetsService.getAllGuestContactRows();
+      const partyRows = allRows
+        .filter((r) => r['Party Unique ID'] === partyUniqueId)
+        .map(contactToCamel);
+
       res.json({
         success: true,
         message: `${added} contact(s) added successfully.`,
         added,
+        contacts: partyRows,
       });
     } catch (err) {
       console.error('Guest contact add error:', err);
       res.status(500).json({ success: false, message: 'Failed to add guest contacts.' });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// PUT /api/guest-contacts/:rowIndex - Update a guest contact (GRE can edit)
+// ---------------------------------------------------------------------------
+router.put(
+  '/:rowIndex',
+  roleCheck(ROLES.GRE, ROLES.SALES, ROLES.MANAGER),
+  async (req, res) => {
+    try {
+      const rowIndex = parseInt(req.params.rowIndex);
+      if (isNaN(rowIndex) || rowIndex < 2) {
+        return res.status(400).json({ success: false, message: 'Invalid row index.' });
+      }
+
+      const { guestName, guestPhone, partyUniqueId, partyDate, hostName, company } = req.body;
+      if (!guestName?.trim() && !guestPhone) {
+        return res.status(400).json({ success: false, message: 'Guest name or phone required.' });
+      }
+
+      await sheetsService.ensureGuestContactsSheet();
+
+      // Get existing row to preserve fields not being updated
+      const allRows = await sheetsService.getAllGuestContactRows();
+      const existing = allRows.find((r) => r._rowIndex === rowIndex);
+      if (!existing) {
+        return res.status(404).json({ success: false, message: 'Contact not found.' });
+      }
+
+      const data = {
+        'Party Unique ID': partyUniqueId || existing['Party Unique ID'],
+        'Party Date': partyDate || existing['Party Date'],
+        'Host Name': hostName || existing['Host Name'],
+        'Company': company || existing['Company'],
+        'Guest Name': guestName || existing['Guest Name'],
+        'Guest Phone': guestPhone || existing['Guest Phone'],
+        'Entered By': existing['Entered By'],
+        'Entered At': existing['Entered At'],
+      };
+
+      await sheetsService.updateGuestContactRow(rowIndex, data);
+
+      res.json({ success: true, message: 'Contact updated.' });
+    } catch (err) {
+      console.error('Guest contact update error:', err);
+      res.status(500).json({ success: false, message: 'Failed to update contact.' });
     }
   }
 );
