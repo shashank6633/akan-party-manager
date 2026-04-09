@@ -1385,8 +1385,10 @@ function getGuestContactsSheetId() {
 }
 
 const GUEST_CONTACTS_TAB = 'Guest Contacts';
+let _guestContactsSheetVerified = false;
 
 async function ensureGuestContactsSheet() {
+  if (_guestContactsSheetVerified) return;
   return withRetry(async () => {
     const sheets = getSheetsClient();
     const spreadsheetId = getGuestContactsSheetId();
@@ -1503,6 +1505,7 @@ async function ensureGuestContactsSheet() {
         console.log('Guest Contacts: Header row created/updated in separate sheet.');
       }
     }
+    _guestContactsSheetVerified = true;
   });
 }
 
