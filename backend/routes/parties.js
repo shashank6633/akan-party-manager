@@ -361,6 +361,25 @@ router.get('/stats', async (req, res) => {
       todayConfirmedParties: rows
         .filter((r) => normalizeDate(r['Date']) === todayStr() && r['Status'] === 'Confirmed')
         .map((r) => ({ hostName: r['Host Name'], approxBill: parseFloat(r['Approx Bill Amount']) || 0, place: r['Place'] || '', partyTime: r['Party Time'] || '' })),
+      todayEnquiredCount: rows.filter((r) => {
+        const ea = r['Enquired At'];
+        if (!ea) return false;
+        return ea.substring(0, 10) === todayStr();
+      }).length,
+      todayEnquiredParties: rows.filter((r) => {
+        const ea = r['Enquired At'];
+        if (!ea) return false;
+        return ea.substring(0, 10) === todayStr();
+      }).map((r) => ({
+        hostName: r['Host Name'] || '',
+        phone: r['Phone Number'] || '',
+        company: r['Company'] || '',
+        status: r['Status'] || '',
+        occasionType: r['Occasion Type'] || '',
+        date: r['Date'] || '',
+        enquiredAt: r['Enquired At'] || '',
+        handledBy: r['Handled By'] || '',
+      })),
     };
 
     res.json({ success: true, stats });

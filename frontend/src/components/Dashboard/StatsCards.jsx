@@ -49,7 +49,7 @@ const cashierCards = [
  { key: 'pendingDues', label: 'Pending Dues', icon: AlertTriangle, color: 'text-orange-500', bg: 'bg-orange-50', isCurrency: true },
 ];
 
-export default function StatsCards({ stats, loading, cashierView = false, showRevenue = true, onPendingDuesClick, onEnquiryClick }) {
+export default function StatsCards({ stats, loading, cashierView = false, showRevenue = true, onPendingDuesClick, onEnquiryClick, onTodayEnquiryClick }) {
  const allCards = cashierView ? cashierCards : cards;
  const displayCards = showRevenue ? allCards : allCards.filter((c) => !c.revenueOnly);
  if (loading) {
@@ -71,8 +71,8 @@ export default function StatsCards({ stats, loading, cashierView = false, showRe
    {displayCards.map((card) => (
     <div
      key={card.key}
-     onClick={card.key === 'pendingDues' && onPendingDuesClick ? onPendingDuesClick : card.key === 'enquiry' && onEnquiryClick && stats?.enquiry > 0 ? onEnquiryClick : undefined}
-     className={`bg-white rounded-xl border border-gray-200 p-3 sm:p-4 hover:shadow-md transition-shadow ${card.key === 'pendingDues' && onPendingDuesClick ? 'cursor-pointer hover:border-orange-300 hover:ring-1 hover:ring-orange-200' : card.key === 'enquiry' && onEnquiryClick && stats?.enquiry > 0 ? 'cursor-pointer hover:border-yellow-300 hover:ring-1 hover:ring-yellow-200' : ''}`}
+     onClick={card.key === 'pendingDues' && onPendingDuesClick ? onPendingDuesClick : card.key === 'enquiry' && onTodayEnquiryClick && stats?.todayEnquiredCount > 0 ? onTodayEnquiryClick : undefined}
+     className={`bg-white rounded-xl border border-gray-200 p-3 sm:p-4 hover:shadow-md transition-shadow ${card.key === 'pendingDues' && onPendingDuesClick ? 'cursor-pointer hover:border-orange-300 hover:ring-1 hover:ring-orange-200' : card.key === 'enquiry' && onTodayEnquiryClick && stats?.todayEnquiredCount > 0 ? 'cursor-pointer hover:border-yellow-300 hover:ring-1 hover:ring-yellow-200' : ''}`}
     >
      <div className={`w-8 h-8 sm:w-10 sm:h-10 ${card.bg} rounded-lg flex items-center justify-center mb-2 sm:mb-3`}>
       <card.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${card.color}`} />
@@ -81,6 +81,9 @@ export default function StatsCards({ stats, loading, cashierView = false, showRe
      <p className="text-base sm:text-xl font-bold text-gray-900 truncate">
       <AnimatedNumber value={stats?.[card.key]} isCurrency={card.isCurrency} />
      </p>
+     {card.key === 'enquiry' && stats?.todayEnquiredCount > 0 && (
+      <p className="text-[10px] sm:text-[11px] text-yellow-600 font-semibold mt-0.5">Today: {stats.todayEnquiredCount} — Tap to view</p>
+     )}
     </div>
    ))}
   </div>

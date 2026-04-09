@@ -100,6 +100,9 @@ export default function Dashboard() {
  const [staleEnquiries, setStaleEnquiries] = useState([]);
  const [showStalePopup, setShowStalePopup] = useState(false);
 
+ // Today's Enquiries popup
+ const [showTodayEnquiries, setShowTodayEnquiries] = useState(false);
+
  // Guest Contacts tasks (GRE + Admin)
  const isAdmin = user?.role === 'ADMIN';
  const [gcTasks, setGcTasks] = useState([]);
@@ -366,7 +369,7 @@ export default function Dashboard() {
   ))}
   </div>
  </div>
- <StatsCards stats={stats} loading={statsLoading} cashierView={isCashier} showRevenue={['CASHIER', 'ACCOUNTS', 'ADMIN'].includes(user?.role)} onPendingDuesClick={() => { setStatusFilter('Confirmed'); setPendingDuesOnly(true); setPage(1); }} onEnquiryClick={() => { setStatusFilter('Enquiry'); setPendingDuesOnly(false); setPage(1); }} />
+ <StatsCards stats={stats} loading={statsLoading} cashierView={isCashier} showRevenue={['CASHIER', 'ACCOUNTS', 'ADMIN'].includes(user?.role)} onPendingDuesClick={() => { setStatusFilter('Confirmed'); setPendingDuesOnly(true); setPage(1); }} onTodayEnquiryClick={() => setShowTodayEnquiries(true)} />
  </>
  )}
 
@@ -865,6 +868,49 @@ export default function Dashboard() {
     ))}
    </div>
   </div>
+ )}
+
+ {/* Today's Enquiries Popup */}
+ {showTodayEnquiries && stats?.todayEnquiredParties?.length > 0 && (
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowTodayEnquiries(false)}>
+ <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[calc(100vw-2rem)] sm:max-w-lg max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+  <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100">
+   <div>
+    <h3 className="text-lg font-bold text-gray-900">Today's Enquiries</h3>
+    <p className="text-xs text-gray-500 mt-0.5">{stats.todayEnquiredParties.length} {stats.todayEnquiredParties.length === 1 ? 'party' : 'parties'} enquired today</p>
+   </div>
+   <button onClick={() => setShowTodayEnquiries(false)} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+    <X className="w-5 h-5 text-gray-400" />
+   </button>
+  </div>
+  <div className="overflow-y-auto flex-1 p-4 sm:p-5 space-y-3">
+   {stats.todayEnquiredParties.map((p, i) => (
+    <div key={i} className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 sm:p-4">
+     <div className="flex items-start justify-between gap-2">
+      <div className="min-w-0 flex-1">
+       <p className="text-sm font-semibold text-gray-900 truncate">{p.hostName || 'N/A'}</p>
+       {p.company && <p className="text-xs text-gray-600 mt-0.5">{p.company}</p>}
+      </div>
+      <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+       p.status === 'Enquiry' ? 'bg-yellow-100 text-yellow-700' :
+       p.status === 'Contacted' ? 'bg-purple-100 text-purple-700' :
+       p.status === 'Tentative' ? 'bg-blue-100 text-blue-700' :
+       p.status === 'Confirmed' ? 'bg-green-100 text-green-700' :
+       p.status === 'Cancelled' ? 'bg-red-100 text-red-700' :
+       'bg-gray-100 text-gray-700'
+      }`}>{p.status}</span>
+     </div>
+     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
+      {p.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{p.phone}</span>}
+      {p.date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{p.date}</span>}
+      {p.occasionType && <span>{p.occasionType}</span>}
+      {p.handledBy && <span className="flex items-center gap-1"><User className="w-3 h-3" />{p.handledBy}</span>}
+     </div>
+    </div>
+   ))}
+  </div>
+ </div>
+ </div>
  )}
 
  {/* Quick action modal */}
