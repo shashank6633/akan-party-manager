@@ -27,7 +27,7 @@ import { authAPI, notificationAPI, api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { DISCLAIMERS, PACKAGES, FULL_MENU, MENU_CATEGORIES } from '../data/menuTemplates';
 
-const ROLES = ['GRE', 'CASHIER', 'ACCOUNTS', 'SALES', 'MANAGER', 'ADMIN', 'VIEWER'];
+const ROLES = ['GRE', 'CASHIER', 'ACCOUNTS', 'SALES', 'MANAGER', 'ADMIN', 'VIEWER', 'FEEDBACK'];
 
 function getTimeAgo(date) {
  const now = new Date();
