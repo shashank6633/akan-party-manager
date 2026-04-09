@@ -416,12 +416,12 @@ export default function Reports() {
 
  {/* Financial Tab */}
  {activeTab === 'financial' && (() => {
- // Compute completed parties: confirmed + event date <= today
+ // Compute completed parties: confirmed + event date < today (exclude today's parties)
  const todayStr = new Date().toISOString().split('T')[0];
  const completedParties = allParties.filter((p) => {
   if (p.status !== 'Confirmed') return false;
   const d = p.date?.split('T')[0] || p.date;
-  return d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= todayStr;
+  return d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d < todayStr;
  });
  const completedApprox = completedParties.reduce((s, p) => s + (parseFloat(p.approxBillAmount) || 0), 0);
  const completedFinal = completedParties.reduce((s, p) => s + (parseFloat(p.finalTotalAmount) || 0), 0);
