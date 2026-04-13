@@ -58,6 +58,8 @@ const COLUMNS = [
   'Day',                         // AK  (Auto-calculated from Date)
   'Created By',                  // AL  (Who created this party: "Name (ROLE)")
   'Guest Contacts Status',       // AM  (Pending / Completed / No Contacts Requested / No Contacts Approved)
+  'Attendance Count',            // AN  (e.g. "45/50 (90%)")
+  'Guest Checkin',               // AO  (Yes / No — toggle to enable check-in module for this party)
 ];
 
 /**
@@ -69,7 +71,7 @@ COLUMNS.forEach((name, idx) => {
 });
 
 // Last column letter for range references
-const LAST_COL = 'AM';
+const LAST_COL = 'AO';
 
 // Retry wrapper for transient Google API errors
 const MAX_RETRIES = 3;
@@ -1637,4 +1639,154 @@ module.exports = {
   appendGuestContactRow,
   updateGuestContactRow,
   deleteGuestContactRow,
+  // Attendance Log
+  ensureAttendanceSheet,
+  syncAttendanceLog,
 };
+
+// ---------------------------------------------------------------------------
+// Attendance Log — Separate Google Sheet
+// ---------------------------------------------------------------------------
+
+const ATTENDANCE_TAB = 'Attendance Log';
+const ATTENDANCE_COLUMNS = [
+  'Party ID',
+  'Event Date',
+  'Host Name',
+  'Company',
+  'Guest Name',
+  'Phone',
+  'Email',
+  'Plus Ones',
+  'Invite Sent',
+  'Checked In',
+  'Checked In At',
+  'Checked In By',
+  'Synced At',
+];
+const ATTENDANCE_LAST_COL = indexToColumnLetter(ATTENDANCE_COLUMNS.length - 1);
+
+function getAttendanceSheetId() {
+  return process.env.ATTENDANCE_SHEET_ID || process.env.GOOGLE_SHEETS_ID;
+}
+
+let _attendanceSheetVerified = false;
+
+async function ensureAttendanceSheet() {
+  if (_attendanceSheetVerified) return;
+  const sheetId = getAttendanceSheetId();
+  if (!sheetId) return;
+
+  const sheets = getSheetsClient();
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${ATTENDANCE_TAB}'!A1:${ATTENDANCE_LAST_COL}1`,
+    });
+    const header = (res.data.values || [])[0] || [];
+    if (header.length < ATTENDANCE_COLUMNS.length) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: `'${ATTENDANCE_TAB}'!A1:${ATTENDANCE_LAST_COL}1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [ATTENDANCE_COLUMNS] },
+      });
+    }
+  } catch (err) {
+    if (err.code === 400 || err.message?.includes('Unable to parse range')) {
+      // Tab doesn't exist — create it
+      try {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId: sheetId,
+          requestBody: {
+            requests: [{ addSheet: { properties: { title: ATTENDANCE_TAB } } }],
+          },
+        });
+      } catch (_) {}
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: `'${ATTENDANCE_TAB}'!A1:${ATTENDANCE_LAST_COL}1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [ATTENDANCE_COLUMNS] },
+      });
+    }
+  }
+  _attendanceSheetVerified = true;
+}
+
+/**
+ * Sync attendance data to the separate Attendance Log sheet.
+ * Clears existing rows for the party and writes fresh data.
+ */
+async function syncAttendanceLog(partyId, partyInfo, guests) {
+  const sheetId = getAttendanceSheetId();
+  if (!sheetId) return;
+
+  await ensureAttendanceSheet();
+  const sheets = getSheetsClient();
+  const syncedAt = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+  // Read all existing rows to find and clear old entries for this party
+  let existingRows = [];
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `'${ATTENDANCE_TAB}'!A2:${ATTENDANCE_LAST_COL}`,
+    });
+    existingRows = res.data.values || [];
+  } catch (_) {}
+
+  // Find row indices to clear (0-based in existingRows, sheet row = index + 2)
+  const rowsToClear = [];
+  existingRows.forEach((row, i) => {
+    if (row[0] === partyId) rowsToClear.push(i + 2); // sheet row number
+  });
+
+  // Clear old rows for this party (in reverse to avoid index shifting)
+  if (rowsToClear.length > 0) {
+    for (const rowNum of rowsToClear.reverse()) {
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId: sheetId,
+        range: `'${ATTENDANCE_TAB}'!A${rowNum}:${ATTENDANCE_LAST_COL}${rowNum}`,
+      });
+    }
+  }
+
+  // Build new rows
+  const newRows = guests.map((g) => {
+    let checkedInAt = '';
+    if (g.checkedIn && g.checkedInAt) {
+      if (typeof g.checkedInAt === 'string') {
+        checkedInAt = new Date(g.checkedInAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+      } else if (g.checkedInAt._seconds) {
+        checkedInAt = new Date(g.checkedInAt._seconds * 1000).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+      }
+    }
+
+    return [
+      partyId,
+      partyInfo.eventDate || '',
+      partyInfo.hostName || '',
+      partyInfo.company || '',
+      g.name || '',
+      g.phone || '',
+      g.email || '',
+      g.plusOnes || 0,
+      g.inviteSent ? 'Yes' : 'No',
+      g.checkedIn ? 'Yes' : 'No',
+      checkedInAt,
+      g.checkedInBy || '',
+      syncedAt,
+    ];
+  });
+
+  if (newRows.length > 0) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: sheetId,
+      range: `'${ATTENDANCE_TAB}'!A:${ATTENDANCE_LAST_COL}`,
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: newRows },
+    });
+  }
+}

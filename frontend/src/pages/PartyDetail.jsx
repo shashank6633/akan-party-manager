@@ -19,6 +19,7 @@ import {
  FileText,
 } from 'lucide-react';
 import StatusBadge from '../components/Party/StatusBadge';
+import CheckinTab from '../components/Checkin/CheckinTab';
 import { partyAPI, fpAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -35,7 +36,7 @@ const ROLE_FIELDS = {
  GRE: [
   'date', 'hostName', 'phoneNumber', 'company', 'occasionType',
   'guestVisited', 'status', 'place', 'partyTime', 'expectedPax',
-  'specialRequirements', 'remarks', 'altContact', 'handledBy',
+  'specialRequirements', 'remarks', 'altContact', 'handledBy', 'guestCheckin',
  ],
  CASHIER: [
   'confirmedPax', 'finalRate', 'finalTotalAmount',
@@ -50,7 +51,7 @@ const ROLE_FIELDS = {
   'packageSelected', 'specialRequirements', 'remarks', 'handledBy',
   'lostReason', 'fpIssued', 'approxBillAmount', 'confirmedFinalRate',
   'paymentStatus',
-  'altContact', 'guestEmail', 'balancePaymentDate', 'billOrderId',
+  'altContact', 'guestEmail', 'balancePaymentDate', 'billOrderId', 'guestCheckin',
  ],
  MANAGER: 'all',
  ADMIN: 'all',
@@ -95,6 +96,7 @@ const FIELD_LABELS = {
  balancePaymentDate: 'Balance Payment Date',
  billOrderId: 'Bill Order ID (POS Ref)',
  createdBy: 'Created By',
+ guestCheckin: 'Guest Checkin',
 };
 
 const READ_ONLY_FIELDS = [
@@ -151,6 +153,8 @@ export default function PartyDetail() {
  const [followUpNote, setFollowUpNote] = useState('');
  const [sendingFollowUp, setSendingFollowUp] = useState(false);
  const [copied, setCopied] = useState(false);
+ const [activeTab, setActiveTab] = useState('details');
+ const [checkinEnabled, setCheckinEnabled] = useState(false);
 
  // Payment Log state
  const [showPaymentForm, setShowPaymentForm] = useState(false);
@@ -174,6 +178,7 @@ export default function PartyDetail() {
  const [autoSaving, setAutoSaving] = useState(false);
  const autoSaveTimer = useRef(null);
  const dataLoaded = useRef(false);
+ const skipAutoSave = useRef(false);
 
  const isCashier = user?.role === 'CASHIER';
  const isAdmin = user?.role === 'ADMIN';
@@ -187,6 +192,13 @@ export default function PartyDetail() {
   dataLoaded.current = false;
   fetchParty();
  }, [id]);
+
+ // Sync checkinEnabled from party data on load
+ useEffect(() => {
+  if (party) {
+   setCheckinEnabled((party.guestCheckin || '').toLowerCase() === 'yes');
+  }
+ }, [party?.guestCheckin]);
 
  const fetchParty = async () => {
   setLoading(true);
@@ -257,15 +269,21 @@ export default function PartyDetail() {
   return Array.isArray(allowed) && allowed.includes(field);
  };
 
- // Auto-save: debounced 1.5s after any edit
+ // Auto-save: debounced 1.5s after any edit (excludes guestCheckin which saves independently)
+ const editDataForAutoSave = useRef(editData);
+ editDataForAutoSave.current = editData;
+
  useEffect(() => {
   if (!dataLoaded.current || !editing || !id || isViewer) return;
+  if (skipAutoSave.current) { skipAutoSave.current = false; return; }
   if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
   autoSaveTimer.current = setTimeout(async () => {
    setAutoSaving(true);
    try {
-    await partyAPI.update(id, editData);
-    setParty({ ...editData });
+    // Use ref to get latest editData, exclude guestCheckin (it saves independently)
+    const { guestCheckin, ...dataToSave } = editDataForAutoSave.current;
+    await partyAPI.update(id, dataToSave);
+    setParty((prev) => ({ ...prev, ...dataToSave }));
    } catch (err) {
     console.warn('Auto-save failed:', err.message);
    } finally {
@@ -489,6 +507,20 @@ export default function PartyDetail() {
   'approxBillAmount', 'confirmedFinalRate', 'finalRate', 'finalTotalAmount',
   'totalAdvancePaid', 'totalPaid', 'totalAmountPaid', 'dueAmount',
  ].includes(f);
+
+ const handleCheckinToggle = async () => {
+  const newEnabled = !checkinEnabled;
+  setCheckinEnabled(newEnabled);
+  try {
+   await partyAPI.update(id, { guestCheckin: newEnabled ? 'Yes' : 'No' });
+   if (!newEnabled && activeTab === 'checkin') {
+    setActiveTab('details');
+   }
+  } catch (err) {
+   console.error('Failed to toggle guest checkin:', err);
+   setCheckinEnabled(!newEnabled);
+  }
+ };
 
  const renderFieldInput = (field) => {
   if (field === 'status') {
@@ -874,6 +906,54 @@ export default function PartyDetail() {
     </div>
    )}
 
+   {/* Guest Check-In Toggle — shown for Confirmed parties */}
+   {party.status === 'Confirmed' && user?.role === 'ADMIN' && (
+    <div className="flex items-center justify-between mb-4 p-3 bg-white rounded-xl border border-gray-200">
+     <div className="flex items-center gap-2">
+      <span className="text-sm font-semibold text-gray-800">Guest Check-In</span>
+      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${checkinEnabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+       {checkinEnabled ? 'Enabled' : 'Disabled'}
+      </span>
+     </div>
+     <button
+      type="button"
+      onClick={handleCheckinToggle}
+      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 cursor-pointer ${
+       checkinEnabled ? 'bg-green-500' : 'bg-gray-300'
+      }`}
+     >
+      <span
+       className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+        checkinEnabled ? 'translate-x-6' : 'translate-x-1'
+       }`}
+      />
+     </button>
+    </div>
+   )}
+
+   {/* Tabs — only show Check-In tab when Guest Checkin toggle is enabled */}
+   {party.status === 'Confirmed' && checkinEnabled && ['GRE', 'SALES', 'MANAGER', 'ADMIN'].includes(user?.role) && (
+    <div className="flex items-center gap-1 mb-4 bg-gray-100 rounded-lg p-1">
+     <button
+      onClick={() => setActiveTab('details')}
+      className={`flex-1 py-2 px-3 rounded-md text-xs font-semibold transition-all ${activeTab === 'details' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+     >
+      Party Details
+     </button>
+     <button
+      onClick={() => setActiveTab('checkin')}
+      className={`flex-1 py-2 px-3 rounded-md text-xs font-semibold transition-all ${activeTab === 'checkin' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+     >
+      Guest Check-In
+     </button>
+    </div>
+   )}
+
+   {/* Check-In Tab */}
+   {activeTab === 'checkin' && party.status === 'Confirmed' && checkinEnabled ? (
+    <CheckinTab party={party} />
+   ) : (
+   <>
    {/* Detail sections */}
    <div className="space-y-4">
     {sections.filter((section) => !section.restrictTo || section.restrictTo.includes(user?.role)).map((section) => (
@@ -1232,6 +1312,8 @@ export default function PartyDetail() {
       </div>
      )}
     </div>
+   )}
+   </>
    )}
 
    {/* Delete confirmation modal */}

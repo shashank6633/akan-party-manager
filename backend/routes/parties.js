@@ -76,6 +76,7 @@ const ROLE_EDITABLE_FIELDS = {
     'Alt Contact',
     'Handled By',
     'Guest Contacts Status',
+    'Guest Checkin',
   ],
   CASHIER: [
     'Confirmed Pax',
@@ -130,6 +131,7 @@ const ROLE_EDITABLE_FIELDS = {
     'Guest Email',
     'Balance Payment Date',
     'Bill Order ID',
+    'Guest Checkin',
   ],
   MANAGER: '__ALL__',
   ADMIN: '__ALL__',

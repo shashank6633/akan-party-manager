@@ -72,7 +72,6 @@ rsync -avz --delete \
   --exclude 'node_modules' \
   --exclude '.env' \
   --exclude 'watchdog.js' \
-  --exclude 'server.js' \
   "$BACKEND_DIR/" "$SERVER:$SERVER_PATH/backend/" 2>&1 | tail -3
 log "Backend uploaded"
 

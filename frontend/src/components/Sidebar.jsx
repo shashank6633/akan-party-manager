@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Table2,
   UserPlus,
+  QrCode,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,6 +27,7 @@ const navItems = [
   { to: '/fp', icon: FileText, label: 'F&P', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS', 'FEEDBACK'] },
   { to: '/sheets', icon: Table2, label: 'Sheets View', hideFor: ['CASHIER', 'FEEDBACK'] },
   { to: '/feedback', icon: MessageSquare, label: 'Feedback', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS', 'VIEWER'] },
+  { to: '/checkin-dashboard', icon: QrCode, label: 'Guest Check-In', hideFor: ['CASHIER', 'ACCOUNTS', 'VIEWER', 'FEEDBACK'] },
   { to: '/reports', icon: BarChart3, label: 'Reports', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS', 'FEEDBACK'] },
   { to: '/settings', icon: Settings, label: 'Settings', hideFor: ['GRE', 'SALES', 'MANAGER', 'CASHIER', 'ACCOUNTS', 'VIEWER', 'FEEDBACK'] },
 ];

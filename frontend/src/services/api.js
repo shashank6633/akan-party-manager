@@ -96,6 +96,23 @@ export const guestContactAPI = {
   delete: (rowIndex) => api.delete(`/guest-contacts/${rowIndex}`),
 };
 
+export const checkinAPI = {
+  getGuests: (partyId) => api.get(`/checkin/${encodeURIComponent(partyId)}/guests`),
+  getStats: (partyId) => api.get(`/checkin/${encodeURIComponent(partyId)}/stats`),
+  addGuest: (partyId, data) => api.post(`/checkin/${encodeURIComponent(partyId)}/guests`, data),
+  addGuestsBulk: (partyId, guests) => api.post(`/checkin/${encodeURIComponent(partyId)}/guests/bulk`, { guests }),
+  updateGuest: (partyId, guestId, data) => api.put(`/checkin/${encodeURIComponent(partyId)}/guests/${guestId}`, data),
+  deleteGuest: (partyId, guestId) => api.delete(`/checkin/${encodeURIComponent(partyId)}/guests/${guestId}`),
+  generateQr: (partyId, guestId) => api.post(`/checkin/${encodeURIComponent(partyId)}/guests/${guestId}/generate-qr`),
+  sendInvite: (partyId, guestId, partyDetails) => api.post(`/checkin/${encodeURIComponent(partyId)}/guests/${guestId}/send-invite`, partyDetails),
+  bulkInvite: (partyId, partyDetails) => api.post(`/checkin/${encodeURIComponent(partyId)}/bulk-invite`, partyDetails),
+  scanQr: (qrToken, actualPlusOnes) => api.post('/checkin/scan', { qrToken, actualPlusOnes }),
+  manualCheckin: (partyId, guestId, actualPlusOnes) => api.post(`/checkin/${encodeURIComponent(partyId)}/manual-checkin/${guestId}`, { actualPlusOnes }),
+  undoCheckin: (partyId, guestId) => api.post(`/checkin/${encodeURIComponent(partyId)}/undo-checkin/${guestId}`),
+  syncSheets: (partyId) => api.post(`/checkin/${encodeURIComponent(partyId)}/sync-sheets`),
+  getStatus: () => api.get('/checkin/status'),
+};
+
 export const reportAPI = {
   getDaily: (date) => api.get('/reports/daily', { params: { date } }),
   getRange: (from, to) => api.get('/reports/range', { params: { from, to } }),
