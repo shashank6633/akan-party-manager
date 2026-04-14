@@ -66,8 +66,8 @@ const FP_CATEGORY_LABELS = {
 const FP_DEFAULT_LIMITS = {
  vegStarters: 3,
  nonVegStarters: 3,
- vegMainCourse: 3,
- nonVegMainCourse: 3,
+ vegMainCourse: 2,
+ nonVegMainCourse: 2,
  rice: 1,
  dal: 1,
  salad: 1,
