@@ -106,6 +106,9 @@ const READ_ONLY_FIELDS = [
  'totalAmountPaid', 'dueAmount', 'enquiredAt', 'createdBy',
 ];
 
+// Fields frozen after party creation — only ADMIN can edit
+const ADMIN_ONLY_FIELDS = ['hostName', 'phoneNumber'];
+
 const PAYMENT_STATUS_OPTIONS = ['Unpaid', 'Partial', 'Paid', 'Refunded'];
 
 const PLACE_OPTIONS = {
@@ -290,6 +293,8 @@ export default function PartyDetail() {
 
  const canEdit = (field) => {
   if (READ_ONLY_FIELDS.includes(field)) return false;
+  // Host Name and Phone Number are frozen after creation — only ADMIN can edit
+  if (ADMIN_ONLY_FIELDS.includes(field) && user?.role !== 'ADMIN') return false;
   const allowed = ROLE_FIELDS[user?.role];
   if (allowed === 'all') return true;
   return Array.isArray(allowed) && allowed.includes(field);

@@ -138,19 +138,43 @@ const ROLE_EDITABLE_FIELDS = {
 };
 
 /**
+ * Fields that are frozen after party creation — only ADMIN can edit them on an
+ * existing party. Applies to ALL non-admin roles including MANAGER.
+ */
+const ADMIN_ONLY_UPDATE_FIELDS = ['Host Name', 'Phone Number'];
+
+/**
  * Filter data object to only include fields the user's role can edit.
  * Returns { allowed: {...}, denied: [...] }
  */
 function filterByRole(role, data) {
-  const fields = ROLE_EDITABLE_FIELDS[role.toUpperCase()];
-  if (fields === '__ALL__') {
-    return { allowed: data, denied: [] };
-  }
+  const roleUpper = role.toUpperCase();
+  const fields = ROLE_EDITABLE_FIELDS[roleUpper];
+  const isAdmin = roleUpper === 'ADMIN';
 
   const allowed = {};
   const denied = [];
+
+  if (fields === '__ALL__') {
+    // ADMIN: full access. MANAGER: all except ADMIN_ONLY_UPDATE_FIELDS.
+    Object.keys(data).forEach((key) => {
+      if (key.startsWith('_')) return;
+      if (!isAdmin && ADMIN_ONLY_UPDATE_FIELDS.includes(key)) {
+        denied.push(key);
+      } else {
+        allowed[key] = data[key];
+      }
+    });
+    return { allowed, denied };
+  }
+
   Object.keys(data).forEach((key) => {
     if (key.startsWith('_')) return; // skip internal fields
+    // Admin-only fields blocked for every non-admin role
+    if (!isAdmin && ADMIN_ONLY_UPDATE_FIELDS.includes(key)) {
+      denied.push(key);
+      return;
+    }
     if (fields.includes(key)) {
       allowed[key] = data[key];
     } else {
