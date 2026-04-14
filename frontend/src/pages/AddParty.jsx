@@ -14,6 +14,7 @@ import {
 import { partyAPI, authAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { validatePhone, formatCurrency, generateWhatsAppMessage, copyToClipboard } from '../utils/helpers';
+import { extractFloor, findPlaceConflicts } from '../utils/placeConflict';
 
 // GRE can only fill these fields for new enquiry
 const GRE_FIELDS = [
@@ -99,6 +100,7 @@ export default function AddParty() {
  const [copied, setCopied] = useState(false);
  const [error, setError] = useState('');
  const [duplicateWarning, setDuplicateWarning] = useState('');
+ const [placeConflicts, setPlaceConflicts] = useState([]);
  const [phoneError, setPhoneError] = useState('');
  const [showBilling, setShowBilling] = useState(true);
  const [showAdditional, setShowAdditional] = useState(false);
@@ -151,24 +153,73 @@ export default function AddParty() {
  }
  };
 
- // Check duplicates on phone number change (across ALL parties)
+ // Check place / floor conflicts on selected date (Confirmed + Tentative, smart zone matching)
+ useEffect(() => {
+ if (form.dateNotConfirmed || !form.date || !form.place) {
+ setPlaceConflicts([]);
+ return;
+ }
+ const timer = setTimeout(async () => {
+ try {
+  const res = await partyAPI.getAll({
+  dateFrom: form.date,
+  dateTo: form.date,
+  limit: 500,
+  });
+  setPlaceConflicts(findPlaceConflicts(res.data.parties || [], form.place));
+ } catch {
+  setPlaceConflicts([]);
+ }
+ }, 500);
+ return () => clearTimeout(timer);
+ }, [form.date, form.place, form.dateNotConfirmed]);
+
+ // Resolve the new party's target month as "YYYY-MM" (or "Month YYYY" for TBC).
+ // Falls back to the current calendar month if no date is set.
+ const getTargetMonthKey = () => {
+ if (form.dateNotConfirmed && form.tentativeMonth && form.tentativeYear) {
+  // TBC format → "April 2026"
+  return `TBC:${form.tentativeMonth} ${form.tentativeYear}`;
+ }
+ const dateStr = form.date || new Date().toISOString().split('T')[0];
+ // YYYY-MM
+ if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return dateStr.slice(0, 7);
+ return '';
+ };
+
+ // Extract month key from any existing party.date ("2026-04-15" → "2026-04",
+ // "TBC: April 2026" → "TBC:April 2026")
+ const partyMonthKey = (dateStr) => {
+ if (!dateStr) return '';
+ const tbcMatch = dateStr.match(/^TBC:\s*(.+)$/i);
+ if (tbcMatch) return `TBC:${tbcMatch[1].trim()}`;
+ if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return dateStr.slice(0, 7);
+ return '';
+ };
+
+ // Check duplicates on phone number change — ONLY within the same target month
  useEffect(() => {
  if (form.phoneNumber && validatePhone(form.phoneNumber)) {
  const timer = setTimeout(async () => {
  try {
   const res = await partyAPI.getAll({ search: form.phoneNumber });
-  // Filter to exact phone match (search may return partial matches)
   const phone = form.phoneNumber.replace(/\D/g, '').slice(-10);
+  const targetMonth = getTargetMonthKey();
+
+  // Filter to: exact phone match AND same target month
   const matches = (res.data.parties || []).filter((p) => {
    const pPhone = (p.phoneNumber || '').replace(/\D/g, '').slice(-10);
-   return pPhone === phone;
+   if (pPhone !== phone) return false;
+   if (!targetMonth) return false;
+   return partyMonthKey(p.date) === targetMonth;
   });
+
   if (matches.length > 0) {
    const match = matches[0];
    const status = match.status || '';
    const dateStr = match.date || '';
    setDuplicateWarning(
-    `Duplicate phone number found: ${match.hostName || 'Unknown'} (${match.company || ''}) — ${status} on ${dateStr}${matches.length > 1 ? ` (+${matches.length - 1} more)` : ''}`
+    `Duplicate phone number found in same month: ${match.hostName || 'Unknown'} (${match.company || ''}) — ${status} on ${dateStr}${matches.length > 1 ? ` (+${matches.length - 1} more)` : ''}`
    );
   } else {
    setDuplicateWarning('');
@@ -181,7 +232,7 @@ export default function AddParty() {
  } else {
  setDuplicateWarning('');
  }
- }, [form.phoneNumber]);
+ }, [form.phoneNumber, form.date, form.dateNotConfirmed, form.tentativeMonth, form.tentativeYear]);
 
  const handleSubmit = async (e) => {
  e.preventDefault();
@@ -486,9 +537,37 @@ export default function AddParty() {
  <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-300 text-sm text-red-700 flex items-start gap-2">
  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
  <div>
-  <p className="font-semibold">Duplicate Party Detected!</p>
+  <p className="font-semibold">Duplicate Party in Same Month!</p>
   <p>{duplicateWarning}</p>
-  <p className="text-xs mt-1 text-red-500">You cannot add a new party with the same phone number. Please check the existing booking first.</p>
+  <p className="text-xs mt-1 text-red-500">A booking with this phone number already exists in the selected month. Please check the existing booking — or change the date to a different month.</p>
+ </div>
+ </div>
+ )}
+ {placeConflicts.length > 0 && (
+ <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-300 text-sm text-amber-800 flex items-start gap-2">
+ <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+ <div className="flex-1">
+  <p className="font-semibold">
+  Floor Already Booked on {form.date}
+  </p>
+  <p className="text-xs mt-0.5 text-amber-700">
+  {placeConflicts.length} existing booking{placeConflicts.length > 1 ? 's' : ''} on <span className="font-semibold">{extractFloor(form.place)}</span> for the selected date:
+  </p>
+  <ul className="mt-2 space-y-1">
+  {placeConflicts.map((p) => (
+   <li key={p.uniqueId || p.id} className="flex flex-wrap items-center gap-2 text-xs bg-white/60 rounded px-2 py-1.5 border border-amber-200">
+   <span className={`px-1.5 py-0.5 rounded font-semibold ${
+    p.status === 'Confirmed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+   }`}>{p.status}</span>
+   <span className="font-semibold text-gray-800">{p.hostName || 'Unknown'}</span>
+   {p.company && <span className="text-gray-500">({p.company})</span>}
+   <span className="text-gray-600">— {p.place}</span>
+   {p.partyTime && <span className="text-gray-500">· {p.partyTime}</span>}
+   {p.uniqueId && <span className="ml-auto font-mono text-[10px] text-[#af4408]">{p.uniqueId}</span>}
+   </li>
+  ))}
+  </ul>
+  <p className="text-xs mt-2 text-amber-600">Please confirm with the team before booking the same area.</p>
  </div>
  </div>
  )}

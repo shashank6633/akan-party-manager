@@ -17,11 +17,13 @@ import {
  Copy,
  Clock,
  FileText,
+ AlertTriangle,
 } from 'lucide-react';
 import StatusBadge from '../components/Party/StatusBadge';
 import CheckinTab from '../components/Checkin/CheckinTab';
 import { partyAPI, fpAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { extractFloor, findPlaceConflicts } from '../utils/placeConflict';
 import {
  formatCurrency,
  formatDate,
@@ -173,6 +175,7 @@ export default function PartyDetail() {
  const [showEditHistory, setShowEditHistory] = useState(false);
  const [loadingHistory, setLoadingHistory] = useState(false);
  const [customPlaceMode, setCustomPlaceMode] = useState(false);
+ const [placeConflicts, setPlaceConflicts] = useState([]);
 
  // Auto-save
  const [autoSaving, setAutoSaving] = useState(false);
@@ -199,6 +202,29 @@ export default function PartyDetail() {
    setCheckinEnabled((party.guestCheckin || '').toLowerCase() === 'yes');
   }
  }, [party?.guestCheckin]);
+
+ // Check place / floor conflicts on selected date (Confirmed + Tentative, smart zone matching)
+ useEffect(() => {
+  const date = editData.date;
+  const place = editData.place;
+  if (!date || /^TBC:/i.test(date) || !place) {
+   setPlaceConflicts([]);
+   return;
+  }
+  const timer = setTimeout(async () => {
+   try {
+    const res = await partyAPI.getAll({
+     dateFrom: date,
+     dateTo: date,
+     limit: 500,
+    });
+    setPlaceConflicts(findPlaceConflicts(res.data.parties || [], place, party?.uniqueId));
+   } catch {
+    setPlaceConflicts([]);
+   }
+  }, 500);
+  return () => clearTimeout(timer);
+ }, [editData.date, editData.place, party?.uniqueId]);
 
  const fetchParty = async () => {
   setLoading(true);
@@ -903,6 +929,37 @@ export default function PartyDetail() {
    {error && (
     <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
      {error}
+    </div>
+   )}
+
+   {/* Place / Floor conflict warning — shown when same floor already booked on selected date */}
+   {placeConflicts.length > 0 && (
+    <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-300 text-sm text-amber-800 flex items-start gap-2">
+     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+     <div className="flex-1 min-w-0">
+      <p className="font-semibold">
+       Floor Already Booked on {editData.date}
+      </p>
+      <p className="text-xs mt-0.5 text-amber-700">
+       {placeConflicts.length} existing booking{placeConflicts.length > 1 ? 's' : ''} on{' '}
+       <span className="font-semibold">{extractFloor(editData.place)}</span> for the selected date:
+      </p>
+      <ul className="mt-2 space-y-1">
+       {placeConflicts.map((p) => (
+        <li key={p.uniqueId || p.id} className="flex flex-wrap items-center gap-2 text-xs bg-white/60 rounded px-2 py-1.5 border border-amber-200">
+         <span className={`px-1.5 py-0.5 rounded font-semibold ${
+          p.status === 'Confirmed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+         }`}>{p.status}</span>
+         <span className="font-semibold text-gray-800">{p.hostName || 'Unknown'}</span>
+         {p.company && <span className="text-gray-500">({p.company})</span>}
+         <span className="text-gray-600">— {p.place}</span>
+         {p.partyTime && <span className="text-gray-500">· {p.partyTime}</span>}
+         {p.uniqueId && <span className="ml-auto font-mono text-[10px] text-[#af4408]">{p.uniqueId}</span>}
+        </li>
+       ))}
+      </ul>
+      <p className="text-xs mt-2 text-amber-600">Please confirm with the team before booking the same area.</p>
+     </div>
     </div>
    )}
 
