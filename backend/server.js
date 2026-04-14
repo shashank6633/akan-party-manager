@@ -150,9 +150,9 @@ app.locals.notifications = notifications;
 app.locals.addNotification = addNotification;
 
 // ---------------------------------------------------------------------------
-// Cron Job: Check for stale enquiries every 15 minutes
+// Cron Job: Check for stale enquiries every 60 minutes (top of the hour)
 // ---------------------------------------------------------------------------
-cron.schedule('*/15 * * * *', async () => {
+cron.schedule('0 * * * *', async () => {
   console.log('Checking for stale enquiries...');
   try {
     const rows = await sheetsService.getAllRows();
