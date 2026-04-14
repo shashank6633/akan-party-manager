@@ -18,6 +18,7 @@ import {
  Clock,
  FileText,
  AlertTriangle,
+ Lock,
 } from 'lucide-react';
 import StatusBadge from '../components/Party/StatusBadge';
 import CheckinTab from '../components/Checkin/CheckinTab';
@@ -1027,9 +1028,18 @@ export default function PartyDetail() {
         const editable = editing && canEdit(field);
         const label = FIELD_LABELS[field] || field;
 
+        const isAdminLocked = ADMIN_ONLY_FIELDS.includes(field) && user?.role !== 'ADMIN';
         return (
          <div key={field}>
-          <label className="block text-xs text-gray-500 mb-1">{label}</label>
+          <label className="flex items-center gap-1 text-xs text-gray-500 mb-1">
+           {label}
+           {isAdminLocked && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-gray-400" title="Only Admin can edit this field">
+             <Lock className="w-3 h-3" />
+             Admin only
+            </span>
+           )}
+          </label>
           {editable ? renderFieldInput(field) : (
            <p className="text-sm font-medium text-gray-900">
             {renderFieldDisplay(field, value)}
