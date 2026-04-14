@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Search,
   Loader2,
@@ -27,8 +27,14 @@ export default function CashierBilling() {
   const [party, setParty] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Auto-save refs
+  const dataLoaded = useRef(false);
+  const autoSaveTimer = useRef(null);
   const [duplicateWarning, setDuplicateWarning] = useState('');
   const [activitiesData, setActivitiesData] = useState({ total: 0, items: [] });
   const [activitiesAdded, setActivitiesAdded] = useState(false);
@@ -107,6 +113,9 @@ export default function CashierBilling() {
         balancePaymentDate: p.balancePaymentDate || '',
         guestEmail: p.guestEmail || '',
       });
+      // Enable auto-save only after form is pre-filled (prevents save on initial mount)
+      dataLoaded.current = false;
+      setTimeout(() => { dataLoaded.current = true; }, 500);
     } catch (err) {
       setError(err.response?.data?.message || 'Party not found. Check the Unique ID.');
     } finally {
@@ -128,6 +137,31 @@ export default function CashierBilling() {
       }));
     } catch { /* ignore */ }
   };
+
+  // Auto-save billing form — debounced 1.5s after any change
+  useEffect(() => {
+    if (!dataLoaded.current || !party?.rowIndex) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      // Build payload of non-empty fields only
+      const payload = {};
+      Object.entries(form).forEach(([k, v]) => {
+        if (v !== '' && v !== undefined && v !== null) payload[k] = v;
+      });
+      if (Object.keys(payload).length === 0) return;
+      setAutoSaving(true);
+      try {
+        await partyAPI.update(party.rowIndex, payload);
+        setLastSavedAt(new Date());
+      } catch (err) {
+        // Log silently — the manual Save button still surfaces errors clearly
+        console.warn('Auto-save failed:', err.response?.data || err.message);
+      } finally {
+        setAutoSaving(false);
+      }
+    }, 1500);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  }, [form, party?.rowIndex]);
 
   const fetchPaymentHistory = async () => {
     if (!party) return;
@@ -247,19 +281,39 @@ export default function CashierBilling() {
       Object.keys(payload).forEach((k) => {
         if (payload[k] === '' || payload[k] === undefined) delete payload[k];
       });
-      await partyAPI.update(party.rowIndex, payload);
+      const res = await partyAPI.update(party.rowIndex, payload);
       setSuccess('Billing details saved successfully!');
+      setLastSavedAt(new Date());
       setTimeout(() => setSuccess(''), 4000);
+      // Refetch so UI reflects what the server actually stored
+      await refetchParty();
+      // Surface any fields the backend silently dropped (e.g. role restrictions)
+      if (res?.data?.warning) {
+        console.warn('Billing save warning:', res.data.warning);
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save. Please try again.');
+      const apiMsg = err.response?.data?.message;
+      const denied = err.response?.data?.deniedFields;
+      const status = err.response?.status;
+      const detail = denied?.length
+        ? ` (Denied fields: ${denied.join(', ')})`
+        : status
+        ? ` [HTTP ${status}]`
+        : '';
+      setError((apiMsg || err.message || 'Failed to save. Please try again.') + detail);
+      console.error('Billing save error:', err.response?.data || err);
     } finally {
       setSaving(false);
     }
   };
 
   const handleReset = () => {
+    dataLoaded.current = false;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     setParty(null);
     setUniqueId('');
+    setLastSavedAt(null);
+    setAutoSaving(false);
     setForm({
       confirmedPax: '',
       finalRate: '',
@@ -850,14 +904,29 @@ export default function CashierBilling() {
               </div>
             )}
 
-            {/* Save button */}
+            {/* Auto-save indicator */}
+            <div className="flex items-center justify-center text-xs text-gray-500 min-h-[20px]">
+              {autoSaving ? (
+                <span className="flex items-center gap-1.5 text-amber-600">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Auto-saving…
+                </span>
+              ) : lastSavedAt ? (
+                <span className="flex items-center gap-1.5 text-green-600">
+                  <CheckCircle className="w-3 h-3" /> Saved at {lastSavedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+              ) : (
+                <span className="text-gray-400">Changes auto-save after 1.5s</span>
+              )}
+            </div>
+
+            {/* Save button (manual — also runs validation) */}
             <button
               onClick={handleSave}
               disabled={saving}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold bg-[#af4408] text-white hover:bg-[#963a07] transition-colors disabled:opacity-50"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saving ? 'Saving...' : 'Save Billing Details'}
+              {saving ? 'Saving...' : 'Save & Validate'}
             </button>
           </div>
         </div>
