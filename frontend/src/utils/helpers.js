@@ -67,16 +67,29 @@ export const formatPhoneDisplay = (phone) => {
 export const generateWhatsAppMessage = (party, userName, { isNew = false, greName = '' } = {}) => {
  const phone = formatPhoneDisplay(party.phoneNumber);
  const heading = isNew ? '🎉 *New Party Enquiry*' : '📋 *Enquired Party Details*';
+
+ // Resolve Day from stored party.day, else derive from date (skip TBC dates)
+ let dayName = party.day || '';
+ if (!dayName && party.date && !/^TBC:/i.test(party.date)) {
+  const d = new Date(party.date);
+  if (!isNaN(d.getTime())) {
+   dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()];
+  }
+ }
+
  const lines = [
  heading,
  ``,
  `📋 *ID:* ${party.uniqueId || '-'}`,
  `📅 *Date:* ${party.date || '-'}`,
+ ];
+ if (dayName) lines.push(`🗓️ *Day:* ${dayName}`);
+ lines.push(
  `👤 *Host:* ${party.hostName || '-'}`,
  `📞 *Phone:* ${phone}`,
  `🏢 *Company:* ${party.company || '-'}`,
  `📍 *Place:* ${party.place || '-'}`,
- ];
+ );
  if (party.altContact) lines.push(`📞 *Alt Contact:* ${party.altContact}`);
  if (party.occasionType) lines.push(`🎊 *Occasion:* ${party.occasionType}`);
  if (party.partyTime) lines.push(`🕐 *Party Time:* ${party.partyTime}`);
