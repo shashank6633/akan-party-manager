@@ -242,6 +242,32 @@ export default function PreTastingForm() {
     }
   };
 
+  // Reset form state for "Add Another" without re-fetching F&P
+  const resetForm = () => {
+    setReviewerName('');
+    setOverallRating(0);
+    setOverallComment('');
+    setFoodQualityRating(0);
+    setBeveragesRating(0);
+    setBeveragesComment('');
+    setItemsToChange('');
+    setComplaint('');
+    setSuggestion('');
+    const zero = (obj) => {
+      const out = {};
+      Object.keys(obj).forEach((k) => { out[k] = { rating: 0, comment: '' }; });
+      return out;
+    };
+    setStarterRatings((prev) => zero(prev));
+    setMainCourseRatings((prev) => zero(prev));
+    setSidesRatings((prev) => zero(prev));
+    setDessertRatings((prev) => zero(prev));
+    setAddonRatings((prev) => zero(prev));
+    setError('');
+    setSuccess(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -260,7 +286,7 @@ export default function PreTastingForm() {
         </p>
         <div className="flex items-center justify-center gap-3">
           <button
-            onClick={() => navigate(`/pre-tasting/new?fpId=${fpData?.fpId}&fpRow=${fpRowId}`)}
+            onClick={resetForm}
             className="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 text-sm"
           >
             + Add Another
