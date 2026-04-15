@@ -18,6 +18,9 @@ import FPEditor from './pages/FPEditor';
 import FeedbackList from './pages/FeedbackList';
 import FeedbackForm from './pages/FeedbackForm';
 import FeedbackDetail from './pages/FeedbackDetail';
+import PreTastingList from './pages/PreTastingList';
+import PreTastingForm from './pages/PreTastingForm';
+import PreTastingDetail from './pages/PreTastingDetail';
 import SheetsView from './pages/SheetsView';
 import GuestContacts from './pages/GuestContacts';
 import CheckinDashboard from './pages/CheckinDashboard';
@@ -147,6 +150,21 @@ export default function App() {
  <Route path="feedback/:id" element={
   <RoleGuard hideForRoles={['GRE', 'CASHIER', 'ACCOUNTS', 'VIEWER']}>
    <FeedbackDetail />
+  </RoleGuard>
+ } />
+ <Route path="pre-tasting" element={
+  <RoleGuard hideForRoles={['CASHIER', 'ACCOUNTS', 'VIEWER']}>
+   <PreTastingList />
+  </RoleGuard>
+ } />
+ <Route path="pre-tasting/new" element={
+  <RoleGuard hideForRoles={['CASHIER', 'ACCOUNTS', 'VIEWER']}>
+   <PreTastingForm />
+  </RoleGuard>
+ } />
+ <Route path="pre-tasting/:id" element={
+  <RoleGuard hideForRoles={['CASHIER', 'ACCOUNTS', 'VIEWER']}>
+   <PreTastingDetail />
   </RoleGuard>
  } />
  <Route path="sheets" element={

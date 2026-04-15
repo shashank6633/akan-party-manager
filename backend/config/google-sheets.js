@@ -7,6 +7,7 @@ const SHEET_NAMES = {
   REMINDER_LOG: 'Payment Reminder Log',
   FP_RECORDS: 'F&P Records',
   FEEDBACK: 'Feedback',
+  PRE_TASTING: 'Pre-Tasting',
   GUEST_CONTACTS: 'Guest Contacts',
 };
 

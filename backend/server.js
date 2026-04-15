@@ -13,6 +13,7 @@ const reportRoutes = require('./routes/reports');
 const notificationRoutes = require('./routes/notifications');
 const fpRoutes = require('./routes/fp');
 const feedbackRoutes = require('./routes/feedback');
+const preTastingRoutes = require('./routes/preTasting');
 const guestContactRoutes = require('./routes/guestContacts');
 const checkinRoutes = require('./routes/checkin');
 const reportService = require('./services/reportService');
@@ -77,6 +78,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/fp', fpRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/pre-tasting', preTastingRoutes);
 app.use('/api/guest-contacts', guestContactRoutes);
 app.use('/api/checkin', checkinRoutes);
 

@@ -84,6 +84,13 @@ export const feedbackAPI = {
   submit: (data) => api.post('/feedback', data),
 };
 
+export const preTastingAPI = {
+  getAll: (params) => api.get('/pre-tasting', { params }),
+  getById: (id) => api.get(`/pre-tasting/${id}`),
+  getByFp: (fpId) => api.get(`/pre-tasting/by-fp/${encodeURIComponent(fpId)}`),
+  submit: (data) => api.post('/pre-tasting', data),
+};
+
 export const guestContactAPI = {
   getAll: (params) => api.get('/guest-contacts', { params }),
   getStats: () => api.get('/guest-contacts/stats'),

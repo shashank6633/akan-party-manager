@@ -1353,6 +1353,150 @@ async function getFeedbackRow(rowIndex) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Pre-Tasting (pre-event tasting review — compared against Feedback post-event)
+// ---------------------------------------------------------------------------
+
+const PRE_TASTING_COLUMNS = [
+  'Pre-Tasting ID',          // A
+  'Party Unique ID',         // B
+  'FP ID',                   // C
+  'Reviewer Name',           // D (team member conducting the tasting)
+  'Guest Name',              // E (host)
+  'Phone',                   // F
+  'Company',                 // G
+  'Tasting Date',            // H (date of tasting — usually day of/before party)
+  'Event Date',              // I (actual party date)
+  'Package Type',            // J
+  'Overall Rating',          // K (1-5)
+  'Overall Comment',         // L
+  'Food Quality Rating',     // M (1-5)
+  'Starters Item Ratings',   // N (JSON)
+  'Main Course Item Ratings',// O (JSON)
+  'Sides Item Ratings',      // P (JSON)
+  'Dessert Item Ratings',    // Q (JSON)
+  'Addon Item Ratings',      // R (JSON)
+  'Beverages Rating',        // S (1-5)
+  'Beverages Comment',       // T
+  'Items to Change',         // U (free text — additions/removals flagged)
+  'Complaint',               // V
+  'Suggestion',              // W
+  'Submitted At',            // X
+  'Submitted By',            // Y
+];
+
+const PRE_TASTING_COLUMN_MAP = {};
+PRE_TASTING_COLUMNS.forEach((name, idx) => { PRE_TASTING_COLUMN_MAP[name] = idx; });
+
+const PRE_TASTING_JSON_FIELDS = [
+  'Starters Item Ratings', 'Main Course Item Ratings',
+  'Sides Item Ratings', 'Dessert Item Ratings',
+  'Addon Item Ratings',
+];
+
+function generatePreTastingId() {
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `PT-${dateStr}-${rand}`;
+}
+
+async function ensurePreTastingSheet() {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const spreadsheetId = getSpreadsheetId();
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: 'sheets.properties.title',
+    });
+    const exists = meta.data.sheets.some((s) => s.properties.title === SHEET_NAMES.PRE_TASTING);
+    if (!exists) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: { requests: [{ addSheet: { properties: { title: SHEET_NAMES.PRE_TASTING } } }] },
+      });
+      const endCol = indexToColumnLetter(PRE_TASTING_COLUMNS.length - 1);
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `'${SHEET_NAMES.PRE_TASTING}'!A1:${endCol}1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [PRE_TASTING_COLUMNS] },
+      });
+      console.log('Pre-Tasting: Created sheet with header row.');
+    }
+  });
+}
+
+async function getAllPreTastingRows() {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const endCol = indexToColumnLetter(PRE_TASTING_COLUMNS.length - 1);
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: getSpreadsheetId(),
+      range: `'${SHEET_NAMES.PRE_TASTING}'!A2:${endCol}`,
+    });
+    const rows = res.data.values || [];
+    return rows.map((row, idx) => {
+      const obj = { _rowIndex: idx + 2 };
+      PRE_TASTING_COLUMNS.forEach((col, i) => {
+        let val = row[i] || '';
+        if (PRE_TASTING_JSON_FIELDS.includes(col) && val) {
+          try { val = JSON.parse(val); } catch { /* keep string */ }
+        }
+        obj[col] = val;
+      });
+      return obj;
+    });
+  });
+}
+
+async function appendPreTastingRow(data) {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const values = PRE_TASTING_COLUMNS.map((col) => {
+      let val = data[col] ?? '';
+      if (PRE_TASTING_JSON_FIELDS.includes(col) && typeof val !== 'string') {
+        val = JSON.stringify(val);
+      }
+      return val;
+    });
+    const endCol = indexToColumnLetter(PRE_TASTING_COLUMNS.length - 1);
+    const res = await sheets.spreadsheets.values.append({
+      spreadsheetId: getSpreadsheetId(),
+      range: `'${SHEET_NAMES.PRE_TASTING}'!A:${endCol}`,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [values] },
+    });
+    const updatedRange = res.data.updates?.updatedRange || '';
+    const match = updatedRange.match(/!A(\d+):/);
+    const rowIndex = match ? parseInt(match[1]) : -1;
+    return { ...data, _rowIndex: rowIndex };
+  });
+}
+
+async function getPreTastingRow(rowIndex) {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const endCol = indexToColumnLetter(PRE_TASTING_COLUMNS.length - 1);
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: getSpreadsheetId(),
+      range: `'${SHEET_NAMES.PRE_TASTING}'!A${rowIndex}:${endCol}${rowIndex}`,
+    });
+    const row = (res.data.values || [])[0];
+    if (!row) return null;
+    const obj = { _rowIndex: rowIndex };
+    PRE_TASTING_COLUMNS.forEach((col, i) => {
+      let val = row[i] || '';
+      if (PRE_TASTING_JSON_FIELDS.includes(col) && val) {
+        try { val = JSON.parse(val); } catch { /* keep string */ }
+      }
+      obj[col] = val;
+    });
+    return obj;
+  });
+}
+
 // ===========================================================================
 // GUEST CONTACTS SHEET
 // ===========================================================================
@@ -1630,6 +1774,14 @@ module.exports = {
   getAllFeedbackRows,
   appendFeedbackRow,
   getFeedbackRow,
+  // Pre-Tasting
+  PRE_TASTING_COLUMNS,
+  PRE_TASTING_COLUMN_MAP,
+  generatePreTastingId,
+  ensurePreTastingSheet,
+  getAllPreTastingRows,
+  appendPreTastingRow,
+  getPreTastingRow,
   // Guest Contacts
   GUEST_CONTACT_COLUMNS,
   GUEST_CONTACT_COLUMN_MAP,
