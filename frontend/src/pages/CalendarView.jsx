@@ -65,6 +65,39 @@ export default function CalendarView() {
     fetchParties();
   }, [fetchParties]);
 
+  // Auto-refresh every 60s so newly added/edited parties from other users
+  // appear without manual interaction. Pauses when the tab is hidden to
+  // avoid wasted Sheets reads, and refreshes once on return.
+  useEffect(() => {
+    const INTERVAL_MS = 60000;
+    let timer = null;
+
+    const start = () => {
+      stop();
+      timer = setInterval(() => {
+        if (document.visibilityState === 'visible') fetchParties();
+      }, INTERVAL_MS);
+    };
+    const stop = () => {
+      if (timer) { clearInterval(timer); timer = null; }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchParties();
+        start();
+      } else {
+        stop();
+      }
+    };
+
+    start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [fetchParties]);
+
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const goToday = () => setCurrentDate(new Date());
