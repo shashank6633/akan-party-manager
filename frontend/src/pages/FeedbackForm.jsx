@@ -224,6 +224,41 @@ export default function FeedbackForm() {
     }));
   };
 
+  // Reset form in-place so "Add Another Review" works without navigating to the
+  // same URL (same-URL navigate doesn't remount the component).
+  const resetForm = () => {
+    setReviewerName('');
+    setOverallRating(0);
+    setOverallComment('');
+    setFoodQualityRating(0);
+    setBeveragesRating(0);
+    setBeveragesComment('');
+    setStaffBehaviorRating(0);
+    setOrderAccuracyRating(0);
+    setServingSpeedRating(0);
+    setServiceComment('');
+    setCleanlinessRating(0);
+    setMusicRating(0);
+    setSeatingComfortRating(0);
+    setAmbienceComment('');
+    setComplaint('');
+    setSuggestion('');
+    setWantsCallback('No');
+    const zero = (obj) => {
+      const out = {};
+      Object.keys(obj).forEach((k) => { out[k] = { rating: 0, comment: '' }; });
+      return out;
+    };
+    setStarterRatings((prev) => zero(prev));
+    setMainCourseRatings((prev) => zero(prev));
+    setSidesRatings((prev) => zero(prev));
+    setDessertRatings((prev) => zero(prev));
+    setAddonRatings((prev) => zero(prev));
+    setError('');
+    setSuccess(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Convert item ratings object to JSON array: [{item, rating, comment}]
   const ratingsToArray = (ratings) => {
     return Object.entries(ratings).map(([item, data]) => ({
@@ -315,7 +350,7 @@ export default function FeedbackForm() {
         )}
         <div className="flex items-center justify-center gap-3">
           <button
-            onClick={() => navigate(`/feedback/new?fpId=${fpData?.fpId}&fpRow=${fpRowId}`)}
+            onClick={resetForm}
             className="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm"
           >
             + Add Another Review

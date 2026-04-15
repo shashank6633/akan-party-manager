@@ -201,8 +201,10 @@ export function generatePreTastingPdf({ fp, preTasting = null }) {
   footerY += 9;
 
   // Items to Change / Complaint / Suggestion — three boxes
+  // Reserve ~10mm at the bottom for the footer credit line
+  const FOOTER_RESERVE = 10;
   const boxW = (CW - 4) / 3;
-  const boxH = H - footerY - M;
+  const boxH = H - footerY - M - FOOTER_RESERVE;
   const boxes = [
     { label: 'ITEMS TO CHANGE / REPLACE', val: preTasting?.itemsToChange || '' },
     { label: 'COMPLAINT',                val: preTasting?.complaint || '' },
@@ -227,13 +229,15 @@ export function generatePreTastingPdf({ fp, preTasting = null }) {
     }
   });
 
-  // Footer credit
-  doc.setFontSize(7);
-  doc.setTextColor(150, 150, 150);
+  // Footer credit — black font, positioned with clear breathing room below the three boxes
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
   doc.text(
-    `Reviewed by: _________________   |   Signature: _________________   |   AKAN Party Manager`,
-    M,
-    H - 2,
+    `Reviewed by: _________________     |     Signature: _________________     |     AKAN Party Manager`,
+    W / 2,
+    H - 4,
+    { align: 'center' },
   );
 
   // ---- Save ----
