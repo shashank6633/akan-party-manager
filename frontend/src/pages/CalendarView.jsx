@@ -26,6 +26,7 @@ export default function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [parties, setParties] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
 
   const year = currentDate.getFullYear();
@@ -38,9 +39,15 @@ export default function CalendarView() {
 
   const monthLabel = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
-  // Fetch parties for this month
+  // Fetch parties for this month. On first load show the full spinner; on
+  // subsequent month changes keep the old grid visible and just show a subtle
+  // "refreshing" indicator so paging feels instant.
   const fetchParties = useCallback(async () => {
-    setLoading(true);
+    setParties((prev) => {
+      if (prev.length === 0) setLoading(true);
+      else setRefreshing(true);
+      return prev;
+    });
     try {
       const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
       const to = `${year}-${String(month + 1).padStart(2, '0')}-${String(totalDays).padStart(2, '0')}`;
@@ -50,6 +57,7 @@ export default function CalendarView() {
       console.error('Failed to fetch calendar parties:', err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [year, month, totalDays]);
 
@@ -106,7 +114,10 @@ export default function CalendarView() {
           <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
             <ChevronLeft className="w-5 h-5 text-gray-600" />
           </button>
-          <h2 className="text-lg font-bold text-gray-900 min-w-[180px] text-center">{monthLabel}</h2>
+          <h2 className="text-lg font-bold text-gray-900 min-w-[180px] text-center flex items-center justify-center gap-2">
+            {monthLabel}
+            {refreshing && <Loader2 className="w-4 h-4 animate-spin text-[#af4408]" />}
+          </h2>
           <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
             <ChevronRight className="w-5 h-5 text-gray-600" />
           </button>

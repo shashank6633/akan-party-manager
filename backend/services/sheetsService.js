@@ -98,6 +98,28 @@ async function withRetry(fn, retries = MAX_RETRIES) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Party Bookings — in-memory cache for getAllRows()
+// ---------------------------------------------------------------------------
+// Calendar, Dashboard, SheetsView and /api/parties all do a full sheet read
+// on every request. For large sheets that's 1-3s per hit against the Google
+// Sheets quota and is the main cause of slow month-to-month Calendar paging.
+// A short TTL cache removes the duplicate fetches without making data stale.
+//
+// - TTL: 30s (tunable via PARTY_ROWS_CACHE_TTL_MS env var)
+// - All Party-Bookings writers (appendRow/updateRow/deleteRow) invalidate it
+//   so a user sees their own write immediately.
+// - Concurrent cache misses share a single in-flight promise (stampede safe).
+// ---------------------------------------------------------------------------
+const ROWS_CACHE_TTL_MS = parseInt(process.env.PARTY_ROWS_CACHE_TTL_MS || '30000', 10);
+let _rowsCache = { data: null, expiresAt: 0 };
+let _rowsInFlight = null;
+
+function invalidateRowsCache() {
+  _rowsCache = { data: null, expiresAt: 0 };
+  _rowsInFlight = null;
+}
+
 /**
  * Get the spreadsheet ID from environment (deferred so .env is loaded first).
  */
@@ -129,7 +151,15 @@ function generateUniqueId() {
  * Returns an array of objects keyed by column name.
  */
 async function getAllRows() {
-  return withRetry(async () => {
+  // Serve from cache if fresh
+  const now = Date.now();
+  if (_rowsCache.data && _rowsCache.expiresAt > now) {
+    return _rowsCache.data;
+  }
+  // Dedupe concurrent misses — all callers share one network round-trip
+  if (_rowsInFlight) return _rowsInFlight;
+
+  _rowsInFlight = withRetry(async () => {
     const sheets = getSheetsClient();
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: getSpreadsheetId(),
@@ -147,7 +177,18 @@ async function getAllRows() {
       obj._rowIndex = idx + 2;
       return obj;
     });
-  });
+  })
+    .then((data) => {
+      _rowsCache = { data, expiresAt: Date.now() + ROWS_CACHE_TTL_MS };
+      _rowsInFlight = null;
+      return data;
+    })
+    .catch((err) => {
+      _rowsInFlight = null;
+      throw err;
+    });
+
+  return _rowsInFlight;
 }
 
 /**
@@ -252,6 +293,7 @@ async function appendRow(data) {
             requestBody: { values: [values] },
           });
 
+          invalidateRowsCache();
           return { ...data, _rowIndex: sheetRowIndex };
         }
       } catch (err) {
@@ -272,6 +314,7 @@ async function appendRow(data) {
     const match = updatedRange.match(/!A(\d+):/);
     const rowIndex = match ? parseInt(match[1], 10) : null;
 
+    invalidateRowsCache();
     return { ...data, _rowIndex: rowIndex };
   });
 }
@@ -310,6 +353,7 @@ async function updateRow(rowIndex, data) {
       requestBody: { values: [values] },
     });
 
+    invalidateRowsCache();
     return { ...merged, _rowIndex: rowIndex };
   });
 }
@@ -351,6 +395,7 @@ async function deleteRow(rowIndex) {
       },
     });
 
+    invalidateRowsCache();
     return true;
   });
 }
@@ -1739,6 +1784,7 @@ module.exports = {
   deleteRow,
   findDuplicates,
   getColumnValues,
+  invalidateRowsCache,
   // Users
   getAllUsers,
   findUser,
