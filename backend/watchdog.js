@@ -1,14 +1,23 @@
 #!/usr/bin/env node
 /**
- * AKAN Party Manager — Production Watchdog
+ * AKAN Party Manager — Production Watchdog  (v2)
  *
- * Runs every minute via cron. Keeps production alive by ensuring:
- *   1. Node backend is listening on port 5001 (PORT from .env)
- *   2. OpenLiteSpeed is listening on ports 80 and 443 (reverse-proxies to node)
- *   3. https://corporate.akanhyd.com/api/health responds 200
+ * Runs every minute via cron (`* * * * *`).
+ * Keeps production alive by ensuring:
+ *   1. Node backend is running and listening on port 5001
+ *   2. OpenLiteSpeed is running and listening on port 443
+ *   3. /api/health responds 200
  *
- * If any check fails, the watchdog attempts to restart the affected service.
- * All activity is logged to /tmp/backend-watchdog.log.
+ * v2 fixes:
+ *   - Lock file prevents overlapping watchdog runs (previous run taking >60s
+ *     would cause a second cron invocation to start killing processes).
+ *   - Grace period after starting a process: writes a timestamp to
+ *     /tmp/watchdog-started-{service}. If the file is <90s old, skips the
+ *     restart for that service — gives the process time to bind its port.
+ *   - Prefers process check (pgrep) BEFORE port check. If the process is
+ *     running but port isn't bound yet, it's probably still starting up.
+ *   - Only pkill when process is confirmed dead OR when the grace period has
+ *     expired AND the port is still not bound.
  */
 
 const { execSync, spawn } = require('child_process');
@@ -17,11 +26,13 @@ const fs = require('fs');
 const path = require('path');
 
 const LOG = '/tmp/backend-watchdog.log';
+const LOCK_FILE = '/tmp/watchdog.lock';
 const BACKEND_DIR = '/home/corporate.akanhyd.com/backend';
 const BACKEND_LOG = '/tmp/backend.log';
 const NODE_PORT = 5001;
 const LSWS_BIN = '/usr/local/lsws/bin/openlitespeed';
 const HEALTH_URL = 'https://corporate.akanhyd.com/api/health';
+const GRACE_SECS = 90; // seconds after start before we'd kill and restart again
 
 function log(msg) {
   const line = `[${new Date().toISOString()}] ${msg}\n`;
@@ -29,25 +40,93 @@ function log(msg) {
   process.stdout.write(line);
 }
 
+// ---------------------------------------------------------------------------
+// Lock — prevent two watchdog runs from overlapping
+// ---------------------------------------------------------------------------
+function acquireLock() {
+  try {
+    if (fs.existsSync(LOCK_FILE)) {
+      const stat = fs.statSync(LOCK_FILE);
+      const ageSec = (Date.now() - stat.mtimeMs) / 1000;
+      // Stale lock from a crashed run — remove if >120s old
+      if (ageSec > 120) {
+        fs.unlinkSync(LOCK_FILE);
+      } else {
+        return false; // another run is active
+      }
+    }
+    fs.writeFileSync(LOCK_FILE, String(process.pid));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function releaseLock() {
+  try { fs.unlinkSync(LOCK_FILE); } catch (_) {}
+}
+
+// ---------------------------------------------------------------------------
+// Grace period helpers
+// ---------------------------------------------------------------------------
+function graceFile(service) {
+  return `/tmp/watchdog-started-${service}`;
+}
+
+function isWithinGracePeriod(service) {
+  try {
+    const stat = fs.statSync(graceFile(service));
+    return (Date.now() - stat.mtimeMs) / 1000 < GRACE_SECS;
+  } catch (_) {
+    return false;
+  }
+}
+
+function markStarted(service) {
+  try { fs.writeFileSync(graceFile(service), new Date().toISOString()); } catch (_) {}
+}
+
+// ---------------------------------------------------------------------------
+// Shell + checks
+// ---------------------------------------------------------------------------
 function sh(cmd) {
   try { return execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
-  catch (e) { return ''; }
+  catch (_) { return ''; }
 }
 
 function isPortListening(port) {
-  // Use ss directly with port filter — avoid awk $N which bash would interpolate through execSync
-  const out = sh(`ss -tlnH sport = :${port} 2>/dev/null | head -1`);
+  // ss lives in /usr/sbin which may not be in cron's PATH — use absolute path
+  const out = sh(`/usr/sbin/ss -tlnH sport = :${port} 2>/dev/null | head -1`);
   return out.length > 0;
 }
 
-function isNodeRunning() {
+function isNodeProcessRunning() {
   return sh(`pgrep -f 'node.*server\\.js'`).length > 0;
 }
 
-function isLswsRunning() {
-  return sh(`pgrep -f openlitespeed`).length > 0;
+function isLswsProcessRunning() {
+  return sh(`pgrep -f 'lshttpd'`).length > 0;
 }
 
+function nodeProcessCount() {
+  const out = sh(`pgrep -cf 'node.*server\\.js'`);
+  return parseInt(out, 10) || 0;
+}
+
+function killDuplicateNodes() {
+  // If more than 1 node server.js is running, kill all and start fresh
+  const count = nodeProcessCount();
+  if (count > 1) {
+    log(`Found ${count} node processes — killing all to clean up`);
+    sh(`pkill -9 -f 'node.*server\\.js'`);
+    return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Start functions
+// ---------------------------------------------------------------------------
 function startNode() {
   log('Starting Node backend...');
   const child = spawn('nohup', ['node', 'server.js'], {
@@ -56,12 +135,12 @@ function startNode() {
     stdio: ['ignore', fs.openSync(BACKEND_LOG, 'a'), fs.openSync(BACKEND_LOG, 'a')],
   });
   child.unref();
+  markStarted('node');
 }
 
 function startLsws() {
   log('Starting OpenLiteSpeed...');
   if (!fs.existsSync(LSWS_BIN)) {
-    // Recover from "disabled" state if the binary was renamed
     const disabled = LSWS_BIN + '.disabled';
     if (fs.existsSync(disabled)) {
       log(`Restoring ${disabled} → ${LSWS_BIN}`);
@@ -73,6 +152,7 @@ function startLsws() {
   }
   sh(`chmod 755 /usr/local/lsws/bin`);
   sh(`${LSWS_BIN} 2>&1`);
+  markStarted('lsws');
 }
 
 function checkHealth() {
@@ -87,39 +167,98 @@ function checkHealth() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
 (async () => {
-  let restarted = false;
-
-  if (!isNodeRunning() || !isPortListening(NODE_PORT)) {
-    log(`Node backend NOT listening on :${NODE_PORT} — restarting`);
-    sh(`pkill -9 -f 'node.*server\\.js'`);
-    await new Promise((r) => setTimeout(r, 1500));
-    startNode();
-    restarted = true;
-    await new Promise((r) => setTimeout(r, 5000));
+  if (!acquireLock()) {
+    // Another watchdog run is still active — exit silently
+    process.exit(0);
   }
 
-  if (!isLswsRunning() || !isPortListening(443)) {
-    log('OpenLiteSpeed NOT listening on :443 — restarting');
-    sh(`pkill -9 -f openlitespeed`);
-    await new Promise((r) => setTimeout(r, 1500));
-    startLsws();
-    restarted = true;
-    await new Promise((r) => setTimeout(r, 3000));
-  }
+  try {
+    let restarted = false;
 
-  const healthy = await checkHealth();
-  if (!healthy && !restarted) {
-    log('Health check FAILED — restarting both node and openlitespeed');
-    sh(`pkill -9 -f 'node.*server\\.js'`);
-    sh(`pkill -9 -f openlitespeed`);
-    await new Promise((r) => setTimeout(r, 2000));
-    startNode();
-    await new Promise((r) => setTimeout(r, 3000));
-    startLsws();
-  } else if (healthy) {
-    // Quiet log: only log OK once per hour to keep log small
-    const now = new Date();
-    if (now.getMinutes() === 0) log('OK — node+lsws healthy');
+    // --- Node backend ---
+    const nodeRunning = isNodeProcessRunning();
+    const nodePort = isPortListening(NODE_PORT);
+
+    // Clean up duplicate node processes first
+    if (killDuplicateNodes()) {
+      await new Promise((r) => setTimeout(r, 2000));
+      startNode();
+      restarted = true;
+      await new Promise((r) => setTimeout(r, 5000));
+    } else if (!nodeRunning) {
+      // Process is completely dead — start it
+      log(`Node process not found — starting`);
+      startNode();
+      restarted = true;
+      await new Promise((r) => setTimeout(r, 5000));
+    } else if (!nodePort) {
+      // Process is running but port not bound
+      if (isWithinGracePeriod('node')) {
+        log('Node process running, port not yet bound — within grace period, skipping');
+      } else {
+        log(`Node process running but port ${NODE_PORT} not bound (grace expired) — restarting`);
+        sh(`pkill -9 -f 'node.*server\\.js'`);
+        await new Promise((r) => setTimeout(r, 2000));
+        startNode();
+        restarted = true;
+        await new Promise((r) => setTimeout(r, 5000));
+      }
+    }
+
+    // --- OpenLiteSpeed ---
+    const lswsRunning = isLswsProcessRunning();
+    const lswsPort = isPortListening(443);
+
+    if (!lswsRunning && !lswsPort) {
+      // Completely dead
+      log('OpenLiteSpeed not running — starting');
+      startLsws();
+      restarted = true;
+      await new Promise((r) => setTimeout(r, 3000));
+    } else if (lswsRunning && !lswsPort) {
+      if (isWithinGracePeriod('lsws')) {
+        log('OpenLiteSpeed process running, port 443 not yet bound — within grace period, skipping');
+      } else {
+        log('OpenLiteSpeed process running but port 443 not bound (grace expired) — restarting');
+        sh(`pkill -9 -f 'lshttpd'`);
+        sh(`pkill -9 -f 'lscgid'`);
+        await new Promise((r) => setTimeout(r, 2000));
+        startLsws();
+        restarted = true;
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
+
+    // --- Health check (only if we didn't already restart something) ---
+    if (!restarted) {
+      const healthy = await checkHealth();
+      if (!healthy) {
+        log('Health check FAILED — restarting node');
+        sh(`pkill -9 -f 'node.*server\\.js'`);
+        await new Promise((r) => setTimeout(r, 2000));
+        startNode();
+        await new Promise((r) => setTimeout(r, 5000));
+
+        // Re-check: if still unhealthy, restart lsws too
+        const retry = await checkHealth();
+        if (!retry) {
+          log('Health check still failing after node restart — restarting OpenLiteSpeed');
+          sh(`pkill -9 -f 'lshttpd'`);
+          sh(`pkill -9 -f 'lscgid'`);
+          await new Promise((r) => setTimeout(r, 2000));
+          startLsws();
+        }
+      } else {
+        // Quiet log: only log OK once per hour
+        const now = new Date();
+        if (now.getMinutes() === 0) log('OK — all services healthy');
+      }
+    }
+  } finally {
+    releaseLock();
   }
 })();

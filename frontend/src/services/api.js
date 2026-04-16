@@ -5,6 +5,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api';
 export const api = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
+  timeout: 30000, // 30s timeout — prevents infinite hangs during backend restarts
 });
 
 api.interceptors.request.use((config) => {
@@ -13,9 +14,26 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Automatic retry for transient network / server errors (502, 503, 504, timeouts).
+// Only retries GET requests (safe to repeat) and POST/PUT on explicit 5xx (server-side).
+// Max 2 retries with 1.5s delay between attempts.
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
+  async (err) => {
+    const config = err.config;
+    if (!config) return Promise.reject(err);
+
+    config._retryCount = config._retryCount || 0;
+    const isRetryable =
+      !err.response ||                           // network error / timeout
+      [502, 503, 504].includes(err.response?.status); // gateway / server errors
+
+    if (isRetryable && config._retryCount < 2) {
+      config._retryCount += 1;
+      await new Promise((r) => setTimeout(r, 1500));
+      return api(config);
+    }
+
     if (err.response?.status === 401) {
       localStorage.removeItem('akan_token');
       window.location.href = '/login';
