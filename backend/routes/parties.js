@@ -330,6 +330,61 @@ router.get(
 );
 
 // ---------------------------------------------------------------------------
+// GET /api/parties/tbc - TBC (To-Be-Confirmed) parties for a given month
+// Query: ?month=April&year=2026  → returns rows where Date === "TBC: April 2026"
+// ---------------------------------------------------------------------------
+router.get(
+  '/tbc',
+  [
+    query('month').isString().trim().notEmpty().withMessage('month is required'),
+    query('year').isInt({ min: 2020, max: 2100 }).withMessage('year must be a valid integer'),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+      }
+
+      const { month, year } = req.query;
+      const target = `TBC: ${month} ${year}`;
+      let rows = await sheetsService.getAllRows();
+
+      // Role-based visibility: CASHIER/ACCOUNTS see only Confirmed (though TBC
+      // parties are usually Enquiry/Contacted/Tentative, keep the rule consistent)
+      const userRole = req.user?.role?.toUpperCase();
+      if (userRole === 'CASHIER' || userRole === 'ACCOUNTS') {
+        rows = rows.filter((r) => r['Status'] === 'Confirmed');
+      }
+
+      const tbcRows = rows.filter((r) => (r['Date'] || '').trim() === target);
+
+      // Sort: Confirmed → Tentative → Contacted → Enquiry → Cancelled,
+      // then by Enquired At (newest first) within each status bucket.
+      const statusOrder = { Confirmed: 0, Tentative: 1, Contacted: 2, Enquiry: 3, Cancelled: 4 };
+      tbcRows.sort((a, b) => {
+        const sA = statusOrder[(a['Status'] || '').trim()] ?? 99;
+        const sB = statusOrder[(b['Status'] || '').trim()] ?? 99;
+        if (sA !== sB) return sA - sB;
+        const eA = a['Enquired At'] || '';
+        const eB = b['Enquired At'] || '';
+        return eB.localeCompare(eA);
+      });
+
+      res.json({
+        success: true,
+        parties: tbcRows.map(toCamelCase),
+        total: tbcRows.length,
+        target,
+      });
+    } catch (err) {
+      console.error('TBC parties error:', err);
+      res.status(500).json({ success: false, message: 'Failed to fetch TBC parties.' });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // GET /api/parties/stats - Dashboard statistics
 // ---------------------------------------------------------------------------
 router.get('/stats', async (req, res) => {

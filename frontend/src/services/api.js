@@ -44,6 +44,7 @@ api.interceptors.response.use(
 
 export const partyAPI = {
   getAll: (params) => api.get('/parties', { params }),
+  getTBC: (params) => api.get('/parties/tbc', { params }),
   lookup: (uniqueId) => api.get(`/parties/lookup/${encodeURIComponent(uniqueId)}`),
   getStats: (params) => api.get('/parties/stats', { params }),
   getById: (id) => api.get(`/parties/${id}`),

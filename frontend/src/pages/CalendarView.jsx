@@ -1,9 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { partyAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { isTBCDate } from '../utils/helpers';
+
+const MONTH_NAMES_FULL = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
 
 const STATUS_COLORS = {
   Confirmed: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300', dot: 'bg-green-500' },
@@ -25,9 +30,11 @@ export default function CalendarView() {
   const isViewOnly = user?.role === 'GRE' || user?.role === 'CASHIER' || user?.role === 'ACCOUNTS';
   const [currentDate, setCurrentDate] = useState(new Date());
   const [parties, setParties] = useState([]);
+  const [tbcParties, setTbcParties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
+  const [tbcExpanded, setTbcExpanded] = useState(true);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -42,6 +49,11 @@ export default function CalendarView() {
   // Fetch parties for this month. On first load show the full spinner; on
   // subsequent month changes keep the old grid visible and just show a subtle
   // "refreshing" indicator so paging feels instant.
+  //
+  // Two fetches run in parallel:
+  //   1. Date-range parties → populate the grid
+  //   2. TBC parties for this month (Date === "TBC: April 2026" style) →
+  //      populate the TBC panel below the grid
   const fetchParties = useCallback(async () => {
     setParties((prev) => {
       if (prev.length === 0) setLoading(true);
@@ -51,8 +63,17 @@ export default function CalendarView() {
     try {
       const from = `${year}-${String(month + 1).padStart(2, '0')}-01`;
       const to = `${year}-${String(month + 1).padStart(2, '0')}-${String(totalDays).padStart(2, '0')}`;
-      const res = await partyAPI.getAll({ dateFrom: from, dateTo: to, limit: 500 });
-      setParties(res.data.parties || []);
+      const monthName = MONTH_NAMES_FULL[month];
+      const [gridRes, tbcRes] = await Promise.all([
+        partyAPI.getAll({ dateFrom: from, dateTo: to, limit: 500 }),
+        partyAPI.getTBC({ month: monthName, year }).catch((err) => {
+          // TBC endpoint is non-critical — don't fail the whole view
+          console.warn('TBC fetch failed:', err);
+          return { data: { parties: [] } };
+        }),
+      ]);
+      setParties(gridRes.data.parties || []);
+      setTbcParties(tbcRes.data.parties || []);
     } catch (err) {
       console.error('Failed to fetch calendar parties:', err);
     } finally {
@@ -166,6 +187,9 @@ export default function CalendarView() {
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-purple-500"></span> Contacted ({contacted})</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-500"></span> Enquiry ({enquiry})</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-500"></span> Cancelled ({cancelled})</span>
+          <span className="flex items-center gap-1.5 border-l border-gray-300 pl-3 ml-0.5">
+            <HelpCircle className="w-3 h-3 text-orange-600" /> TBC ({tbcParties.length})
+          </span>
         </div>
       </div>
 
@@ -225,6 +249,67 @@ export default function CalendarView() {
               ))}
             </div>
           </div>
+
+          {/* TBC (To-Be-Confirmed date) parties panel — parties for this month
+              whose exact date isn't set yet (e.g. "TBC: April 2026"). */}
+          {tbcParties.length > 0 && (
+            <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border-2 border-dashed border-orange-300 p-4">
+              <button
+                onClick={() => setTbcExpanded((v) => !v)}
+                className="w-full flex items-center justify-between mb-0 hover:opacity-80 transition-opacity"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-orange-100 rounded-lg">
+                    <HelpCircle className="w-4 h-4 text-orange-700" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="text-sm font-bold text-gray-900">
+                      TBC — Date Not Confirmed ({tbcParties.length})
+                    </h3>
+                    <p className="text-[11px] text-gray-500">
+                      Parties booked for {monthLabel} but exact date pending
+                    </p>
+                  </div>
+                </div>
+                {tbcExpanded
+                  ? <ChevronUp className="w-4 h-4 text-gray-500" />
+                  : <ChevronDown className="w-4 h-4 text-gray-500" />}
+              </button>
+
+              {tbcExpanded && (
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {tbcParties.map((p, i) => {
+                    const status = (p.status || '').trim();
+                    const colors = STATUS_COLORS[status] || STATUS_COLORS.Enquiry;
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => !isViewOnly && navigate(`/parties/${p.rowIndex}`, { state: { from: 'calendar' } })}
+                        className={`p-2.5 rounded-lg border ${colors.border} bg-white ${isViewOnly ? '' : 'cursor-pointer hover:shadow-md'} transition-shadow`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-sm font-semibold ${colors.text} truncate`}>{p.hostName || '-'}</p>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                              {p.phoneNumber && <span className="text-[10px] text-gray-600">{p.phoneNumber}</span>}
+                              {p.occasionType && <span className="text-[10px] text-gray-600">{p.occasionType}</span>}
+                              {p.expectedPax && <span className="text-[10px] text-gray-600">{p.expectedPax} pax</span>}
+                            </div>
+                            {p.company && (
+                              <p className="text-[10px] text-gray-500 truncate mt-0.5">{p.company}</p>
+                            )}
+                          </div>
+                          <span className={`shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${colors.bg} ${colors.text} border ${colors.border}`}>
+                            {status || '—'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Selected day detail panel */}
           {selectedDay && selectedParties.length > 0 && (
