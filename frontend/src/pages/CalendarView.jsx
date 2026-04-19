@@ -10,6 +10,19 @@ const MONTH_NAMES_FULL = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+// Expected Pax is often stored as a range like "40-50", "100 - 120", "75+", or
+// a single number "50". Return the minimum (leftmost) integer, or null if none
+// can be parsed. Leftmost = the minimum of a range.
+function minPax(expectedPax) {
+  if (expectedPax === null || expectedPax === undefined) return null;
+  const s = String(expectedPax).trim();
+  if (!s) return null;
+  const match = s.match(/\d+/); // first integer anywhere in the string
+  if (!match) return null;
+  const n = parseInt(match[0], 10);
+  return Number.isFinite(n) ? n : null;
+}
+
 const STATUS_COLORS = {
   Confirmed: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300', dot: 'bg-green-500' },
   Tentative: { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300', dot: 'bg-blue-500' },
@@ -230,15 +243,24 @@ export default function CalendarView() {
                         {cell.parties.map((p, pi) => {
                           const status = (p.status || '').trim();
                           const colors = STATUS_COLORS[status] || STATUS_COLORS.Enquiry;
+                          const pax = minPax(p.expectedPax);
+                          const paxSuffix = pax !== null ? ` (${pax})` : '';
                           return (
                             <div
                               key={pi}
                               onClick={(e) => { e.stopPropagation(); if (!isViewOnly) navigate(`/parties/${p.rowIndex}`, { state: { from: 'calendar' } }); }}
-                              className={`${colors.bg} ${colors.text} ${colors.border} border rounded px-1 py-0.5 text-[9px] sm:text-[11px] font-medium truncate ${isViewOnly ? '' : 'cursor-pointer hover:opacity-80'} transition-opacity`}
-                              title={`${p.hostName} - ${status}`}
+                              className={`${colors.bg} ${colors.text} ${colors.border} border rounded px-1 py-0.5 text-[9px] sm:text-[11px] font-medium leading-tight ${isViewOnly ? '' : 'cursor-pointer hover:opacity-80'} transition-opacity`}
+                              title={`${p.hostName}${pax !== null ? ` — ${pax} pax min` : ''} — ${status}`}
                             >
-                              <span className="hidden sm:inline">{p.hostName}</span>
-                              <span className="sm:hidden">{p.hostName?.substring(0, 8)}</span>
+                              {/* Desktop: name (pax) on one line, truncated */}
+                              <span className="hidden sm:block truncate">{p.hostName}{paxSuffix}</span>
+                              {/* Mobile: name on top, (pax) below — stays inside the same tile */}
+                              <div className="sm:hidden">
+                                <div className="truncate">{(p.hostName || '')?.substring(0, 10)}</div>
+                                {pax !== null && (
+                                  <div className="font-semibold">({pax})</div>
+                                )}
+                              </div>
                             </div>
                           );
                         })}
