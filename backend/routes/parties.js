@@ -402,9 +402,13 @@ router.get('/stats', async (req, res) => {
     // Save all rows before filtering for today's enquiry stats (based on Enquired At, not event date)
     const allRowsUnfiltered = rows;
 
-    // CASHIER only sees confirmed party stats
+    // CASHIER and ACCOUNTS only see Confirmed-party stats — must mirror the
+    // list endpoint's role filter (line ~214). If we don't, the Pending Dues
+    // card sums dues from non-Confirmed parties (e.g. cancelled with stale
+    // balance) but clicking it filters the list to Confirmed only → user sees
+    // a non-zero stat but "No parties found" in the list.
     const userRole = req.user?.role?.toUpperCase();
-    if (userRole === 'CASHIER') {
+    if (userRole === 'CASHIER' || userRole === 'ACCOUNTS') {
       rows = rows.filter((r) => r['Status'] === 'Confirmed');
     }
 
