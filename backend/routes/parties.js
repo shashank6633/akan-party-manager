@@ -197,6 +197,7 @@ router.get(
     query('partyType').optional().isString(),
     query('page').optional().isInt({ min: 1 }).withMessage('Page must be positive integer'),
     query('limit').optional().isInt({ min: 1, max: 500 }).withMessage('Limit must be 1-500'),
+    query('pendingDues').optional().isIn(['true', 'false', '1', '0']).withMessage('pendingDues must be true/false'),
   ],
   async (req, res) => {
     try {
@@ -205,7 +206,7 @@ router.get(
         return res.status(400).json({ success: false, errors: errors.array() });
       }
 
-      const { status, dateFrom, dateTo, search, partyType, page = 1, limit = 50, order = 'asc' } = req.query;
+      const { status, dateFrom, dateTo, search, partyType, page = 1, limit = 50, order = 'asc', pendingDues } = req.query;
 
       let rows = await sheetsService.getAllRows();
 
@@ -213,6 +214,13 @@ router.get(
       const userRole = req.user?.role?.toUpperCase();
       if (userRole === 'CASHIER' || userRole === 'ACCOUNTS') {
         rows = rows.filter((r) => r['Status'] === 'Confirmed');
+      }
+
+      // pendingDues=true → only parties with Due Amount > 0. Applied
+      // server-side BEFORE pagination so the dashboard's "Pending Dues"
+      // click finds matches even when they're past the first page.
+      if (pendingDues === 'true' || pendingDues === true || pendingDues === '1') {
+        rows = rows.filter((r) => (parseFloat(r['Due Amount']) || 0) > 0);
       }
 
       // Apply filters

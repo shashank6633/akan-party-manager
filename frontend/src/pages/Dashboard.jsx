@@ -119,6 +119,10 @@ export default function Dashboard() {
  if (searchQuery) params.search = searchQuery;
  if (dateFrom) params.dateFrom = dateFrom;
  if (dateTo) params.dateTo = dateTo;
+ // Pending Dues drill-down: filter server-side so the result isn't
+ // limited to the first page (otherwise parties with dues past page 1
+ // are silently missed and "No parties found" is shown).
+ if (pendingDuesOnly) params.pendingDues = 'true';
  const res = await partyAPI.getAll(params);
  setParties(res.data.parties || []);
  setTotalPages(res.data.totalPages || 1);
@@ -127,7 +131,7 @@ export default function Dashboard() {
  } finally {
  setLoading(false);
  }
- }, [page, statusFilter, searchQuery, dateFrom, dateTo]);
+ }, [page, statusFilter, searchQuery, dateFrom, dateTo, pendingDuesOnly]);
 
  const fetchStats = useCallback(async () => {
  setStatsLoading(true);
