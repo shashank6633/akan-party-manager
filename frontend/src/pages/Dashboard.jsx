@@ -7,6 +7,7 @@ import StatusBadge from '../components/Party/StatusBadge';
 import { partyAPI, notificationAPI, guestContactAPI } from '../services/api';
 import { debounce, formatDate, formatCurrency, isTBCDate } from '../utils/helpers';
 import { useAuth } from '../context/AuthContext';
+import { CANCEL_CATEGORIES, makeReasonValue, buildLostReason } from '../constants/cancellationReasons';
 
 const STATUS_OPTIONS = ['All', 'Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled'];
 const CASHIER_STATUS_OPTIONS = ['All', 'Confirmed'];
@@ -83,6 +84,7 @@ export default function Dashboard() {
  // Quick action modal state
  const [modal, setModal] = useState({ open: false, type: '', party: null });
  const [modalInput, setModalInput] = useState('');
+ const [modalCancelCategory, setModalCancelCategory] = useState(''); // for the cancel modal generic reason
  const [modalLoading, setModalLoading] = useState(false);
 
  // Follow-up tracking
@@ -310,6 +312,13 @@ export default function Dashboard() {
  const handleQuickAction = (party, type) => {
  setModal({ open: true, type, party });
  setModalInput('');
+ setModalCancelCategory('');
+ };
+
+ const closeQuickActionModal = () => {
+ setModal({ open: false, type: '', party: null });
+ setModalInput('');
+ setModalCancelCategory('');
  };
 
  const executeQuickAction = async () => {
@@ -318,13 +327,15 @@ export default function Dashboard() {
  if (modal.type === 'confirm') {
  await partyAPI.updateStatus(modal.party.rowIndex, { status: 'Confirmed' });
  } else if (modal.type === 'cancel') {
+ if (!modalCancelCategory) return;
  if (!modalInput.trim()) return;
- await partyAPI.updateStatus(modal.party.rowIndex, { status: 'Cancelled', lostReason: modalInput });
+ const lostReason = buildLostReason(modalCancelCategory, modalInput);
+ await partyAPI.updateStatus(modal.party.rowIndex, { status: 'Cancelled', lostReason });
  } else if (modal.type === 'payment') {
  if (!modalInput || isNaN(modalInput)) return;
  await partyAPI.addPayment(modal.party.rowIndex, { amount: parseFloat(modalInput), type: 'advance' });
  }
- setModal({ open: false, type: '', party: null });
+ closeQuickActionModal();
  fetchParties();
  fetchStats();
  } catch (err) {
@@ -919,8 +930,8 @@ export default function Dashboard() {
 
  {/* Quick action modal */}
  {modal.open && (
- <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setModal({ open: false, type: '', party: null })}>
- <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[calc(100vw-2rem)] sm:max-w-md p-5 sm:p-6" onClick={(e) => e.stopPropagation()}>
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeQuickActionModal}>
+ <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[calc(100vw-2rem)] sm:max-w-md p-5 sm:p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
  <h3 className="text-lg font-semibold text-gray-900 mb-1">
  {modal.type === 'confirm' && 'Confirm Party'}
  {modal.type === 'cancel' && 'Cancel Party'}
@@ -937,17 +948,38 @@ export default function Dashboard() {
  )}
 
  {modal.type === 'cancel' && (
- <div className="mb-4">
+ <div className="mb-4 space-y-3">
+ <div>
  <label className="block text-sm font-medium text-gray-700 mb-1">
- Lost Reason <span className="text-red-500">*</span>
+ Generic Reason <span className="text-red-500">*</span>
+ </label>
+ <select
+ value={modalCancelCategory}
+ onChange={(e) => setModalCancelCategory(e.target.value)}
+ className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
+ >
+ <option value="">— Select a reason —</option>
+ {CANCEL_CATEGORIES.map((cat) => (
+ <optgroup key={cat.label} label={cat.label}>
+ {cat.reasons.map((r) => (
+ <option key={r} value={makeReasonValue(cat.label, r)}>{r}</option>
+ ))}
+ </optgroup>
+ ))}
+ </select>
+ </div>
+ <div>
+ <label className="block text-sm font-medium text-gray-700 mb-1">
+ Lost Reason — Details <span className="text-red-500">*</span>
  </label>
  <textarea
  value={modalInput}
  onChange={(e) => setModalInput(e.target.value)}
- placeholder="Why was this party cancelled?"
+ placeholder="What exactly did the guest say? Quote, competitor, context..."
  rows={3}
  className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30 resize-none"
  />
+ </div>
  </div>
  )}
 
@@ -968,14 +1000,14 @@ export default function Dashboard() {
 
  <div className="flex justify-end gap-3">
  <button
- onClick={() => setModal({ open: false, type: '', party: null })}
+ onClick={closeQuickActionModal}
  className="px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
  >
  Cancel
  </button>
  <button
  onClick={executeQuickAction}
- disabled={modalLoading || (modal.type === 'cancel' && !modalInput.trim()) || (modal.type === 'payment' && (!modalInput || isNaN(modalInput)))}
+ disabled={modalLoading || (modal.type === 'cancel' && (!modalCancelCategory || !modalInput.trim())) || (modal.type === 'payment' && (!modalInput || isNaN(modalInput)))}
  className={`px-4 py-2.5 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50 ${
  modal.type === 'cancel'
  ? 'bg-red-600 hover:bg-red-700'
