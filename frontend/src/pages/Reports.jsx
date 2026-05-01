@@ -16,6 +16,7 @@ import {
  AlertTriangle,
  PhoneCall,
  ChefHat,
+ XCircle,
 } from 'lucide-react';
 import {
  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -25,6 +26,18 @@ import {
 import { reportAPI, partyAPI, feedbackAPI } from '../services/api';
 import { formatCurrency, exportToExcel } from '../utils/helpers';
 import { useAuth } from '../context/AuthContext';
+import { CANCEL_CATEGORIES, parseLostReason } from '../constants/cancellationReasons';
+
+// Distinct colors per cancellation category — used for bars and pie slices.
+const CANCEL_CATEGORY_COLORS = {
+ 'Client-side': '#3B82F6',
+ 'Venue / Offer mismatch': '#F97316',
+ 'Competitor': '#EF4444',
+ 'Internal (Akan-side)': '#8B5CF6',
+ 'External': '#6366F1',
+ 'Other': '#6B7280',
+ 'Uncategorized': '#9CA3AF',
+};
 
 const STATUS_COLORS = {
  Enquiry: '#EAB308',
@@ -39,6 +52,7 @@ const ALL_TABS = [
  { id: 'overview', label: 'Overview', icon: BarChart3 },
  { id: 'financial', label: 'Financial', icon: TrendingUp, revenueOnly: true },
  { id: 'status', label: 'Status Analysis', icon: PieIcon },
+ { id: 'cancellations', label: 'Cancellations', icon: XCircle },
  { id: 'feedback', label: 'Feedback', icon: Star },
 ];
 
@@ -648,6 +662,15 @@ export default function Reports() {
  </div>
  )}
 
+ {/* Cancellations Analytics Tab */}
+ {activeTab === 'cancellations' && (
+ <CancellationsAnalytics
+  parties={allParties}
+  dateFrom={dateFrom}
+  dateTo={dateTo}
+ />
+ )}
+
  {/* Feedback Analytics Tab */}
  {activeTab === 'feedback' && (
  <FeedbackAnalytics data={feedbackData} loading={feedbackLoading} />
@@ -655,6 +678,219 @@ export default function Reports() {
  </>
  )}
  </div>
+ );
+}
+
+// =============================================================================
+// CANCELLATIONS ANALYTICS COMPONENT
+// =============================================================================
+function CancellationsAnalytics({ parties, dateFrom, dateTo }) {
+ // Pull all cancelled rows in the current date range
+ const cancelled = (parties || []).filter(
+  (p) => (p.status || '').trim() === 'Cancelled'
+ );
+
+ // Parse each Lost Reason into structured { category, reason, detail }
+ const parsed = cancelled.map((p) => {
+  const r = parseLostReason(p.lostReason || '');
+  return {
+   ...p,
+   _category: r.category || 'Uncategorized',
+   _reason: r.reason || null,
+   _detail: r.detail || '',
+  };
+ });
+
+ // Bucket by Category
+ const byCategory = {};
+ parsed.forEach((p) => {
+  byCategory[p._category] = (byCategory[p._category] || 0) + 1;
+ });
+ const categoryData = Object.entries(byCategory)
+  .map(([name, count]) => ({ name, count }))
+  .sort((a, b) => b.count - a.count);
+
+ // Bucket by Sub-Reason (only for parties that have one)
+ const bySubReason = {};
+ parsed.forEach((p) => {
+  if (!p._reason) return;
+  const key = `${p._category} > ${p._reason}`;
+  bySubReason[key] = (bySubReason[key] || 0) + 1;
+ });
+ const subReasonData = Object.entries(bySubReason)
+  .map(([key, count]) => {
+   const [cat, reason] = key.split(' > ');
+   return { key, name: reason, category: cat, count };
+  })
+  .sort((a, b) => b.count - a.count)
+  .slice(0, 12); // top 12
+
+ // Headline metrics
+ const total = cancelled.length;
+ const topCategory = categoryData[0];
+ const topReason = subReasonData[0];
+ const uncategorized = byCategory['Uncategorized'] || 0;
+
+ if (total === 0) {
+  return (
+   <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
+    <XCircle className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+    <p className="text-sm font-semibold text-gray-700">No cancelled parties in this date range</p>
+    <p className="text-xs text-gray-500 mt-1">Pick a wider date range or wait for data to come in.</p>
+   </div>
+  );
+ }
+
+ return (
+  <div className="space-y-6">
+   {/* Headline cards */}
+   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+     <p className="text-xs text-gray-500 font-medium mb-1">Total Cancelled</p>
+     <p className="text-2xl font-bold text-red-600">{total}</p>
+    </div>
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+     <p className="text-xs text-gray-500 font-medium mb-1">Top Category</p>
+     <p className="text-sm font-bold text-gray-900 leading-tight" title={topCategory?.name}>
+      {topCategory ? topCategory.name : '—'}
+     </p>
+     {topCategory && <p className="text-[10px] text-gray-400 mt-0.5">{topCategory.count} cancellations</p>}
+    </div>
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+     <p className="text-xs text-gray-500 font-medium mb-1">Top Specific Reason</p>
+     <p className="text-sm font-bold text-gray-900 leading-tight line-clamp-2" title={topReason?.name}>
+      {topReason ? topReason.name : '—'}
+     </p>
+     {topReason && <p className="text-[10px] text-gray-400 mt-0.5">{topReason.count} cancellations</p>}
+    </div>
+    <div className="bg-white rounded-xl border border-gray-200 p-4">
+     <p className="text-xs text-gray-500 font-medium mb-1">Uncategorized (legacy)</p>
+     <p className="text-2xl font-bold text-gray-500">{uncategorized}</p>
+     {uncategorized > 0 && <p className="text-[10px] text-gray-400 mt-0.5">cancelled before reasons feature</p>}
+    </div>
+   </div>
+
+   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+    {/* By Category — bar chart */}
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+     <h3 className="text-sm font-semibold text-gray-800 mb-4">By Category</h3>
+     <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={categoryData} margin={{ top: 5, right: 10, left: -10, bottom: 60 }}>
+       <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+       <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-25} textAnchor="end" interval={0} height={70} />
+       <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+       <Tooltip cursor={{ fill: '#f9fafb' }} />
+       <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+        {categoryData.map((entry) => (
+         <Cell key={entry.name} fill={CANCEL_CATEGORY_COLORS[entry.name] || '#9CA3AF'} />
+        ))}
+       </Bar>
+      </BarChart>
+     </ResponsiveContainer>
+    </div>
+
+    {/* By Category — proportions list */}
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+     <h3 className="text-sm font-semibold text-gray-800 mb-4">Share of Cancellations</h3>
+     <div className="space-y-3">
+      {categoryData.map((c) => {
+       const pct = ((c.count / total) * 100).toFixed(1);
+       const color = CANCEL_CATEGORY_COLORS[c.name] || '#9CA3AF';
+       return (
+        <div key={c.name}>
+         <div className="flex items-center justify-between mb-1">
+          <span className="text-xs font-medium text-gray-700">{c.name}</span>
+          <span className="text-xs font-bold text-gray-900">{c.count} ({pct}%)</span>
+         </div>
+         <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+         </div>
+        </div>
+       );
+      })}
+     </div>
+    </div>
+   </div>
+
+   {/* Top specific reasons */}
+   {subReasonData.length > 0 && (
+    <div className="bg-white rounded-xl border border-gray-200 p-5">
+     <h3 className="text-sm font-semibold text-gray-800 mb-4">Top Specific Reasons (top 12)</h3>
+     <ResponsiveContainer width="100%" height={Math.max(280, subReasonData.length * 32)}>
+      <BarChart data={subReasonData} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+       <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+       <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+       <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={240} />
+       <Tooltip cursor={{ fill: '#f9fafb' }} formatter={(v, _n, p) => [v, p.payload.category]} />
+       <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+        {subReasonData.map((entry) => (
+         <Cell key={entry.key} fill={CANCEL_CATEGORY_COLORS[entry.category] || '#9CA3AF'} />
+        ))}
+       </Bar>
+      </BarChart>
+     </ResponsiveContainer>
+    </div>
+   )}
+
+   {/* Detail table */}
+   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+     <h3 className="text-sm font-semibold text-gray-800">Cancelled Parties — {dateFrom} to {dateTo}</h3>
+     <button
+      onClick={() => exportToExcel(
+       parsed.map((p) => ({
+        Date: p.date || '',
+        Host: p.hostName || '',
+        Phone: p.phoneNumber || '',
+        Company: p.company || '',
+        Category: p._category,
+        'Sub-Reason': p._reason || '',
+        Detail: p._detail,
+        'Cancelled Date': p.cancelledDate || '',
+       })),
+       `cancellations-${dateFrom}-to-${dateTo}`
+      )}
+      className="flex items-center gap-1.5 text-xs font-medium text-[#af4408] hover:text-[#8e3706]"
+     >
+      <Download className="w-3.5 h-3.5" /> Export CSV
+     </button>
+    </div>
+    <div className="overflow-x-auto max-h-[480px]">
+     <table className="w-full text-sm">
+      <thead className="bg-gray-50 sticky top-0">
+       <tr>
+        <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 whitespace-nowrap">Date</th>
+        <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 whitespace-nowrap">Host</th>
+        <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 whitespace-nowrap">Category</th>
+        <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 whitespace-nowrap">Sub-Reason</th>
+        <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600">Detail</th>
+       </tr>
+      </thead>
+      <tbody>
+       {parsed.map((p, idx) => (
+        <tr key={p.uniqueId || idx} className="border-t border-gray-100 hover:bg-gray-50/60">
+         <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{p.date || '-'}</td>
+         <td className="px-3 py-2 text-xs font-medium text-gray-900 whitespace-nowrap">{p.hostName || '-'}</td>
+         <td className="px-3 py-2 text-xs whitespace-nowrap">
+          <span
+           className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold"
+           style={{
+            color: CANCEL_CATEGORY_COLORS[p._category] || '#6B7280',
+            backgroundColor: (CANCEL_CATEGORY_COLORS[p._category] || '#6B7280') + '20',
+           }}
+          >
+           {p._category}
+          </span>
+         </td>
+         <td className="px-3 py-2 text-xs text-gray-700">{p._reason || <span className="italic text-gray-400">—</span>}</td>
+         <td className="px-3 py-2 text-xs text-gray-600">{p._detail || <span className="italic text-gray-400">no detail</span>}</td>
+        </tr>
+       ))}
+      </tbody>
+     </table>
+    </div>
+   </div>
+  </div>
  );
 }
 
