@@ -98,11 +98,14 @@ function autoFillFromParty(party) {
   if (party['Host Name']) mapping['Contact Person'] = party['Host Name'];
   if (party['Phone Number']) mapping['Phone'] = party['Phone Number'];
   if (party['Expected Pax']) mapping['Pax Expected'] = party['Expected Pax'];
-  // Use Final Rate if available, otherwise Approx Bill Amount
+  // Both 'Final Rate' (col T) and 'Confirmed Final Rate' (col R) are PER-HEAD
+  // rates, so either is a valid prefill. 'Approx Bill Amount' is the TOTAL
+  // bill (pax × rate), so we never use it for per-head — that was producing
+  // 100x-too-high prefills when Final Rate was empty.
   if (party['Final Rate']) {
     mapping['Rate Per Head'] = party['Final Rate'];
-  } else if (party['Approx Bill Amount']) {
-    mapping['Rate Per Head'] = party['Approx Bill Amount'];
+  } else if (party['Confirmed Final Rate']) {
+    mapping['Rate Per Head'] = party['Confirmed Final Rate'];
   }
   if (party['Package Selected']) mapping['Package Type'] = party['Package Selected'];
   if (party['Handled By']) mapping['Reference'] = party['Handled By'];

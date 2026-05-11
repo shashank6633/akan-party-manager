@@ -237,7 +237,9 @@ export default function FPEditor() {
           })(),
           allocatedArea: p.place || p.allocatedArea || prev.allocatedArea,
           advancePayment: p.totalAdvancePaid || p.advancePayment || prev.advancePayment,
-          ratePerHead: p.finalRate || p.approxBillAmount || p.ratePerHead || prev.ratePerHead,
+          // Final Rate and Confirmed Final Rate are both per-head. Approx Bill
+          // Amount is the total bill (pax × rate) so it must NOT be used here.
+          ratePerHead: p.finalRate || p.confirmedFinalRate || p.ratePerHead || prev.ratePerHead,
           minimumGuarantee: p.minimumGuarantee || p.expectedPax || prev.minimumGuarantee,
           contactPerson: p.hostName || prev.contactPerson,
           phone: p.phoneNumber || prev.phone,
