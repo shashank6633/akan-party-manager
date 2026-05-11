@@ -732,15 +732,41 @@ function parseLeastPax(val) {
 
 function buildAddonParts(data) {
   const parts = [];
+  // Veg addons (Appetisers @ ₹250, Main Course @ ₹200)
+  const vSt = data.addonVegStarters || [];
+  const vMc = data.addonVegMainCourse || [];
+  if (vSt.length > 0) {
+    parts.push(`Veg Appetisers (Rs.${ADDONS.veg.starterPrice}/pp): ${vSt.join(', ')}`);
+  }
+  if (vMc.length > 0) {
+    parts.push(`Veg Main Course (Rs.${ADDONS.veg.mainCoursePrice}/pp): ${vMc.join(', ')}`);
+  }
+  // Mutton (Appetisers @ ₹250, Main Course @ ₹300)
   const mSt = data.addonMuttonStarters || [];
   const mMc = data.addonMuttonMainCourse || [];
-  if (mSt.length + mMc.length > 0) {
-    parts.push(`Mutton (Rs.${ADDONS.mutton.pricePerHead}/pp): ${[...mSt, ...mMc].join(', ')}`);
+  if (mSt.length > 0) {
+    parts.push(`Mutton Appetisers (Rs.${ADDONS.mutton.starterPrice}/pp): ${mSt.join(', ')}`);
   }
+  if (mMc.length > 0) {
+    parts.push(`Mutton Main Course (Rs.${ADDONS.mutton.mainCoursePrice}/pp): ${mMc.join(', ')}`);
+  }
+  // Prawns (Appetisers @ ₹250, Main Course @ ₹300)
   const pSt = data.addonPrawnsStarters || [];
   const pMc = data.addonPrawnsMainCourse || [];
-  if (pSt.length + pMc.length > 0) {
-    parts.push(`Prawns (Rs.${ADDONS.prawns.pricePerHead}/pp): ${[...pSt, ...pMc].join(', ')}`);
+  if (pSt.length > 0) {
+    parts.push(`Prawns Appetisers (Rs.${ADDONS.prawns.starterPrice}/pp): ${pSt.join(', ')}`);
+  }
+  if (pMc.length > 0) {
+    parts.push(`Prawns Main Course (Rs.${ADDONS.prawns.mainCoursePrice}/pp): ${pMc.join(', ')}`);
+  }
+  // Live Counter (Veg @ ₹200, Non-Veg @ ₹250)
+  const lcVeg = data.addonLiveCounterVeg || [];
+  const lcNv = data.addonLiveCounterNonVeg || [];
+  if (lcVeg.length > 0) {
+    parts.push(`Live Counter — Veg (Rs.${ADDONS.liveCounter.vegPrice}/pp, ${ADDONS.liveCounter.serving}): ${lcVeg.join(', ')}`);
+  }
+  if (lcNv.length > 0) {
+    parts.push(`Live Counter — Non-Veg (Rs.${ADDONS.liveCounter.nonVegPrice}/pp, ${ADDONS.liveCounter.serving}): ${lcNv.join(', ')}`);
   }
   const ext = data.addonExtras || [];
   if (ext.length > 0) {

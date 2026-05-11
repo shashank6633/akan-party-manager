@@ -467,6 +467,22 @@ export const PACKAGES = {
 // ---------------------------------------------------------------------------
 
 export const ADDONS = {
+  veg: {
+    label: 'Veg Addons',
+    starterPrice: 250,
+    mainCoursePrice: 200,
+    starters: [
+      'Cream Cheese Brocolli Tikka',
+      'Thecha Tandoori Broccoli',
+      'Crispy Stir Fried Mushrooms',
+      'Old Delhi Style Soya Chaap',
+      'Banjara Soya Chaap',
+      'Karampodi Lotus Stem',
+    ],
+    mainCourse: [
+      'Smoked Dal Makhni',
+    ],
+  },
   mutton: {
     label: 'Mutton Addons',
     pricePerHead: 250,
@@ -520,6 +536,32 @@ export const ADDONS = {
       'Thai Prawns Curry',
       'Royyala Iguru',
       'Prawns Malvani',
+    ],
+  },
+  liveCounter: {
+    label: 'Choice of Live Counter',
+    vegPrice: 200,
+    nonVegPrice: 250,
+    serving: '90 mins',
+    veg: [
+      'Mumbai Chowpaty Style Pav Bhaji',
+      'Khow Suey',
+      'Pindi Chole',
+      'Chaat Counter',
+      'Veg Kheema (Soya)',
+      'Thukpa Veg',
+      'Pasta Veg',
+      'Amritsari Soya Chaap',
+      'Baos/Momos/DimSums',
+    ],
+    nonVeg: [
+      'Mumbai Chowpaty Style Keema Pav',
+      'Khow Suey',
+      'Andhra Fish Vepudu',
+      'Kodi Vepudu Chettinad style',
+      'Thukpa Chicken',
+      'Pasta Non-Veg',
+      'Baos/Momos/DimSums',
     ],
   },
   extras: {

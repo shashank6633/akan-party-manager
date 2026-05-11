@@ -192,10 +192,14 @@ export default function FeedbackForm() {
 
         // Addons
         const allAddons = [
+          ...parse(fp.addonVegStarters),
+          ...parse(fp.addonVegMainCourse),
           ...parse(fp.addonMuttonStarters),
           ...parse(fp.addonMuttonMainCourse),
           ...parse(fp.addonPrawnsStarters),
           ...parse(fp.addonPrawnsMainCourse),
+          ...parse(fp.addonLiveCounterVeg),
+          ...parse(fp.addonLiveCounterNonVeg),
           ...parse(fp.addonExtras),
         ];
         if (allAddons.length > 0) setAddonRatings(initRatings(allAddons));

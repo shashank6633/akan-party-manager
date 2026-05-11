@@ -728,6 +728,10 @@ const FP_COLUMNS = [
   'Vegan Food Pax',         // BI (number)
   'Entertainment Notes',    // BJ
   'Activities',             // BK (JSON - array of {name, pax, amount})
+  'Addon Veg Starters',     // BL (JSON array)
+  'Addon Veg Main Course',  // BM (JSON array)
+  'Addon Live Counter Veg', // BN (JSON array)
+  'Addon Live Counter Non-Veg', // BO (JSON array)
 ];
 
 const FP_COLUMN_MAP = {};
@@ -735,7 +739,7 @@ FP_COLUMNS.forEach((name, idx) => {
   FP_COLUMN_MAP[name] = idx;
 });
 
-const FP_LAST_COL = 'BK';
+const FP_LAST_COL = 'BO';
 
 /**
  * Generate a unique ID for a new F&P record.

@@ -106,10 +106,14 @@ export function generatePreTastingPdf({ fp, preTasting = null }) {
   ];
   const desserts = [...parse(fp?.desserts), ...getOther('desserts')];
   const addons = [
+    ...parse(fp?.addonVegStarters),
+    ...parse(fp?.addonVegMainCourse),
     ...parse(fp?.addonMuttonStarters),
     ...parse(fp?.addonMuttonMainCourse),
     ...parse(fp?.addonPrawnsStarters),
     ...parse(fp?.addonPrawnsMainCourse),
+    ...parse(fp?.addonLiveCounterVeg),
+    ...parse(fp?.addonLiveCounterNonVeg),
     ...parse(fp?.addonExtras),
   ];
 

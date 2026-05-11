@@ -113,10 +113,14 @@ export default function FPEditor() {
     salad: [],
     accompaniments: [],
     desserts: [],
+    addonVegStarters: [],
+    addonVegMainCourse: [],
     addonMuttonStarters: [],
     addonMuttonMainCourse: [],
     addonPrawnsStarters: [],
     addonPrawnsMainCourse: [],
+    addonLiveCounterVeg: [],
+    addonLiveCounterNonVeg: [],
     addonExtras: [],
     otherItems: {},
     approxBillAmount: '',
@@ -283,8 +287,11 @@ export default function FPEditor() {
       }
       const arrayFields = [
         ...MENU_CATEGORIES,
+        'addonVegStarters', 'addonVegMainCourse',
         'addonMuttonStarters', 'addonMuttonMainCourse',
-        'addonPrawnsStarters', 'addonPrawnsMainCourse', 'addonExtras',
+        'addonPrawnsStarters', 'addonPrawnsMainCourse',
+        'addonLiveCounterVeg', 'addonLiveCounterNonVeg',
+        'addonExtras',
       ];
       arrayFields.forEach((f) => {
         if (!Array.isArray(mapped[f])) {
@@ -917,10 +924,27 @@ export default function FPEditor() {
           <SectionBtn {...sectionProps('addons')} title="Addons (Extra Charges)" icon="➕" />
           {expandedSections.addons && (
             <div className="px-5 pb-5 border-t border-gray-100 mt-4 space-y-5">
+              {/* Veg */}
+              <div>
+                <h4 className="text-xs font-bold text-gray-700 mb-1">🥦 Veg Addons <span className="font-normal text-gray-400">(Appetisers ₹{ADDONS.veg.starterPrice}/person · Main Course ₹{ADDONS.veg.mainCoursePrice}/person)</span></h4>
+                <p className="text-[10px] text-gray-400 mb-2">Appetisers (Starters)</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 mb-2">
+                  {ADDONS.veg.starters.map((item) => (
+                    <ItemCheck key={item} item={item} selected={(form.addonVegStarters || []).includes(item)} disabled={!canEdit} color="orange" onToggle={() => toggleAddon('addonVegStarters', item)} />
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-400 mb-2">Main Course</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                  {ADDONS.veg.mainCourse.map((item) => (
+                    <ItemCheck key={item} item={item} selected={(form.addonVegMainCourse || []).includes(item)} disabled={!canEdit} color="orange" onToggle={() => toggleAddon('addonVegMainCourse', item)} />
+                  ))}
+                </div>
+              </div>
+
               {/* Mutton */}
               <div>
-                <h4 className="text-xs font-bold text-gray-700 mb-1">🐑 Mutton Addons <span className="font-normal text-gray-400">(₹{ADDONS.mutton.pricePerHead}/person)</span></h4>
-                <p className="text-[10px] text-gray-400 mb-2">Starters</p>
+                <h4 className="text-xs font-bold text-gray-700 mb-1">🐑 Mutton Addons <span className="font-normal text-gray-400">(Appetisers ₹{ADDONS.mutton.starterPrice}/person · Main Course ₹{ADDONS.mutton.mainCoursePrice}/person)</span></h4>
+                <p className="text-[10px] text-gray-400 mb-2">Appetisers (Starters)</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 mb-2">
                   {ADDONS.mutton.starters.map((item) => (
                     <ItemCheck key={item} item={item} selected={(form.addonMuttonStarters || []).includes(item)} disabled={!canEdit} color="orange" onToggle={() => toggleAddon('addonMuttonStarters', item)} />
@@ -936,8 +960,8 @@ export default function FPEditor() {
 
               {/* Prawns */}
               <div>
-                <h4 className="text-xs font-bold text-gray-700 mb-1">🦐 Prawns Addons <span className="font-normal text-gray-400">(₹{ADDONS.prawns.pricePerHead}/person)</span></h4>
-                <p className="text-[10px] text-gray-400 mb-2">Starters</p>
+                <h4 className="text-xs font-bold text-gray-700 mb-1">🦐 Prawns Addons <span className="font-normal text-gray-400">(Appetisers ₹{ADDONS.prawns.starterPrice}/person · Main Course ₹{ADDONS.prawns.mainCoursePrice}/person)</span></h4>
+                <p className="text-[10px] text-gray-400 mb-2">Appetisers (Starters)</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 mb-2">
                   {ADDONS.prawns.starters.map((item) => (
                     <ItemCheck key={item} item={item} selected={(form.addonPrawnsStarters || []).includes(item)} disabled={!canEdit} color="orange" onToggle={() => toggleAddon('addonPrawnsStarters', item)} />
@@ -947,6 +971,27 @@ export default function FPEditor() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                   {ADDONS.prawns.mainCourse.map((item) => (
                     <ItemCheck key={item} item={item} selected={(form.addonPrawnsMainCourse || []).includes(item)} disabled={!canEdit} color="orange" onToggle={() => toggleAddon('addonPrawnsMainCourse', item)} />
+                  ))}
+                </div>
+              </div>
+
+              {/* Live Counter */}
+              <div>
+                <h4 className="text-xs font-bold text-gray-700 mb-1">
+                  🍳 Choice of Live Counter
+                  <span className="font-normal text-gray-400"> (Veg ₹{ADDONS.liveCounter.vegPrice}/person · Non-Veg ₹{ADDONS.liveCounter.nonVegPrice}/person)</span>
+                  <span className="ml-2 inline-block text-[10px] font-semibold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded">Serving: {ADDONS.liveCounter.serving}</span>
+                </h4>
+                <p className="text-[10px] text-gray-400 mb-2">Veg</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 mb-2">
+                  {ADDONS.liveCounter.veg.map((item) => (
+                    <ItemCheck key={`lc-veg-${item}`} item={item} selected={(form.addonLiveCounterVeg || []).includes(item)} disabled={!canEdit} color="orange" onToggle={() => toggleAddon('addonLiveCounterVeg', item)} />
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-400 mb-2">Non-Veg</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                  {ADDONS.liveCounter.nonVeg.map((item) => (
+                    <ItemCheck key={`lc-nv-${item}`} item={item} selected={(form.addonLiveCounterNonVeg || []).includes(item)} disabled={!canEdit} color="orange" onToggle={() => toggleAddon('addonLiveCounterNonVeg', item)} />
                   ))}
                 </div>
               </div>
