@@ -42,6 +42,20 @@ api.interceptors.response.use(
   }
 );
 
+// Pulls `expectedUniqueId` off the payload (if present) and merges it into the
+// body that goes to the backend. This is the client side of the safety check
+// that prevents one party's edit from silently overwriting another row when
+// sheet row indices have shifted (date-sorted inserts move rows down).
+//
+// Callers can pass either `expectedUniqueId` (explicit) OR just include the
+// loaded party's `uniqueId` field — both work.
+const withUidCheck = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  const expectedUniqueId =
+    data.expectedUniqueId || data.expectedUid || data.uniqueId;
+  return expectedUniqueId ? { ...data, expectedUniqueId } : data;
+};
+
 export const partyAPI = {
   getAll: (params) => api.get('/parties', { params }),
   getTBC: (params) => api.get('/parties/tbc', { params }),
@@ -49,14 +63,15 @@ export const partyAPI = {
   getStats: (params) => api.get('/parties/stats', { params }),
   getById: (id) => api.get(`/parties/${id}`),
   create: (data) => api.post('/parties', data),
-  update: (id, data) => api.put(`/parties/${id}`, data),
-  delete: (id) => api.delete(`/parties/${id}`),
-  updateStatus: (id, statusData) => api.put(`/parties/${id}/status`, statusData),
-  addPayment: (id, paymentData) => api.put(`/parties/${id}/payment`, paymentData),
+  update: (id, data) => api.put(`/parties/${id}`, withUidCheck(data)),
+  delete: (id, expectedUniqueId) => api.delete(`/parties/${id}`, { data: { expectedUniqueId } }),
+  updateStatus: (id, statusData) => api.put(`/parties/${id}/status`, withUidCheck(statusData)),
+  addPayment: (id, paymentData) => api.put(`/parties/${id}/payment`, withUidCheck(paymentData)),
   getPayments: (id) => api.get(`/parties/${id}/payments`),
-  addFollowUp: (id, data) => api.put(`/parties/${id}/followup`, data),
+  addFollowUp: (id, data) => api.put(`/parties/${id}/followup`, withUidCheck(data)),
   getPendingFollowUps: () => api.get('/parties/pending-followups'),
-  sendPaymentReminder: (id) => api.post(`/parties/${id}/send-payment-reminder`),
+  sendPaymentReminder: (id, expectedUniqueId) =>
+    api.post(`/parties/${id}/send-payment-reminder`, expectedUniqueId ? { expectedUniqueId } : undefined),
   getReminderLog: () => api.get('/parties/reminder-log'),
   getEditHistory: (id) => api.get(`/parties/${id}/edit-history`),
 };

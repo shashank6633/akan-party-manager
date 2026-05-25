@@ -316,7 +316,7 @@ export default function PartyDetail() {
    try {
     // Use ref to get latest editData, exclude guestCheckin (it saves independently)
     const { guestCheckin, ...dataToSave } = editDataForAutoSave.current;
-    await partyAPI.update(id, dataToSave);
+    await partyAPI.update(id, { ...dataToSave, expectedUniqueId: party?.uniqueId });
     setParty((prev) => ({ ...prev, ...dataToSave }));
    } catch (err) {
     console.warn('Auto-save failed:', err.message);
@@ -336,7 +336,7 @@ export default function PartyDetail() {
   setSaving(true);
   setError('');
   try {
-   await partyAPI.update(id, editData);
+   await partyAPI.update(id, { ...editData, expectedUniqueId: party?.uniqueId });
    await fetchParty();
    setEditing(false);
   } catch (err) {
@@ -374,7 +374,7 @@ export default function PartyDetail() {
   if (!statusFollowUpNote.trim()) return;
   try {
    // First update status (backend auto-adds follow-up note)
-   await partyAPI.updateStatus(id, { status: pendingStatus, followUpNote: statusFollowUpNote.trim() });
+   await partyAPI.updateStatus(id, { status: pendingStatus, followUpNote: statusFollowUpNote.trim(), expectedUniqueId: party?.uniqueId });
    setShowFollowUpModal(false);
    setStatusFollowUpNote('');
    setPendingStatus('');
@@ -389,7 +389,7 @@ export default function PartyDetail() {
   if (!cancelReason.trim()) return;     // free-text detail still required
   try {
    const lostReason = buildLostReason(cancelCategory, cancelReason);
-   await partyAPI.updateStatus(id, { status: 'Cancelled', lostReason });
+   await partyAPI.updateStatus(id, { status: 'Cancelled', lostReason, expectedUniqueId: party?.uniqueId });
    setShowCancelModal(false);
    setCancelReason('');
    setCancelCategory('');
@@ -401,7 +401,7 @@ export default function PartyDetail() {
 
  const handleDelete = async () => {
   try {
-   await partyAPI.delete(id);
+   await partyAPI.delete(id, party?.uniqueId);
    navigate('/');
   } catch (err) {
    setError('Failed to delete party.');
@@ -412,7 +412,7 @@ export default function PartyDetail() {
   if (!followUpNote.trim()) return;
   setSendingFollowUp(true);
   try {
-   await partyAPI.addFollowUp(id, { note: followUpNote });
+   await partyAPI.addFollowUp(id, { note: followUpNote, expectedUniqueId: party?.uniqueId });
    setFollowUpNote('');
    await fetchParty();
   } catch (err) {
@@ -439,6 +439,7 @@ export default function PartyDetail() {
     type: paymentType,
     method: paymentMethod,
     note: paymentNote,
+    expectedUniqueId: party?.uniqueId,
    });
    setPaymentAmount('');
    setPaymentType('advance');
@@ -477,7 +478,7 @@ export default function PartyDetail() {
   if (!confirm(`Send payment reminder email to ${party.guestEmail}?\n\nDue Amount: ₹${due.toLocaleString('en-IN')}`)) return;
   setSendingReminder(true);
   try {
-   const res = await partyAPI.sendPaymentReminder(id);
+   const res = await partyAPI.sendPaymentReminder(id, party?.uniqueId);
    alert(res.data.message || 'Payment reminder sent successfully!');
   } catch (err) {
    alert(err.response?.data?.message || 'Failed to send payment reminder.');
@@ -549,7 +550,7 @@ export default function PartyDetail() {
   const newEnabled = !checkinEnabled;
   setCheckinEnabled(newEnabled);
   try {
-   await partyAPI.update(id, { guestCheckin: newEnabled ? 'Yes' : 'No' });
+   await partyAPI.update(id, { guestCheckin: newEnabled ? 'Yes' : 'No', expectedUniqueId: party?.uniqueId });
    if (!newEnabled && activeTab === 'checkin') {
     setActiveTab('details');
    }

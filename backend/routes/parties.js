@@ -29,6 +29,39 @@ const AUDIT_SKIP_FIELDS = [
 ];
 
 /**
+ * Verify that the row at `rowIndex` still belongs to the party the frontend
+ * thinks it does, by comparing Unique IDs. This prevents the silent-overwrite
+ * bug where row indices shift after another user adds a party (date-sorted
+ * insert pushes everything down) and the caller's stale rowIndex now points
+ * to a different party's row.
+ *
+ * Frontend should send `expectedUid` (the Unique ID of the party it loaded)
+ * in the request body. If it's missing we fall back to legacy behaviour to
+ * stay backward-compatible with any caller that hasn't been updated yet.
+ *
+ * Returns { existing, error: null } on success, or
+ *         { existing: null, error: { status, message } } on mismatch / not-found.
+ */
+async function loadRowVerified(rowIndex, expectedUid) {
+  const existing = await sheetsService.getRow(rowIndex);
+  if (!existing) {
+    return { existing: null, error: { status: 404, message: 'Party not found.' } };
+  }
+  if (expectedUid && existing['Unique ID'] && existing['Unique ID'] !== expectedUid) {
+    return {
+      existing: null,
+      error: {
+        status: 409,
+        message: `This party's row has moved or been modified by another user — it now belongs to "${existing['Host Name'] || 'another party'}". Please reload and try again.`,
+        actual: existing['Unique ID'],
+        expected: expectedUid,
+      },
+    };
+  }
+  return { existing, error: null };
+}
+
+/**
  * Build a diff of changed fields between existing and new data.
  * Returns array of { field, from, to } objects.
  */
@@ -737,12 +770,11 @@ router.put(
       convertBody(req);
       const rowIndex = parseInt(req.params.id, 10);
       const userRole = req.user.role.toUpperCase();
+      const expectedUid = req.body.expectedUniqueId || req.body.expectedUid;
 
-      // Verify row exists
-      const existing = await sheetsService.getRow(rowIndex);
-      if (!existing) {
-        return res.status(404).json({ success: false, message: 'Party not found.' });
-      }
+      // Verify row exists AND still belongs to the expected party
+      const { existing, error } = await loadRowVerified(rowIndex, expectedUid);
+      if (error) return res.status(error.status).json({ success: false, ...error });
 
       const data = extractPartyData(req.body);
 
@@ -880,12 +912,10 @@ router.delete(
       }
 
       const rowIndex = parseInt(req.params.id, 10);
+      const expectedUid = req.body?.expectedUniqueId || req.body?.expectedUid || req.query?.expectedUniqueId;
 
-      // Verify row exists
-      const existing = await sheetsService.getRow(rowIndex);
-      if (!existing) {
-        return res.status(404).json({ success: false, message: 'Party not found.' });
-      }
+      const { existing, error } = await loadRowVerified(rowIndex, expectedUid);
+      if (error) return res.status(error.status).json({ success: false, ...error });
 
       await sheetsService.deleteRow(rowIndex);
 
@@ -928,11 +958,10 @@ router.put(
       const rowIndex = parseInt(req.params.id, 10);
       const status = req.body.status || req.body.Status;
       const lostReason = req.body.lostReason || req.body['Lost Reason'];
+      const expectedUid = req.body.expectedUniqueId || req.body.expectedUid;
 
-      const existing = await sheetsService.getRow(rowIndex);
-      if (!existing) {
-        return res.status(404).json({ success: false, message: 'Party not found.' });
-      }
+      const { existing, error } = await loadRowVerified(rowIndex, expectedUid);
+      if (error) return res.status(error.status).json({ success: false, ...error });
 
       const oldStatus = existing['Status'];
       const updateData = { Status: status };
@@ -1065,11 +1094,10 @@ router.put(
 
       const rowIndex = parseInt(req.params.id, 10);
       const { amount, type, method, note } = req.body;
+      const expectedUid = req.body.expectedUniqueId || req.body.expectedUid;
 
-      const existing = await sheetsService.getRow(rowIndex);
-      if (!existing) {
-        return res.status(404).json({ success: false, message: 'Party not found.' });
-      }
+      const { existing, error } = await loadRowVerified(rowIndex, expectedUid);
+      if (error) return res.status(error.status).json({ success: false, ...error });
 
       // CASHIER must have Bill Order ID (POS Ref) before adding payment
       if (req.user.role === 'CASHIER') {
@@ -1240,11 +1268,10 @@ router.put(
 
       const rowIndex = parseInt(req.params.id, 10);
       const { note } = req.body;
+      const expectedUid = req.body.expectedUniqueId || req.body.expectedUid;
 
-      const existing = await sheetsService.getRow(rowIndex);
-      if (!existing) {
-        return res.status(404).json({ success: false, message: 'Party not found.' });
-      }
+      const { existing, error } = await loadRowVerified(rowIndex, expectedUid);
+      if (error) return res.status(error.status).json({ success: false, ...error });
 
       const now = new Date().toISOString();
       const userName = req.user.name || req.user.username;
@@ -1311,10 +1338,9 @@ router.post(
       }
 
       const rowIndex = parseInt(req.params.id, 10);
-      const existing = await sheetsService.getRow(rowIndex);
-      if (!existing) {
-        return res.status(404).json({ success: false, message: 'Party not found.' });
-      }
+      const expectedUid = req.body?.expectedUniqueId || req.body?.expectedUid;
+      const { existing, error } = await loadRowVerified(rowIndex, expectedUid);
+      if (error) return res.status(error.status).json({ success: false, ...error });
 
       const guestEmail = existing['Guest Email'];
       if (!guestEmail) {

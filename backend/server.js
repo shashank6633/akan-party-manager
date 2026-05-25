@@ -362,6 +362,34 @@ async function startServer() {
     await ensureDefaultAdmin();
     console.log('Google Sheets initialized.');
 
+    // Integrity check — alert loudly if any two Party Bookings rows share a
+    // Unique ID. This is the signature of a row-overwrite bug (one party's
+    // data clobbered onto another row). Logs once at startup; non-fatal.
+    try {
+      const rows = await sheetsService.getAllRows();
+      const uidCount = new Map();
+      rows.forEach((r) => {
+        const uid = (r['Unique ID'] || '').trim();
+        if (!uid) return;
+        uidCount.set(uid, (uidCount.get(uid) || []).concat(r._rowIndex));
+      });
+      const dupes = [];
+      for (const [uid, rowIndices] of uidCount.entries()) {
+        if (rowIndices.length > 1) dupes.push({ uid, rowIndices });
+      }
+      if (dupes.length > 0) {
+        console.warn('\n⚠️  Party Bookings integrity warning: duplicate Unique IDs detected:');
+        dupes.forEach((d) => {
+          console.warn(`   ${d.uid} appears in rows: ${d.rowIndices.join(', ')}`);
+        });
+        console.warn('   This usually means a row-overwrite has happened. Inspect manually.\n');
+      } else {
+        console.log('Integrity check: no duplicate Unique IDs in Party Bookings.');
+      }
+    } catch (e) {
+      console.warn('Integrity check skipped:', e.message);
+    }
+
     // Initialize Firebase (non-blocking — check-in module is optional)
     firebaseService.initFirebase();
 

@@ -324,16 +324,17 @@ export default function Dashboard() {
  const executeQuickAction = async () => {
  setModalLoading(true);
  try {
+ const expectedUid = modal.party?.uniqueId;
  if (modal.type === 'confirm') {
- await partyAPI.updateStatus(modal.party.rowIndex, { status: 'Confirmed' });
+ await partyAPI.updateStatus(modal.party.rowIndex, { status: 'Confirmed', expectedUniqueId: expectedUid });
  } else if (modal.type === 'cancel') {
  if (!modalCancelCategory) return;
  if (!modalInput.trim()) return;
  const lostReason = buildLostReason(modalCancelCategory, modalInput);
- await partyAPI.updateStatus(modal.party.rowIndex, { status: 'Cancelled', lostReason });
+ await partyAPI.updateStatus(modal.party.rowIndex, { status: 'Cancelled', lostReason, expectedUniqueId: expectedUid });
  } else if (modal.type === 'payment') {
  if (!modalInput || isNaN(modalInput)) return;
- await partyAPI.addPayment(modal.party.rowIndex, { amount: parseFloat(modalInput), type: 'advance' });
+ await partyAPI.addPayment(modal.party.rowIndex, { amount: parseFloat(modalInput), type: 'advance', expectedUniqueId: expectedUid });
  }
  closeQuickActionModal();
  fetchParties();
