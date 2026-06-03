@@ -62,8 +62,22 @@ log "Frontend built successfully"
 
 # ── STEP 3: STOP BACKEND ON SERVER ────────────────────────────────────────
 info "Stopping backend on server..."
-ssh $SERVER "pkill -f 'node.*server.js'" 2>/dev/null || true
-sleep 2
+# Set watchdog grace files so cron doesn't try to spawn a competing process
+# while we're upgrading. Force-kill (-9) so node can't survive past the
+# port-release wait. Then verify port 5001 is actually free before we
+# continue — otherwise the new node will hit EADDRINUSE and the OLD code
+# stays in front of the proxy.
+ssh $SERVER "
+  echo \"\$(date -Is)\" > /tmp/watchdog-started-node
+  echo \"\$(date -Is)\" > /tmp/watchdog-started-lsws
+  pkill -9 -f 'node.*server.js' 2>/dev/null || true
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    if ! /usr/sbin/ss -tlnH sport = :5001 | grep -q LISTEN; then
+      break
+    fi
+    sleep 1
+  done
+" 2>/dev/null || true
 log "Backend stopped"
 
 # ── STEP 4: UPLOAD BACKEND ────────────────────────────────────────────────
@@ -95,8 +109,21 @@ log "Frontend uploaded"
 
 # ── STEP 7: RESTART BACKEND ───────────────────────────────────────────────
 info "Starting backend..."
-ssh -f $SERVER "cd $SERVER_PATH/backend && nohup node server.js > /tmp/backend.log 2>&1 & disown"
-sleep 3
+# Append to (not overwrite) /tmp/backend.log so watchdog history is preserved
+ssh -f $SERVER "cd $SERVER_PATH/backend && nohup node server.js >> /tmp/backend.log 2>&1 & disown"
+# Wait up to 15s for the new node to bind :5001 — confirms the new code is
+# actually running before the script prints "Backend started"
+ssh $SERVER "
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+    if /usr/sbin/ss -tlnH sport = :5001 | grep -q LISTEN; then
+      echo READY
+      exit 0
+    fi
+    sleep 1
+  done
+  echo TIMEOUT
+  exit 1
+" 2>/dev/null || true
 log "Backend started"
 
 # ── STEP 8: VERIFY DEPLOYMENT ─────────────────────────────────────────────
