@@ -304,7 +304,7 @@ export default function AddParty() {
  setForm({ ...EMPTY_FORM });
  };
 
- const renderInput = (label, field, { type = 'text', required, placeholder, readOnly, ...props } = {}) => (
+ const renderInput = (label, field, { type = 'text', required, placeholder, readOnly, hint, ...props } = {}) => (
  <div>
  <label className="block text-xs font-medium text-gray-600 mb-1">
  {label} {required && <span className="text-red-500">*</span>}
@@ -318,6 +318,7 @@ export default function AddParty() {
  className={`w-full px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30 focus:border-[#af4408] transition-colors ${readOnly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
  {...props}
  />
+ {hint && <p className="text-[10px] text-gray-500 mt-1">{hint}</p>}
  </div>
  );
 
@@ -589,7 +590,7 @@ export default function AddParty() {
  {renderDateSection()}
  {renderInput('Host Name', 'hostName', { required: true, placeholder: 'Enter host name' })}
  <div>
- {renderInput('Phone Number', 'phoneNumber', { required: true, placeholder: '+91 9876543210' })}
+ {renderInput('Phone Number', 'phoneNumber', { required: true, placeholder: '9876543210 or 919876543210', hint: 'Enter digits only — with or without 91 country code. Avoid leading +.' })}
  {phoneError && <p className="text-xs text-red-500 mt-1">{phoneError}</p>}
  </div>
  {renderInput('Company', 'company', { required: true, placeholder: 'Company name' })}
@@ -633,7 +634,7 @@ export default function AddParty() {
  {renderDateSection()}
  {renderInput('Host Name', 'hostName', { required: true, placeholder: 'Enter host name' })}
  <div>
- {renderInput('Phone Number', 'phoneNumber', { required: true, placeholder: '+91 9876543210' })}
+ {renderInput('Phone Number', 'phoneNumber', { required: true, placeholder: '9876543210 or 919876543210', hint: 'Enter digits only — with or without 91 country code. Avoid leading +.' })}
  {phoneError && <p className="text-xs text-red-500 mt-1">{phoneError}</p>}
  </div>
  {renderInput('Company', 'company', { required: true, placeholder: 'Company name' })}

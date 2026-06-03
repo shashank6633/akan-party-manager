@@ -1051,6 +1051,11 @@ export default function PartyDetail() {
             {renderFieldDisplay(field, value)}
            </p>
           )}
+          {editable && field === 'phoneNumber' && (
+           <p className="text-[10px] text-gray-500 mt-1">
+            Enter digits only — with or without 91 country code. Avoid leading +.
+           </p>
+          )}
          </div>
         );
        })}
