@@ -60,6 +60,7 @@ const COLUMNS = [
   'Guest Contacts Status',       // AM  (Pending / Completed / No Contacts Requested / No Contacts Approved)
   'Attendance Count',            // AN  (e.g. "45/50 (90%)")
   'Guest Checkin',               // AO  (Yes / No — toggle to enable check-in module for this party)
+  'Enquiry Source',              // AP  (Internal: Call / WhatsApp / Instagram / etc. — not shown to guest)
 ];
 
 /**
@@ -71,7 +72,7 @@ COLUMNS.forEach((name, idx) => {
 });
 
 // Last column letter for range references
-const LAST_COL = 'AO';
+const LAST_COL = 'AP';
 
 // Retry wrapper for transient Google API errors
 const MAX_RETRIES = 3;

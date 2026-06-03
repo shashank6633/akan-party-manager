@@ -56,6 +56,12 @@ const withUidCheck = (data) => {
   return expectedUniqueId ? { ...data, expectedUniqueId } : data;
 };
 
+// Settings — admin-managed lookup lists (dropdown values etc.)
+export const settingsAPI = {
+  getEnquirySources: () => api.get('/settings/enquiry-sources'),
+  updateEnquirySources: (sources) => api.put('/settings/enquiry-sources', { sources }),
+};
+
 export const partyAPI = {
   getAll: (params) => api.get('/parties', { params }),
   getTBC: (params) => api.get('/parties/tbc', { params }),

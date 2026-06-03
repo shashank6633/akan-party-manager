@@ -22,8 +22,9 @@ import {
  EyeOff,
  ChevronUp,
  ChevronDown,
+ Phone,
 } from 'lucide-react';
-import { authAPI, notificationAPI, api } from '../services/api';
+import { authAPI, notificationAPI, api, settingsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { DISCLAIMERS, PACKAGES, FULL_MENU, MENU_CATEGORIES } from '../data/menuTemplates';
 
@@ -47,6 +48,7 @@ const TABS = [
  { id: 'users', label: 'Users', icon: Users },
  { id: 'notifications', label: 'Notifications', icon: Bell },
  { id: 'emails', label: 'Email Settings', icon: Mail },
+ { id: 'party', label: 'Party Settings', icon: Phone },
  { id: 'fp', label: 'F&P Settings', icon: FileText },
  { id: 'system', label: 'System', icon: SettingsIcon },
 ];
@@ -112,6 +114,12 @@ export default function Settings() {
  const [expandedMenuCat, setExpandedMenuCat] = useState(null);
  const [newItemText, setNewItemText] = useState('');
  const [loadingFp, setLoadingFp] = useState(false);
+
+ // Enquiry Sources (internal tracking — drives "Reference" dropdown on parties)
+ const [enquirySources, setEnquirySources] = useState([]);
+ const [newSourceText, setNewSourceText] = useState('');
+ const [savingSources, setSavingSources] = useState(false);
+ const [sourcesMsg, setSourcesMsg] = useState('');
  const [savingFp, setSavingFp] = useState(false);
  // Email routing
  const [emailRouting, setEmailRouting] = useState({});
@@ -123,7 +131,49 @@ export default function Settings() {
  if (activeTab === 'emails' && isAdmin) { fetchEmailSettings(); fetchEmailRouting(); }
  if (activeTab === 'notifications' && isAdmin) fetchReminderSetting();
  if (activeTab === 'fp') fetchFpSettings();
+ if (activeTab === 'party' && isAdmin) {
+  settingsAPI.getEnquirySources().then((res) => {
+   setEnquirySources(res.data?.sources || []);
+  }).catch(() => {});
+ }
  }, [activeTab]);
+
+ // Enquiry Sources — admin-managed dropdown values for party "Reference" field
+ const saveEnquirySources = async () => {
+  setSavingSources(true);
+  setSourcesMsg('');
+  try {
+   const cleaned = enquirySources.map((s) => s.trim()).filter(Boolean);
+   await settingsAPI.updateEnquirySources(cleaned);
+   setSourcesMsg('Saved.');
+   setTimeout(() => setSourcesMsg(''), 2500);
+  } catch (err) {
+   setSourcesMsg(err.response?.data?.message || 'Failed to save.');
+  } finally {
+   setSavingSources(false);
+  }
+ };
+ const addEnquirySource = () => {
+  const v = newSourceText.trim();
+  if (!v) return;
+  if (enquirySources.some((s) => s.toLowerCase() === v.toLowerCase())) {
+   setSourcesMsg(`"${v}" is already in the list.`);
+   setTimeout(() => setSourcesMsg(''), 2500);
+   return;
+  }
+  setEnquirySources([...enquirySources, v]);
+  setNewSourceText('');
+ };
+ const removeEnquirySource = (idx) => {
+  setEnquirySources(enquirySources.filter((_, i) => i !== idx));
+ };
+ const moveEnquirySource = (idx, delta) => {
+  const arr = [...enquirySources];
+  const tgt = idx + delta;
+  if (tgt < 0 || tgt >= arr.length) return;
+  [arr[idx], arr[tgt]] = [arr[tgt], arr[idx]];
+  setEnquirySources(arr);
+ };
 
  const fetchReminderSetting = async () => {
  try {
@@ -390,7 +440,7 @@ export default function Settings() {
  : 'text-gray-500 hover:text-gray-700'
  }`}
  >
- <tab.icon className="w-3.5 h-3.5 shrink-0" /> <span className="hidden sm:inline">{tab.label}</span><span className="sm:hidden">{tab.id === 'emails' ? 'Email' : tab.id === 'fp' ? 'F&P' : tab.label}</span>
+ <tab.icon className="w-3.5 h-3.5 shrink-0" /> <span className="hidden sm:inline">{tab.label}</span><span className="sm:hidden">{tab.id === 'emails' ? 'Email' : tab.id === 'fp' ? 'F&P' : tab.id === 'party' ? 'Party' : tab.label}</span>
  </button>
  ))}
  </div>
@@ -1302,6 +1352,101 @@ export default function Settings() {
  </div>
  </>
  )}
+ </div>
+ )}
+
+ {/* Party Settings Tab — config that lives on Party records, not F&P */}
+ {activeTab === 'party' && isAdmin && (
+ <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+  <div className="flex items-center gap-2 mb-1">
+   <Phone className="w-4 h-4 text-[#af4408]" />
+   <h3 className="text-sm font-semibold text-gray-800">Party Form Settings</h3>
+  </div>
+  <p className="text-xs text-gray-500">Settings that apply to the Party form and Party records — independent of F&P content.</p>
+
+  {/* Enquiry Sources (Reference dropdown) */}
+  <div className="border-t border-gray-200 pt-5">
+   <div className="flex items-center justify-between mb-3">
+    <div>
+     <h4 className="text-sm font-semibold text-gray-800">📞 Reference / Enquiry Source</h4>
+     <p className="text-xs text-gray-500 mt-0.5">
+      Internal dropdown for tracking where enquiries come from. Shown on the Party form right after Status. Not shown to guests in F&P PDFs.
+     </p>
+    </div>
+    <button
+     onClick={saveEnquirySources}
+     disabled={savingSources || enquirySources.length === 0}
+     className="px-3 py-1.5 rounded-lg bg-[#af4408] text-white text-xs font-semibold hover:bg-[#963a07] disabled:opacity-50"
+    >
+     {savingSources ? 'Saving…' : 'Save'}
+    </button>
+   </div>
+
+   <div className="space-y-1.5 mb-3">
+    {enquirySources.length === 0 && (
+     <p className="text-xs text-gray-400 italic">No sources configured yet — add one below.</p>
+    )}
+    {enquirySources.map((src, idx) => (
+     <div key={`${src}-${idx}`} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5">
+      <span className="text-[10px] font-mono text-gray-400 w-6 text-right">{idx + 1}.</span>
+      <input
+       type="text"
+       value={src}
+       onChange={(e) => {
+        const arr = [...enquirySources];
+        arr[idx] = e.target.value;
+        setEnquirySources(arr);
+       }}
+       className="flex-1 px-2 py-1 text-sm bg-white border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
+      />
+      <button
+       onClick={() => moveEnquirySource(idx, -1)}
+       disabled={idx === 0}
+       className="px-1.5 py-1 text-xs text-gray-500 hover:text-gray-800 disabled:opacity-30"
+       title="Move up"
+      >▲</button>
+      <button
+       onClick={() => moveEnquirySource(idx, 1)}
+       disabled={idx === enquirySources.length - 1}
+       className="px-1.5 py-1 text-xs text-gray-500 hover:text-gray-800 disabled:opacity-30"
+       title="Move down"
+      >▼</button>
+      <button
+       onClick={() => removeEnquirySource(idx)}
+       className="px-1.5 py-1 text-xs text-red-500 hover:text-red-700"
+       title="Remove"
+      >✕</button>
+     </div>
+    ))}
+   </div>
+
+   <div className="flex items-center gap-2">
+    <input
+     type="text"
+     value={newSourceText}
+     onChange={(e) => setNewSourceText(e.target.value)}
+     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEnquirySource(); } }}
+     placeholder="Add new source (e.g. LinkedIn, Print Ad)…"
+     className="flex-1 px-3 py-2 text-sm rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
+    />
+    <button
+     onClick={addEnquirySource}
+     disabled={!newSourceText.trim()}
+     className="px-3 py-2 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 disabled:opacity-50"
+    >
+     + Add
+    </button>
+   </div>
+   {sourcesMsg && (
+    <p className={`text-xs mt-2 ${sourcesMsg === 'Saved.' ? 'text-green-600' : 'text-amber-600'}`}>{sourcesMsg}</p>
+   )}
+  </div>
+ </div>
+ )}
+ {activeTab === 'party' && !isAdmin && (
+ <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+  <ShieldOff className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+  <p className="text-sm text-gray-500">Only Admin can manage Party form settings.</p>
  </div>
  )}
 

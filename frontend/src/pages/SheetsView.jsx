@@ -50,6 +50,7 @@ const STATUS_COLORS = {
   Tentative: 'bg-amber-100 text-amber-800',
   Confirmed: 'bg-green-100 text-green-800',
   Cancelled: 'bg-red-100 text-red-800',
+  'Ala Carte': 'bg-teal-100 text-teal-800',
 };
 
 const PAGE_SIZE = 100;
@@ -161,7 +162,7 @@ export default function SheetsView() {
           onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
           className="px-2 py-1.5 rounded border border-gray-300 bg-white text-xs focus:outline-none focus:ring-1 focus:ring-green-500"
         >
-          {['All', 'Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled'].map((s) => (
+          {['All', 'Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled', 'Ala Carte'].map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>

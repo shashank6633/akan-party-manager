@@ -32,6 +32,7 @@ export const getStatusColor = (status) => {
  Contacted: { bg: 'bg-purple-100', text: 'text-purple-800', dot: 'bg-purple-500' },
  Tentative: { bg: 'bg-blue-100', text: 'text-blue-800', dot: 'bg-blue-500' },
  Confirmed: { bg: 'bg-green-100', text: 'text-green-800', dot: 'bg-green-500' },
+ 'Ala Carte': { bg: 'bg-teal-100', text: 'text-teal-800', dot: 'bg-teal-500' },
  Cancelled: { bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-500' },
  };
  return colors[status] || colors.Enquiry;

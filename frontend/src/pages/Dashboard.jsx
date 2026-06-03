@@ -9,7 +9,7 @@ import { debounce, formatDate, formatCurrency, isTBCDate } from '../utils/helper
 import { useAuth } from '../context/AuthContext';
 import { CANCEL_CATEGORIES, makeReasonValue, buildLostReason } from '../constants/cancellationReasons';
 
-const STATUS_OPTIONS = ['All', 'Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled'];
+const STATUS_OPTIONS = ['All', 'Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled', 'Ala Carte'];
 const CASHIER_STATUS_OPTIONS = ['All', 'Confirmed'];
 const PAGE_SIZE = 20;
 

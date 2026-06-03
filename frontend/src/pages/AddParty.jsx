@@ -11,7 +11,7 @@ import {
  Copy,
  Share2,
 } from 'lucide-react';
-import { partyAPI, authAPI } from '../services/api';
+import { partyAPI, authAPI, settingsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { validatePhone, formatCurrency, generateWhatsAppMessage, copyToClipboard } from '../utils/helpers';
 import { extractFloor, findPlaceConflicts } from '../utils/placeConflict';
@@ -21,7 +21,7 @@ const GRE_FIELDS = [
  'date', 'hostName', 'phoneNumber', 'altContact', 'company',
  'guestVisited', 'status', 'place', 'partyTime',
  'expectedPax', 'remarks', 'occasionType', 'specialRequirements',
- 'handledBy',
+ 'handledBy', 'enquirySource',
 ];
 
 const MONTHS = [
@@ -81,6 +81,7 @@ const EMPTY_FORM = {
  finalRate: '',
  finalTotalAmount: '',
  handledBy: '',
+ enquirySource: '',
 };
 
 const DRAFT_KEY = 'akan_party_draft_v2';
@@ -105,6 +106,7 @@ export default function AddParty() {
  const [showBilling, setShowBilling] = useState(true);
  const [showAdditional, setShowAdditional] = useState(false);
  const [handlerUsers, setHandlerUsers] = useState([]);
+ const [enquirySources, setEnquirySources] = useState([]);
 
  // Fetch SALES/MANAGER/ADMIN users for "Handled By" dropdown
  useEffect(() => {
@@ -113,6 +115,10 @@ export default function AddParty() {
    .filter((u) => ['SALES', 'MANAGER', 'ADMIN'].includes(u.role) && u.isActive !== false)
    .map((u) => u.name || u.username);
   setHandlerUsers(users);
+ }).catch(() => {});
+ // Fetch admin-managed Enquiry Source list
+ settingsAPI.getEnquirySources().then((res) => {
+  setEnquirySources(res.data?.sources || []);
  }).catch(() => {});
  }, []);
 
@@ -599,6 +605,7 @@ export default function AddParty() {
  {renderSelect('Occasion Type', 'occasionType', ['Corporate', 'Family', 'Others'])}
  {renderSelect('Guest Visited', 'guestVisited', ['Yes', 'No'])}
  {renderSelect('Status', 'status', ['Enquiry'], { required: true })}
+ {renderSelect('Reference (Enquiry Source)', 'enquirySource', enquirySources)}
  {renderPlaceSelect()}
  {renderInput('Party Time', 'partyTime', { placeholder: 'e.g. Lunch 12:30 PM, Dinner 7:30 PM' })}
  {renderInput('Expected Pax', 'expectedPax', { required: isGRE, placeholder: 'e.g. 50 or 40-60' })}
@@ -643,6 +650,7 @@ export default function AddParty() {
  {renderInput('Guest Email', 'guestEmail', { type: 'email', placeholder: 'guest@example.com' })}
  {renderPlaceSelect()}
  {renderSelect('Status', 'status', ['Enquiry', 'Contacted'], { required: true })}
+ {renderSelect('Reference (Enquiry Source)', 'enquirySource', enquirySources)}
  </div>
  </div>
 

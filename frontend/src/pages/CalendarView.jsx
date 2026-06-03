@@ -25,13 +25,14 @@ function minPax(expectedPax) {
 
 const STATUS_COLORS = {
   Confirmed: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300', dot: 'bg-green-500' },
+  'Ala Carte': { bg: 'bg-teal-100', text: 'text-teal-800', border: 'border-teal-300', dot: 'bg-teal-500' },
   Tentative: { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300', dot: 'bg-blue-500' },
   Contacted: { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-300', dot: 'bg-purple-500' },
   Enquiry: { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300', dot: 'bg-amber-500' },
   Cancelled: { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300', dot: 'bg-red-500' },
 };
 
-const STATUS_ORDER = { Confirmed: 0, Tentative: 1, Contacted: 2, Enquiry: 3, Cancelled: 4 };
+const STATUS_ORDER = { Confirmed: 0, 'Ala Carte': 1, Tentative: 2, Contacted: 3, Enquiry: 4, Cancelled: 5 };
 const sortByStatus = (a, b) => (STATUS_ORDER[(a.status || '').trim()] ?? 99) - (STATUS_ORDER[(b.status || '').trim()] ?? 99);
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -166,6 +167,7 @@ export default function CalendarView() {
 
   // Count summary
   const confirmed = parties.filter((p) => (p.status || '').trim() === 'Confirmed').length;
+  const alaCarte = parties.filter((p) => (p.status || '').trim() === 'Ala Carte').length;
   const tentative = parties.filter((p) => (p.status || '').trim() === 'Tentative').length;
   const enquiry = parties.filter((p) => (p.status || '').trim() === 'Enquiry').length;
   const contacted = parties.filter((p) => (p.status || '').trim() === 'Contacted').length;
@@ -196,6 +198,7 @@ export default function CalendarView() {
         {/* Legend */}
         <div className="flex flex-wrap items-center gap-3 text-xs">
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-500"></span> Confirmed ({confirmed})</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-teal-500"></span> Ala Carte ({alaCarte})</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-500"></span> Tentative ({tentative})</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-purple-500"></span> Contacted ({contacted})</span>
           <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-amber-500"></span> Enquiry ({enquiry})</span>

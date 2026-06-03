@@ -72,7 +72,7 @@ async function generateRangeReport(fromDate, toDate) {
     return rowDate >= from && rowDate <= to;
   });
 
-  const knownStatuses = ['Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled'];
+  const knownStatuses = ['Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled', 'Ala Carte'];
   const stats = {
     fromDate: from,
     toDate: to,
@@ -84,6 +84,7 @@ async function generateRangeReport(fromDate, toDate) {
     enquiry: filtered.filter((r) => (r['Status'] || '').trim() === 'Enquiry').length,
     enquiries: filtered.filter((r) => (r['Status'] || '').trim() === 'Enquiry').length,
     contacted: filtered.filter((r) => (r['Status'] || '').trim() === 'Contacted').length,
+    alaCarte: filtered.filter((r) => (r['Status'] || '').trim() === 'Ala Carte').length,
     unknown: filtered.filter((r) => {
       const s = (r['Status'] || '').trim();
       return !s || !knownStatuses.includes(s);

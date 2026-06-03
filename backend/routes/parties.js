@@ -19,7 +19,7 @@ function convertBody(req) {
 }
 
 // Valid statuses (flow: Enquiry → Contacted → Tentative → Confirmed → Cancelled)
-const VALID_STATUSES = ['Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled'];
+const VALID_STATUSES = ['Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled', 'Ala Carte'];
 
 // Fields to skip in edit history (auto-calculated or too verbose)
 const AUDIT_SKIP_FIELDS = [
@@ -110,6 +110,7 @@ const ROLE_EDITABLE_FIELDS = {
     'Handled By',
     'Guest Contacts Status',
     'Guest Checkin',
+    'Enquiry Source',
   ],
   CASHIER: [
     'Confirmed Pax',
@@ -165,6 +166,7 @@ const ROLE_EDITABLE_FIELDS = {
     'Balance Payment Date',
     'Bill Order ID',
     'Guest Checkin',
+    'Enquiry Source',
   ],
   MANAGER: '__ALL__',
   ADMIN: '__ALL__',
@@ -457,7 +459,7 @@ router.get('/stats', async (req, res) => {
       });
     }
 
-    const knownStatuses = ['Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled'];
+    const knownStatuses = ['Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled', 'Ala Carte'];
     const getStatus = (r) => (r['Status'] || '').trim();
     const stats = {
       totalEnquiries: rows.length,
@@ -466,6 +468,7 @@ router.get('/stats', async (req, res) => {
       cancelled: rows.filter((r) => getStatus(r) === 'Cancelled').length,
       enquiry: rows.filter((r) => getStatus(r) === 'Enquiry').length,
       contacted: rows.filter((r) => getStatus(r) === 'Contacted').length,
+      alaCarte: rows.filter((r) => getStatus(r) === 'Ala Carte').length,
       unknown: rows.filter((r) => { const s = getStatus(r); return !s || !knownStatuses.includes(s); }).length,
       totalRevenue: rows.reduce((sum, r) => sum + (parseFloat(r['Final Total Amount']) || 0), 0),
       totalApproxBill: rows.reduce((sum, r) => sum + (parseFloat(r['Approx Bill Amount']) || 0), 0),

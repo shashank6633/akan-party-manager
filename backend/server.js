@@ -16,6 +16,7 @@ const feedbackRoutes = require('./routes/feedback');
 const preTastingRoutes = require('./routes/preTasting');
 const guestContactRoutes = require('./routes/guestContacts');
 const checkinRoutes = require('./routes/checkin');
+const settingsRoutes = require('./routes/settings');
 const reportService = require('./services/reportService');
 const emailService = require('./services/emailService');
 const sheetsService = require('./services/sheetsService');
@@ -81,6 +82,7 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/pre-tasting', preTastingRoutes);
 app.use('/api/guest-contacts', guestContactRoutes);
 app.use('/api/checkin', checkinRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

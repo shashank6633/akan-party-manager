@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import StatusBadge from '../components/Party/StatusBadge';
 import CheckinTab from '../components/Checkin/CheckinTab';
-import { partyAPI, fpAPI } from '../services/api';
+import { partyAPI, fpAPI, settingsAPI } from '../services/api';
 import { CANCEL_CATEGORIES, makeReasonValue, buildLostReason } from '../constants/cancellationReasons';
 import { useAuth } from '../context/AuthContext';
 import { extractFloor, findPlaceConflicts } from '../utils/placeConflict';
@@ -101,6 +101,7 @@ const FIELD_LABELS = {
  billOrderId: 'Bill Order ID (POS Ref)',
  createdBy: 'Created By',
  guestCheckin: 'Guest Checkin',
+ enquirySource: 'Reference (Enquiry Source)',
 };
 
 const READ_ONLY_FIELDS = [
@@ -178,6 +179,7 @@ export default function PartyDetail() {
  const [showReminderLog, setShowReminderLog] = useState(false);
  const [fpRecords, setFpRecords] = useState([]);
  const [editHistory, setEditHistory] = useState([]);
+ const [enquirySources, setEnquirySources] = useState([]);
  const [showEditHistory, setShowEditHistory] = useState(false);
  const [loadingHistory, setLoadingHistory] = useState(false);
  const [customPlaceMode, setCustomPlaceMode] = useState(false);
@@ -201,6 +203,13 @@ export default function PartyDetail() {
   dataLoaded.current = false;
   fetchParty();
  }, [id]);
+
+ // Fetch admin-managed Enquiry Source dropdown options (once)
+ useEffect(() => {
+  settingsAPI.getEnquirySources()
+   .then((res) => setEnquirySources(res.data?.sources || []))
+   .catch(() => {});
+ }, []);
 
  // Sync checkinEnabled from party data on load
  useEffect(() => {
@@ -520,7 +529,7 @@ export default function PartyDetail() {
   },
   {
    title: 'Status Tracking',
-   fields: ['status', 'lostReason', 'cancelledDate', 'fpIssued', 'enquiredAt'],
+   fields: ['status', 'enquirySource', 'lostReason', 'cancelledDate', 'fpIssued', 'enquiredAt'],
   },
   {
    title: 'Estimation',
@@ -575,7 +584,7 @@ export default function PartyDetail() {
      }}
      className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
     >
-     {['Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled'].map((s) => (
+     {['Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled', 'Ala Carte'].map((s) => (
       <option key={s} value={s}>{s}</option>
      ))}
     </select>
@@ -592,6 +601,24 @@ export default function PartyDetail() {
      <option value="Corporate">Corporate</option>
      <option value="Family">Family</option>
      <option value="Others">Others</option>
+    </select>
+   );
+  }
+  if (field === 'enquirySource') {
+   const current = editData[field] || '';
+   // If current value isn't in the live source list (e.g. removed since save),
+   // still show it as an option so we don't lose data on save.
+   const opts = enquirySources.includes(current) || !current
+    ? enquirySources
+    : [current, ...enquirySources];
+   return (
+    <select
+     value={current}
+     onChange={(e) => setEditData((prev) => ({ ...prev, [field]: e.target.value }))}
+     className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#af4408]/30"
+    >
+     <option value="">— Select source —</option>
+     {opts.map((s) => <option key={s} value={s}>{s}</option>)}
     </select>
    );
   }

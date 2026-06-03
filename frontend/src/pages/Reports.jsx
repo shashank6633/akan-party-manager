@@ -44,6 +44,7 @@ const STATUS_COLORS = {
  Contacted: '#A855F7',
  Tentative: '#3B82F6',
  Confirmed: '#22C55E',
+ 'Ala Carte': '#14B8A6',
  Cancelled: '#EF4444',
  Unknown: '#6B7280',
 };
@@ -172,6 +173,7 @@ export default function Reports() {
  { name: 'Contacted', value: reportData.contacted || 0 },
  { name: 'Tentative', value: reportData.tentative || 0 },
  { name: 'Confirmed', value: reportData.confirmed || 0 },
+ { name: 'Ala Carte', value: reportData.alaCarte || 0 },
  { name: 'Cancelled', value: reportData.cancelled || 0 },
  { name: 'Unknown', value: reportData.unknown || 0 },
  ] : [];
@@ -572,12 +574,13 @@ export default function Reports() {
  {/* Status Analysis Tab */}
  {activeTab === 'status' && (
  <div className="space-y-6">
- <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
+ <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3 sm:gap-4">
  <StatCard label="Total Enquiries" value={reportData?.total || 0} color="text-gray-900" />
  <StatCard label="Enquiry" value={reportData?.enquiries || 0} color="text-yellow-500" />
  <StatCard label="Contacted" value={reportData?.contacted || 0} color="text-purple-500" />
  <StatCard label="Tentative" value={reportData?.tentative || 0} color="text-blue-500" />
  <StatCard label="Confirmed" value={reportData?.confirmed || 0} color="text-green-500" />
+ <StatCard label="Ala Carte" value={reportData?.alaCarte || 0} color="text-teal-500" />
  <StatCard label="Cancelled" value={reportData?.cancelled || 0} color="text-red-500" />
  <StatCard label="Unknown" value={reportData?.unknown || 0} color="text-gray-500" />
  </div>
@@ -623,6 +626,7 @@ export default function Reports() {
    { label: 'Contacted', count: reportData?.contacted || 0, color: 'bg-purple-500' },
    { label: 'Tentative', count: reportData?.tentative || 0, color: 'bg-blue-500' },
    { label: 'Confirmed', count: reportData?.confirmed || 0, color: 'bg-green-500' },
+   { label: 'Ala Carte', count: reportData?.alaCarte || 0, color: 'bg-teal-500' },
    { label: 'Cancelled', count: reportData?.cancelled || 0, color: 'bg-red-500' },
    { label: 'Unknown', count: reportData?.unknown || 0, color: 'bg-gray-400' },
   ];
@@ -645,7 +649,8 @@ export default function Reports() {
  <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
  {[
   { label: 'Conversion Rate', value: reportData?.total ? `${((reportData.confirmed / reportData.total) * 100).toFixed(1)}%` : '0%', desc: 'Confirmed / Total Enquiries' },
-  { label: 'Cancellation Rate', value: reportData?.total ? `${((reportData.cancelled / reportData.total) * 100).toFixed(1)}%` : '0%', desc: 'Cancelled / Total Enquiries' },
+  { label: 'Ala Carte Rate', value: reportData?.total ? `${(((reportData.alaCarte || 0) / reportData.total) * 100).toFixed(1)}%` : '0%', desc: 'Ala Carte / Total Enquiries (still revenue, just no party booking)' },
+  { label: 'Cancellation Rate', value: reportData?.total ? `${((reportData.cancelled / reportData.total) * 100).toFixed(1)}%` : '0%', desc: 'Cancelled / Total Enquiries (excludes Ala Carte conversions)' },
   ...(canSeeRevenue ? [{ label: 'Collection Rate', value: reportData?.totalRevenue ? `${(((reportData.totalAdvance || 0) / reportData.totalRevenue) * 100).toFixed(1)}%` : '0%', desc: 'Advance Collected / Total Revenue' }] : []),
  ].map((metric) => (
   <div key={metric.label} className="flex items-center justify-between py-1.5 gap-2">

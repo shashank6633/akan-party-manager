@@ -72,7 +72,14 @@ rsync -avz --delete \
   --exclude 'node_modules' \
   --exclude '.env' \
   --exclude 'watchdog.js' \
+  --exclude 'data' \
   "$BACKEND_DIR/" "$SERVER:$SERVER_PATH/backend/" 2>&1 | tail -3
+# Seed any NEW config files in data/ that production doesn't have yet
+# (e.g. enquiry-sources.json on first deploy of the Reference feature).
+# --ignore-existing means existing production files (fp-settings.json edited
+# by Admin in the UI) are NEVER overwritten — only brand-new files copy over.
+rsync -avz --ignore-existing \
+  "$BACKEND_DIR/data/" "$SERVER:$SERVER_PATH/backend/data/" 2>&1 | tail -3
 log "Backend uploaded"
 
 # ── STEP 5: INSTALL DEPENDENCIES (if package.json changed) ────────────────

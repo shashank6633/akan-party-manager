@@ -15,6 +15,7 @@ const cards = [
  { key: 'contacted', label: 'Contacted', icon: PhoneCall, color: 'text-purple-500', bg: 'bg-purple-50' },
  { key: 'tentative', label: 'Tentative', icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50' },
  { key: 'confirmed', label: 'Confirmed', icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50' },
+ { key: 'alaCarte', label: 'Ala Carte', icon: CheckCircle2, color: 'text-teal-500', bg: 'bg-teal-50' },
  { key: 'cancelled', label: 'Cancelled', icon: XCircle, color: 'text-red-500', bg: 'bg-red-50' },
  { key: 'totalEnquiries', label: 'Total Enquiries', icon: MessageSquare, color: 'text-gray-500', bg: 'bg-gray-100' },
  { key: 'totalRevenue', label: 'Total Revenue', icon: IndianRupee, color: 'text-[#af4408]', bg: 'bg-[#af4408]/10', isCurrency: true, revenueOnly: true },

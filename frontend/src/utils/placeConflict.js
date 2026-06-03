@@ -80,12 +80,13 @@ export function conflictsWith(placeA, placeB) {
 }
 
 // Filter list of parties → only those that conflict with the given place,
-// have status Confirmed/Tentative, and are not the excluded party.
+// have status Confirmed/Tentative/Ala Carte (all three actually occupy the
+// space), and are not the excluded party.
 export function findPlaceConflicts(parties, place, excludeUniqueId) {
  if (!place) return [];
  return parties.filter((p) => {
   if (excludeUniqueId && p.uniqueId === excludeUniqueId) return false;
-  if (!['Confirmed', 'Tentative'].includes(p.status)) return false;
+  if (!['Confirmed', 'Tentative', 'Ala Carte'].includes(p.status)) return false;
   return conflictsWith(place, p.place);
  });
 }
