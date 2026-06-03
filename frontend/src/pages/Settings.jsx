@@ -384,7 +384,20 @@ export default function Settings() {
  setSavingFp(true);
  setError('');
  try {
- await notificationAPI.updateFpSettings({ overrides: fpOverrides, customTc: fpCustomTc, liquorOverrides, menuOverrides });
+ // Strip empty / whitespace-only brand rows from every liquor package
+ // before saving. The new per-row editor lets users insert blank rows
+ // mid-list, and we don't want those leaking into the F&P PDF.
+ const cleanedLiquor = Object.fromEntries(
+  Object.entries(liquorOverrides).map(([pkg, ov]) => [
+   pkg,
+   {
+    ...ov,
+    ...(Array.isArray(ov?.drinks) ? { drinks: ov.drinks.map((b) => (b || '').trim()).filter(Boolean) } : {}),
+   },
+  ])
+ );
+ await notificationAPI.updateFpSettings({ overrides: fpOverrides, customTc: fpCustomTc, liquorOverrides: cleanedLiquor, menuOverrides });
+ setLiquorOverrides(cleanedLiquor);
  setSuccess('F&P settings saved! Changes apply to new F&P records.');
  setTimeout(() => setSuccess(''), 3000);
  } catch (err) {
@@ -1272,23 +1285,82 @@ export default function Settings() {
      </button>
      )}
     </div>
-    <textarea
-     value={currentDrinks.join('\n')}
-     onChange={(e) => {
-     const brands = e.target.value.split('\n');
-     setLiquorOverrides((prev) => ({
+    {/* Per-brand structured list — insert anywhere, reorder, remove */}
+    {(() => {
+     const setBrands = (next) => setLiquorOverrides((prev) => ({
       ...prev,
-      [pkgKey]: {
-      ...(prev[pkgKey] || {}),
-      drinks: brands.filter((b) => b.trim()),
-      },
+      [pkgKey]: { ...(prev[pkgKey] || {}), drinks: next },
      }));
-     }}
-     rows={Math.min(Math.max(currentDrinks.length + 1, 4), 10)}
-     className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-purple-400/30 font-mono leading-relaxed"
-     placeholder="One brand per line..."
-    />
-    <p className="text-[10px] text-gray-400">One brand per line. {currentDrinks.length} brand{currentDrinks.length !== 1 ? 's' : ''} listed.</p>
+     const insertAfter = (idx) => {
+      const next = [...currentDrinks];
+      next.splice(idx + 1, 0, '');
+      setBrands(next);
+     };
+     const remove = (idx) => {
+      const next = currentDrinks.filter((_, i) => i !== idx);
+      setBrands(next);
+     };
+     const move = (idx, delta) => {
+      const tgt = idx + delta;
+      if (tgt < 0 || tgt >= currentDrinks.length) return;
+      const next = [...currentDrinks];
+      [next[idx], next[tgt]] = [next[tgt], next[idx]];
+      setBrands(next);
+     };
+     const update = (idx, val) => {
+      const next = [...currentDrinks];
+      next[idx] = val;
+      setBrands(next);
+     };
+     return (
+      <div className="space-y-1.5">
+       {currentDrinks.length === 0 && (
+        <p className="text-[11px] text-gray-400 italic">No brands yet — click "Add brand" below.</p>
+       )}
+       {currentDrinks.map((brand, idx) => (
+        <div key={idx} className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2 py-1.5">
+         <span className="text-[10px] font-mono text-gray-400 w-7 text-right">{idx + 1}.</span>
+         <input
+          type="text"
+          value={brand}
+          onChange={(e) => update(idx, e.target.value)}
+          placeholder="Brand name"
+          className="flex-1 px-2 py-1 text-xs bg-gray-50 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-purple-400/30"
+         />
+         <button
+          onClick={() => insertAfter(idx)}
+          className="px-2 py-1 text-[10px] font-semibold text-purple-600 hover:bg-purple-50 rounded"
+          title="Insert a new brand right after this one"
+         >+ below</button>
+         <button
+          onClick={() => move(idx, -1)}
+          disabled={idx === 0}
+          className="px-1.5 py-1 text-xs text-gray-500 hover:text-gray-800 disabled:opacity-30"
+          title="Move up"
+         >▲</button>
+         <button
+          onClick={() => move(idx, 1)}
+          disabled={idx === currentDrinks.length - 1}
+          className="px-1.5 py-1 text-xs text-gray-500 hover:text-gray-800 disabled:opacity-30"
+          title="Move down"
+         >▼</button>
+         <button
+          onClick={() => remove(idx)}
+          className="px-1.5 py-1 text-xs text-red-500 hover:text-red-700"
+          title="Remove"
+         >✕</button>
+        </div>
+       ))}
+       <button
+        onClick={() => setBrands([...currentDrinks, ''])}
+        className="w-full mt-1 px-3 py-1.5 text-[11px] font-semibold text-gray-600 bg-gray-50 border border-dashed border-gray-300 rounded-lg hover:bg-gray-100 hover:text-gray-900"
+       >
+        + Add brand at end
+       </button>
+      </div>
+     );
+    })()}
+    <p className="text-[10px] text-gray-400 mt-1">{currentDrinks.length} brand{currentDrinks.length !== 1 ? 's' : ''} listed. Use "+ below" to insert after any row.</p>
     </div>
 
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
