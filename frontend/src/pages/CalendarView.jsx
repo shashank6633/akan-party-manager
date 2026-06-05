@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Loader2, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, HelpCircle, ChevronDown, ChevronUp, Copy, Phone, X, Check } from 'lucide-react';
 import { partyAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { isTBCDate } from '../utils/helpers';
+import { isTBCDate, copyToClipboard } from '../utils/helpers';
 
 const MONTH_NAMES_FULL = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -41,6 +41,10 @@ const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export default function CalendarView() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isCashier = user?.role === 'CASHIER';
+  // GRE / ACCOUNTS are pure view-only — clicks do nothing. Cashier gets a
+  // mini info popup with the unique ID to copy → paste into Billing. All
+  // other roles navigate to the full party detail page.
   const isViewOnly = user?.role === 'GRE' || user?.role === 'CASHIER' || user?.role === 'ACCOUNTS';
   const [currentDate, setCurrentDate] = useState(new Date());
   const [parties, setParties] = useState([]);
@@ -49,6 +53,9 @@ export default function CalendarView() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
   const [tbcExpanded, setTbcExpanded] = useState(true);
+  // Cashier info popup — only used when role === CASHIER
+  const [cashierPartyInfo, setCashierPartyInfo] = useState(null);
+  const [copiedField, setCopiedField] = useState('');
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -136,6 +143,30 @@ export default function CalendarView() {
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const goToday = () => setCurrentDate(new Date());
+
+  // Click handler shared by all three calendar surfaces:
+  //  - CASHIER → open mini info popup (copy Unique ID for Billing)
+  //  - GRE / ACCOUNTS → no-op (view-only)
+  //  - everyone else → open the full party detail page
+  const onPartyClick = (p, e) => {
+    if (e) e.stopPropagation();
+    if (isCashier) {
+      setCashierPartyInfo(p);
+      setCopiedField('');
+      return;
+    }
+    if (isViewOnly) return;
+    navigate(`/parties/${p.rowIndex}`, { state: { from: 'calendar' } });
+  };
+
+  const handleCopy = async (field, value) => {
+    if (!value) return;
+    const ok = await copyToClipboard(value);
+    if (ok) {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(''), 1500);
+    }
+  };
 
   // Group parties by day, sorted by status: Confirmed → Tentative → Contacted → Enquiry → Cancelled
   const partyMap = {};
@@ -251,8 +282,8 @@ export default function CalendarView() {
                           return (
                             <div
                               key={pi}
-                              onClick={(e) => { e.stopPropagation(); if (!isViewOnly) navigate(`/parties/${p.rowIndex}`, { state: { from: 'calendar' } }); }}
-                              className={`${colors.bg} ${colors.text} ${colors.border} border rounded px-1 py-0.5 text-[9px] sm:text-[11px] font-medium leading-tight ${isViewOnly ? '' : 'cursor-pointer hover:opacity-80'} transition-opacity`}
+                              onClick={(e) => onPartyClick(p, e)}
+                              className={`${colors.bg} ${colors.text} ${colors.border} border rounded px-1 py-0.5 text-[9px] sm:text-[11px] font-medium leading-tight ${(!isViewOnly || isCashier) ? 'cursor-pointer hover:opacity-80' : ''} transition-opacity`}
                               title={`${p.hostName}${pax !== null ? ` — ${pax} pax min` : ''} — ${status}`}
                             >
                               {/* Desktop: name (pax) on one line, truncated */}
@@ -309,8 +340,8 @@ export default function CalendarView() {
                     return (
                       <div
                         key={i}
-                        onClick={() => !isViewOnly && navigate(`/parties/${p.rowIndex}`, { state: { from: 'calendar' } })}
-                        className={`p-2.5 rounded-lg border ${colors.border} bg-white ${isViewOnly ? '' : 'cursor-pointer hover:shadow-md'} transition-shadow`}
+                        onClick={() => onPartyClick(p)}
+                        className={`p-2.5 rounded-lg border ${colors.border} bg-white ${(!isViewOnly || isCashier) ? 'cursor-pointer hover:shadow-md' : ''} transition-shadow`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
@@ -352,8 +383,8 @@ export default function CalendarView() {
                   return (
                     <div
                       key={i}
-                      onClick={() => !isViewOnly && navigate(`/parties/${p.rowIndex}`, { state: { from: 'calendar' } })}
-                      className={`flex items-center justify-between p-3 rounded-lg border ${colors.border} ${colors.bg} ${isViewOnly ? '' : 'cursor-pointer hover:opacity-90'} transition-opacity`}
+                      onClick={() => onPartyClick(p)}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${colors.border} ${colors.bg} ${(!isViewOnly || isCashier) ? 'cursor-pointer hover:opacity-90' : ''} transition-opacity`}
                     >
                       <div className="min-w-0 flex-1">
                         <p className={`text-sm font-semibold ${colors.text}`}>{p.hostName}</p>
@@ -378,6 +409,95 @@ export default function CalendarView() {
           )}
         </>
       )}
+
+      {/* Cashier-only info popup — minimal fields for Billing copy/paste */}
+      {isCashier && cashierPartyInfo && (() => {
+        const p = cashierPartyInfo;
+        const rows = [
+          { key: 'uniqueId', label: 'Party Unique ID', value: p.uniqueId || '', primary: true },
+          { key: 'hostName', label: 'Host Name', value: p.hostName || '' },
+          { key: 'phoneNumber', label: 'Phone Number', value: p.phoneNumber || '', isPhone: true },
+          { key: 'company', label: 'Company', value: p.company || '' },
+        ];
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={() => setCashierPartyInfo(null)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-[calc(100vw-2rem)] sm:max-w-sm overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-5 py-3 bg-[#af4408] text-white">
+                <div>
+                  <h3 className="text-sm font-bold">Party Details</h3>
+                  <p className="text-[10px] opacity-80">For Billing — tap any field to copy</p>
+                </div>
+                <button
+                  onClick={() => setCashierPartyInfo(null)}
+                  className="p-1 rounded hover:bg-white/15"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-5 space-y-3">
+                {rows.map((r) => (
+                  <div
+                    key={r.key}
+                    className={`flex items-center justify-between gap-2 p-2.5 rounded-lg border ${
+                      r.primary ? 'border-[#af4408]/40 bg-orange-50' : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">{r.label}</p>
+                      <p className={`text-sm break-all ${r.primary ? 'font-mono font-bold text-[#af4408]' : 'font-medium text-gray-900'}`}>
+                        {r.value || <span className="italic text-gray-400">—</span>}
+                      </p>
+                    </div>
+                    {r.value && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        {r.isPhone && (
+                          <a
+                            href={`tel:${r.value}`}
+                            className="p-1.5 rounded text-green-700 hover:bg-green-100"
+                            title="Call"
+                          >
+                            <Phone className="w-4 h-4" />
+                          </a>
+                        )}
+                        <button
+                          onClick={() => handleCopy(r.key, r.value)}
+                          className="flex items-center gap-1 px-2 py-1.5 rounded text-xs font-semibold text-[#af4408] hover:bg-[#af4408]/10"
+                          title="Copy to clipboard"
+                        >
+                          {copiedField === r.key ? (
+                            <>
+                              <Check className="w-3.5 h-3.5" /> Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" /> Copy
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="px-5 pb-5">
+                <button
+                  onClick={() => navigate('/cashier-billing')}
+                  className="w-full px-3 py-2 rounded-lg bg-[#af4408] text-white text-sm font-semibold hover:bg-[#963a07] transition-colors"
+                >
+                  Open Billing Page
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
