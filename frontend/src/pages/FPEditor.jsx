@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ArrowLeft, Save, Loader2, Download, ChevronDown, ChevronUp, AlertTriangle, Check, Mail,
+  ArrowLeft, Save, Loader2, Download, ChevronDown, ChevronUp, AlertTriangle, Check, Mail, Tag,
 } from 'lucide-react';
 import { fpAPI, notificationAPI, partyAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,7 @@ import {
   FULL_MENU, PACKAGES, ADDONS, DISCLAIMERS, MENU_CATEGORIES,
 } from '../data/menuTemplates';
 import { generateFpPdf } from '../utils/fpPdfGenerator';
+import { generateNameTagsPdf } from '../utils/nameTagsPdfGenerator';
 
 const STATUS_OPTIONS = ['Draft', 'Issued', 'Approved', 'Revised'];
 
@@ -444,6 +445,10 @@ export default function FPEditor() {
 
   const activeTc = customTc || DISCLAIMERS;
   const handleDownloadPdf = () => generateFpPdf({ ...form, fpId, selectedPkg: effectivePkg, customTc: activeTc, presetMenuText: isPresetMenu ? presetMenuText : null });
+  // Buffet name tags — only enabled when status === Approved. Renders A4
+  // print-ready PDF (8 tags per page) of every selected menu item with
+  // dietary indicator and category label. See nameTagsPdfGenerator.js.
+  const handleDownloadNameTags = () => generateNameTagsPdf({ fp: form, fpId });
 
   const handleSendEmail = async () => {
     if (!form.phone && !form.contactPerson) {
@@ -616,6 +621,15 @@ export default function FPEditor() {
           {!isNew && (
             <button onClick={handleDownloadPdf} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors min-h-[44px]">
               <Download className="w-4 h-4" /> PDF
+            </button>
+          )}
+          {!isNew && ['Approved', 'Revised'].includes(form.status) && (
+            <button
+              onClick={handleDownloadNameTags}
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold bg-[#af4408]/10 text-[#af4408] hover:bg-[#af4408]/20 transition-colors min-h-[44px]"
+              title="Generate print-ready buffet name tags (8 per A4 page) — available for Approved or Revised F&P"
+            >
+              <Tag className="w-4 h-4" /> Name Tags
             </button>
           )}
           {!isNew && canEdit && (
