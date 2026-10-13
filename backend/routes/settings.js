@@ -101,4 +101,63 @@ router.put(
   }
 );
 
+// ---------------------------------------------------------------------------
+// Daily Summary — which statuses the summary shows and which extra party
+// details it adds. Applied server-side by GET /api/parties/daily-summary.
+// ---------------------------------------------------------------------------
+const { ALL_STATUSES, FIELD_CATALOG } = require('../services/dailySummaryService');
+const {
+  DEFAULTS: DS_DEFAULTS, sanitize: sanitizeDs, loadDailySummarySettings, saveDailySummarySettings,
+} = require('../services/dailySummarySettings');
+
+/**
+ * GET /api/settings/daily-summary
+ * Current settings + the choices the Settings tab can offer.
+ */
+router.get('/daily-summary', roleCheck(ROLES.ADMIN), async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      settings: loadDailySummarySettings(),
+      defaults: DS_DEFAULTS,
+      statuses: ALL_STATUSES,
+      fields: FIELD_CATALOG.map(({ key, name, label }) => ({ key, name, label })),
+    });
+  } catch (err) {
+    console.error('GET daily-summary settings error:', err.message);
+    res.status(500).json({ success: false, message: 'Failed to load Daily Summary settings.' });
+  }
+});
+
+/**
+ * PUT /api/settings/daily-summary
+ * Body: { hiddenStatuses: ['Cancelled', ...], extraFields: ['expectedPax', ...] }
+ * Admin only. Unknown values are dropped; at least one status must stay shown.
+ */
+router.put(
+  '/daily-summary',
+  roleCheck(ROLES.ADMIN),
+  [
+    body('hiddenStatuses').isArray().withMessage('hiddenStatuses must be a list.'),
+    body('extraFields').isArray().withMessage('extraFields must be a list.'),
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+      }
+      const cleaned = sanitizeDs(req.body);
+      if (cleaned.hiddenStatuses.length >= ALL_STATUSES.length) {
+        return res.status(400).json({ success: false, message: 'Keep at least one status in the summary.' });
+      }
+      saveDailySummarySettings(cleaned);
+      res.json({ success: true, settings: cleaned });
+    } catch (err) {
+      console.error('PUT daily-summary settings error:', err.message);
+      res.status(500).json({ success: false, message: 'Failed to save Daily Summary settings.' });
+    }
+  }
+);
+
 module.exports = router;

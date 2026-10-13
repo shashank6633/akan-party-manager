@@ -1252,6 +1252,31 @@ async function getEditHistoryByParty(partyUniqueId) {
   });
 }
 
+/**
+ * Get ALL edit history entries (every party), in sheet order (oldest first).
+ * Used by the Daily Summary to find today's activity across all bookings.
+ */
+async function getAllEditHistory() {
+  return withRetry(async () => {
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: getSpreadsheetId(),
+      range: `'Edit History'!A2:${EDIT_HISTORY_LAST_COL}`,
+    });
+    return (res.data.values || []).map((row) => ({
+      editId: row[0] || '',
+      partyUniqueId: row[1] || '',
+      rowIndex: row[2] || '',
+      timestamp: row[3] || '',
+      userName: row[4] || '',
+      userRole: row[5] || '',
+      action: row[6] || '',
+      changes: row[7] || '[]',
+      summary: row[8] || '',
+    }));
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Feedback
 // ---------------------------------------------------------------------------
@@ -1817,6 +1842,7 @@ module.exports = {
   ensureEditHistorySheet,
   appendEditHistory,
   getEditHistoryByParty,
+  getAllEditHistory,
   // Feedback
   FEEDBACK_COLUMNS,
   FEEDBACK_COLUMN_MAP,

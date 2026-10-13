@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Search, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { RefreshCw, Search, ChevronLeft, ChevronRight, Calendar, SlidersHorizontal, X } from 'lucide-react';
 import { partyAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -55,15 +55,59 @@ const STATUS_COLORS = {
 
 const PAGE_SIZE = 100;
 
+// Dropdown filters — keys match the server's query params (routes/parties.js EXACT_FILTERS)
+const DROPDOWN_FILTERS = [
+  { key: 'handledBy', label: 'Handled By' },
+  { key: 'place', label: 'Place' },
+  { key: 'occasionType', label: 'Occasion' },
+  { key: 'enquirySource', label: 'Reference' },
+  { key: 'paymentStatus', label: 'Pay Status' },
+  { key: 'packageSelected', label: 'Package' },
+  { key: 'fpIssued', label: 'FP Issued' },
+];
+const EMPTY_FILTERS = Object.fromEntries(DROPDOWN_FILTERS.map((f) => [f.key, '']));
+
 export default function SheetsView() {
   const { user } = useAuth();
   const [parties, setParties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const tableRef = useRef(null);
+  const reqSeq = useRef(0); // only the latest request may update the table
+
+  // More filters (panel)
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [pendingDues, setPendingDues] = useState(false);
+  const [range, setRange] = useState({ from: '', to: '' }); // custom date range; overrides month
+  const [filterOptions, setFilterOptions] = useState(null);
+  const [optionsError, setOptionsError] = useState(false);
+  const [blankToken, setBlankToken] = useState('__blank__');
+  // Date inputs emit partial years while typing (e.g. "0002-10-15") — ignore until valid
+  const validDate = (d) => /^(19|20)\d{2}-\d{2}-\d{2}$/.test(d);
+  const rangeFrom = validDate(range.from) ? range.from : '';
+  const rangeTo = validDate(range.to) ? range.to : '';
+  const customRange = !!(rangeFrom || rangeTo);
+  const activeCount = Object.values(filters).filter(Boolean).length + (pendingDues ? 1 : 0) + (customRange ? 1 : 0);
+
+  const setFilter = (key, value) => { setFilters((f) => ({ ...f, [key]: value })); setPage(1); };
+  const clearFilters = () => {
+    setFilters(EMPTY_FILTERS);
+    setPendingDues(false);
+    setRange({ from: '', to: '' });
+    setPage(1);
+  };
+
+  useEffect(() => {
+    if (!showFilters || filterOptions || optionsError) return;
+    partyAPI.getFilterOptions()
+      .then((res) => { setFilterOptions(res.data.options || {}); if (res.data.blank) setBlankToken(res.data.blank); })
+      .catch(() => setOptionsError(true));
+  }, [showFilters, filterOptions, optionsError]);
 
   // Month filter: null = all, or { year, month (0-indexed) } — default to This Month
   const [monthFilter, setMonthFilter] = useState(() => {
@@ -83,6 +127,7 @@ export default function SheetsView() {
     : 'All Time';
 
   const shiftMonth = (dir) => {
+    setPage(1);
     if (!monthFilter) {
       const now = new Date();
       setMonthFilter({ year: now.getFullYear(), month: now.getMonth() });
@@ -96,31 +141,39 @@ export default function SheetsView() {
   };
 
   const fetchData = async () => {
+    const my = ++reqSeq.current;
     setLoading(true);
     try {
       const params = { page, limit: PAGE_SIZE, sort: 'date', order: 'asc' };
-      if (search) params.search = search;
+      if (debouncedSearch) { params.search = debouncedSearch; params.searchAll = 'true'; }
       if (statusFilter !== 'All') params.status = statusFilter;
-      if (monthFilter) {
+      if (customRange) {
+        if (rangeFrom) params.dateFrom = rangeFrom;
+        if (rangeTo) params.dateTo = rangeTo;
+      } else if (monthFilter) {
         const { from, to } = getMonthRange(monthFilter.year, monthFilter.month);
         params.dateFrom = from;
         params.dateTo = to;
       }
+      Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
+      if (pendingDues) params.pendingDues = 'true';
       const res = await partyAPI.getAll(params);
+      if (my !== reqSeq.current) return; // a newer request superseded this one
       const data = res.data?.data || res.data || [];
       setParties(Array.isArray(data) ? data : data.parties || []);
       setTotalCount(data.total || data.length || 0);
     } catch (err) {
-      console.error('Failed to fetch parties:', err);
+      if (my === reqSeq.current) console.error('Failed to fetch parties:', err);
     } finally {
-      setLoading(false);
+      if (my === reqSeq.current) setLoading(false);
     }
   };
 
-  useEffect(() => { fetchData(); }, [page, statusFilter, monthFilter]);
+  useEffect(() => { fetchData(); }, [page, statusFilter, monthFilter, filters, pendingDues, rangeFrom, rangeTo, debouncedSearch]);
 
+  // Debounce typing; the main effect above does the fetch
   useEffect(() => {
-    const timer = setTimeout(() => { setPage(1); fetchData(); }, 400);
+    const timer = setTimeout(() => { setDebouncedSearch(search.trim()); setPage(1); }, 400);
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -166,6 +219,29 @@ export default function SheetsView() {
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
+        {/* More filters toggle */}
+        <button
+          onClick={() => setShowFilters((v) => !v)}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-xs font-semibold transition-colors ${
+            showFilters || activeCount ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          Filters
+          {activeCount > 0 && (
+            <span className="min-w-[16px] h-4 px-1 rounded-full bg-green-600 text-white text-[10px] leading-4 text-center">{activeCount}</span>
+          )}
+        </button>
+        {/* Custom date range replaces the month picker while set */}
+        {customRange ? (
+          <span className="flex items-center gap-1 px-2 py-1 rounded border border-green-300 bg-green-50 text-[11px] font-semibold text-green-700">
+            <Calendar className="w-3 h-3" />
+            {rangeFrom || '…'} → {rangeTo || '…'}
+            <button onClick={() => { setRange({ from: '', to: '' }); setPage(1); }} title="Clear date range" className="ml-0.5 hover:text-green-900">
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ) : (<>
         {/* Month Filter */}
         <div className="flex items-center gap-1 border border-gray-300 rounded bg-white">
           <button onClick={() => shiftMonth(-1)} className="p-1.5 hover:bg-gray-100 rounded-l transition-colors">
@@ -196,6 +272,7 @@ export default function SheetsView() {
             This Month
           </button>
         )}
+        </>)}
         <button
           onClick={() => { setPage(1); fetchData(); }}
           className="p-1.5 rounded border border-gray-300 bg-white hover:bg-gray-100 transition-colors"
@@ -204,9 +281,86 @@ export default function SheetsView() {
           <RefreshCw className={`w-3.5 h-3.5 text-gray-600 ${loading ? 'animate-spin' : ''}`} />
         </button>
         <span className="text-[11px] text-gray-500 ml-auto">
-          {totalCount} records{monthFilter ? ` in ${monthLabel}` : ''}
+          {totalCount} records{customRange ? ' in date range' : monthFilter ? ` in ${monthLabel}` : ''}
         </span>
       </div>
+
+      {/* More filters panel */}
+      {showFilters && (
+        <div className="px-4 py-3 border-b border-gray-200 bg-white shrink-0">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {DROPDOWN_FILTERS.map((f) => {
+              const opts = filterOptions?.[f.key] || [];
+              const blanks = filterOptions?.[`${f.key}Blank`] || 0;
+              return (
+                <label key={f.key} className="flex flex-col gap-0.5 min-w-0">
+                  <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">{f.label}</span>
+                  <select
+                    value={filters[f.key]}
+                    onChange={(e) => setFilter(f.key, e.target.value)}
+                    disabled={!filterOptions}
+                    className={`w-full px-2 py-1.5 rounded border text-xs bg-white focus:outline-none focus:ring-1 focus:ring-green-500 ${
+                      filters[f.key] ? 'border-green-500 text-green-800 font-semibold' : 'border-gray-300 text-gray-700'
+                    }`}
+                  >
+                    <option value="">{filterOptions ? 'All' : optionsError ? 'Unavailable' : 'Loading…'}</option>
+                    {opts.map((o) => (
+                      <option key={o.value} value={o.value}>{o.value} ({o.count})</option>
+                    ))}
+                    {blanks > 0 && <option value={blankToken}>(Blank) ({blanks})</option>}
+                  </select>
+                </label>
+              );
+            })}
+            <label className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Date From</span>
+              <input
+                type="date"
+                value={range.from}
+                max={range.to || undefined}
+                onChange={(e) => { setRange((r) => ({ ...r, from: e.target.value })); setPage(1); }}
+                className={`w-full px-2 py-1 rounded border text-xs bg-white focus:outline-none focus:ring-1 focus:ring-green-500 ${range.from ? 'border-green-500' : 'border-gray-300'}`}
+              />
+            </label>
+            <label className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Date To</span>
+              <input
+                type="date"
+                value={range.to}
+                min={range.from || undefined}
+                onChange={(e) => { setRange((r) => ({ ...r, to: e.target.value })); setPage(1); }}
+                className={`w-full px-2 py-1 rounded border text-xs bg-white focus:outline-none focus:ring-1 focus:ring-green-500 ${range.to ? 'border-green-500' : 'border-gray-300'}`}
+              />
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 mt-2.5">
+            <label className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={pendingDues}
+                onChange={(e) => { setPendingDues(e.target.checked); setPage(1); }}
+                className="w-3.5 h-3.5 accent-green-600"
+              />
+              Pending dues only (Due &gt; 0)
+            </label>
+            <span className="text-[10px] text-gray-400">Date From/To overrides the month picker · search looks in every column</span>
+            {optionsError && (
+              <span className="text-[11px] text-red-600">
+                Couldn&apos;t load filter options.{' '}
+                <button onClick={() => setOptionsError(false)} className="font-semibold underline hover:text-red-800">Retry</button>
+              </span>
+            )}
+            {activeCount > 0 && (
+              <button
+                onClick={clearFilters}
+                className="ml-auto flex items-center gap-1 px-2 py-1 rounded border border-gray-300 text-[11px] font-semibold text-gray-600 hover:bg-gray-100"
+              >
+                <X className="w-3 h-3" /> Clear all filters
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Column letter bar + Sheet */}
       <div className="flex-1 overflow-hidden relative">

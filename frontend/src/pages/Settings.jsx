@@ -23,6 +23,7 @@ import {
  ChevronUp,
  ChevronDown,
  Phone,
+ ClipboardList,
 } from 'lucide-react';
 import { authAPI, notificationAPI, api, settingsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -49,6 +50,7 @@ const TABS = [
  { id: 'notifications', label: 'Notifications', icon: Bell },
  { id: 'emails', label: 'Email Settings', icon: Mail },
  { id: 'party', label: 'Party Settings', icon: Phone },
+ { id: 'daily-summary', label: 'Daily Summary', icon: ClipboardList },
  { id: 'fp', label: 'F&P Settings', icon: FileText },
  { id: 'system', label: 'System', icon: SettingsIcon },
 ];
@@ -80,7 +82,11 @@ const FP_DEFAULT_LIMITS = {
 export default function Settings() {
  const { user } = useAuth();
  const isAdmin = user?.role === 'ADMIN';
- const [activeTab, setActiveTab] = useState('users');
+ // ?tab=daily-summary deep-links from the Daily Summary page
+ const [activeTab, setActiveTab] = useState(() => {
+  const t = new URLSearchParams(window.location.search).get('tab');
+  return TABS.some((x) => x.id === t) ? t : 'users';
+ });
  const [users, setUsers] = useState([]);
  const [loading, setLoading] = useState(true);
  const [showAddUser, setShowAddUser] = useState(false);
@@ -121,6 +127,11 @@ export default function Settings() {
  const [savingSources, setSavingSources] = useState(false);
  const [sourcesMsg, setSourcesMsg] = useState('');
  const [savingFp, setSavingFp] = useState(false);
+ // Daily Summary — statuses shown + extra party details
+ const [dsSettings, setDsSettings] = useState(null); // { hiddenStatuses, extraFields }
+ const [dsMeta, setDsMeta] = useState({ statuses: [], fields: [], defaults: null });
+ const [savingDs, setSavingDs] = useState(false);
+ const [dsMsg, setDsMsg] = useState('');
  // Email routing
  const [emailRouting, setEmailRouting] = useState({});
  const [loadingRouting, setLoadingRouting] = useState(false);
@@ -136,7 +147,36 @@ export default function Settings() {
    setEnquirySources(res.data?.sources || []);
   }).catch(() => {});
  }
+ if (activeTab === 'daily-summary' && isAdmin) {
+  setDsMsg('');
+  settingsAPI.getDailySummarySettings().then((res) => {
+   setDsSettings(res.data.settings);
+   setDsMeta({ statuses: res.data.statuses || [], fields: res.data.fields || [], defaults: res.data.defaults || null });
+  }).catch(() => setDsMsg('Could not load Daily Summary settings.'));
+ }
  }, [activeTab]);
+
+ const toggleDsList = (listKey, value) => {
+  setDsMsg('');
+  setDsSettings((prev) => {
+   const list = prev[listKey];
+   return { ...prev, [listKey]: list.includes(value) ? list.filter((v) => v !== value) : [...list, value] };
+  });
+ };
+
+ const saveDsSettings = async () => {
+  setSavingDs(true);
+  setDsMsg('');
+  try {
+   const res = await settingsAPI.updateDailySummarySettings(dsSettings);
+   setDsSettings(res.data.settings);
+   setDsMsg('Saved.');
+  } catch (err) {
+   setDsMsg(err.response?.data?.message || 'Failed to save.');
+  } finally {
+   setSavingDs(false);
+  }
+ };
 
  // Enquiry Sources — admin-managed dropdown values for party "Reference" field
  const saveEnquirySources = async () => {
@@ -453,7 +493,7 @@ export default function Settings() {
  : 'text-gray-500 hover:text-gray-700'
  }`}
  >
- <tab.icon className="w-3.5 h-3.5 shrink-0" /> <span className="hidden sm:inline">{tab.label}</span><span className="sm:hidden">{tab.id === 'emails' ? 'Email' : tab.id === 'fp' ? 'F&P' : tab.id === 'party' ? 'Party' : tab.label}</span>
+ <tab.icon className="w-3.5 h-3.5 shrink-0" /> <span className="hidden sm:inline">{tab.label}</span><span className="sm:hidden">{tab.id === 'emails' ? 'Email' : tab.id === 'fp' ? 'F&P' : tab.id === 'party' ? 'Party' : tab.id === 'daily-summary' ? 'Summary' : tab.label}</span>
  </button>
  ))}
  </div>
@@ -1519,6 +1559,114 @@ export default function Settings() {
  <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
   <ShieldOff className="w-8 h-8 text-gray-300 mx-auto mb-2" />
   <p className="text-sm text-gray-500">Only Admin can manage Party form settings.</p>
+ </div>
+ )}
+
+ {/* Daily Summary Tab — what the Daily Summary page / WhatsApp text includes */}
+ {activeTab === 'daily-summary' && isAdmin && (
+ <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-5">
+  <div className="flex flex-wrap items-start justify-between gap-3">
+   <div>
+    <div className="flex items-center gap-2">
+     <ClipboardList className="w-4 h-4 text-[#af4408]" />
+     <h3 className="text-sm font-semibold text-gray-800">Daily Summary Settings</h3>
+    </div>
+    <p className="text-xs text-gray-500 mt-1">Choose which parties appear in the Daily Summary and which extra details are added for each party.</p>
+   </div>
+   <div className="flex items-center gap-2">
+    {dsMeta.defaults && (
+     <button
+      onClick={() => { setDsSettings({ ...dsMeta.defaults }); setDsMsg(''); }}
+      disabled={!dsSettings || savingDs}
+      className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 disabled:opacity-50"
+     >
+      <RotateCcw className="w-3.5 h-3.5" /> Default
+     </button>
+    )}
+    <button
+     onClick={saveDsSettings}
+     disabled={!dsSettings || savingDs || dsSettings.hiddenStatuses.length >= dsMeta.statuses.length}
+     className="px-3 py-1.5 rounded-lg bg-[#af4408] text-white text-xs font-semibold hover:bg-[#963a07] disabled:opacity-50"
+    >
+     {savingDs ? 'Saving…' : 'Save'}
+    </button>
+   </div>
+  </div>
+
+  {!dsSettings ? (
+   dsMsg
+    ? <p className="text-xs text-red-600">{dsMsg}</p>
+    : <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-[#af4408]" /></div>
+  ) : (
+   <>
+    {/* Statuses */}
+    <div className="border-t border-gray-200 pt-4">
+     <h4 className="text-sm font-semibold text-gray-800">Statuses to include</h4>
+     <p className="text-xs text-gray-500 mt-0.5 mb-3">Ticked statuses appear in all three sections. Untick a status to leave it out.</p>
+     <div className="flex flex-wrap gap-2">
+      {dsMeta.statuses.map((s) => {
+       const on = !dsSettings.hiddenStatuses.includes(s);
+       return (
+        <label
+         key={s}
+         className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold cursor-pointer select-none min-h-[40px] ${
+          on ? 'border-[#af4408]/40 bg-[#af4408]/5 text-gray-900' : 'border-gray-200 bg-white text-gray-400'
+         }`}
+        >
+         <input
+          type="checkbox"
+          checked={on}
+          onChange={() => toggleDsList('hiddenStatuses', s)}
+          className="w-4 h-4 accent-[#af4408]"
+         />
+         {s}
+        </label>
+       );
+      })}
+     </div>
+     {dsSettings.hiddenStatuses.length >= dsMeta.statuses.length && (
+      <p className="text-xs text-amber-600 mt-2">Tick at least one status.</p>
+     )}
+    </div>
+
+    {/* Extra details */}
+    <div className="border-t border-gray-200 pt-4">
+     <h4 className="text-sm font-semibold text-gray-800">Extra details per party</h4>
+     <p className="text-xs text-gray-500 mt-0.5 mb-3">
+      Name, company, date, status, phone and the latest follow-up are always shown. Ticked details are added as one extra line (ℹ️) under each party; empty values are skipped.
+     </p>
+     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+      {dsMeta.fields.map((f) => (
+       <label key={f.key} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs text-gray-700 cursor-pointer select-none min-h-[40px]">
+        <input
+         type="checkbox"
+         checked={dsSettings.extraFields.includes(f.key)}
+         onChange={() => toggleDsList('extraFields', f.key)}
+         className="w-4 h-4 accent-[#af4408]"
+        />
+        {f.name}
+       </label>
+      ))}
+     </div>
+     <p className="text-[11px] text-gray-500 mt-3">
+      <span className="font-semibold">Extra line will look like:</span>{' '}
+      {dsSettings.extraFields.length === 0
+       ? <span className="italic">nothing extra</span>
+       : <>ℹ️ {dsMeta.fields.filter((f) => dsSettings.extraFields.includes(f.key)).map((f) => `${f.label}: …`).join(' · ')}</>}
+     </p>
+    </div>
+
+    {dsMsg && (
+     <p className={`text-xs ${dsMsg === 'Saved.' ? 'text-green-600' : 'text-amber-600'}`}>{dsMsg}</p>
+    )}
+   </>
+  )}
+ </div>
+ )}
+ {activeTab === 'daily-summary' && !isAdmin && (
+ <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+  <ShieldOff className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+  <p className="text-sm text-gray-500">Only Admin can manage Daily Summary settings.</p>
  </div>
  )}
 

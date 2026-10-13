@@ -21,6 +21,7 @@ import FeedbackDetail from './pages/FeedbackDetail';
 import PreTastingList from './pages/PreTastingList';
 import PreTastingForm from './pages/PreTastingForm';
 import PreTastingDetail from './pages/PreTastingDetail';
+import DailySummary from './pages/DailySummary';
 import SheetsView from './pages/SheetsView';
 import GuestContacts from './pages/GuestContacts';
 import CheckinDashboard from './pages/CheckinDashboard';
@@ -184,6 +185,11 @@ export default function App() {
   </RoleGuard>
  } />
  <Route path="profile" element={<Profile />} />
+ <Route path="daily-summary" element={
+  <RoleGuard hideForRoles={['GRE', 'CASHIER', 'ACCOUNTS', 'FEEDBACK']}>
+   <DailySummary />
+  </RoleGuard>
+ } />
  <Route path="reports" element={
  <RoleGuard hideForRoles={['GRE', 'CASHIER', 'FEEDBACK']}>
  <Reports />

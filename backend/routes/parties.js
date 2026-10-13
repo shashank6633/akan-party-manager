@@ -3,6 +3,8 @@ const { body, param, query, validationResult } = require('express-validator');
 const authenticate = require('../middleware/auth');
 const { roleCheck, ROLES } = require('../middleware/roleCheck');
 const sheetsService = require('../services/sheetsService');
+const { buildDailySummary } = require('../services/dailySummaryService');
+const { loadDailySummarySettings } = require('../services/dailySummarySettings');
 const { applyAutoCalculations, calculatePaymentTotals, toCamelCase, toSheetFormat } = require('../utils/calculations');
 const emailService = require('../services/emailService');
 
@@ -20,6 +22,24 @@ function convertBody(req) {
 
 // Valid statuses (flow: Enquiry → Contacted → Tentative → Confirmed → Cancelled)
 const VALID_STATUSES = ['Enquiry', 'Contacted', 'Tentative', 'Confirmed', 'Cancelled', 'Ala Carte'];
+
+// Sheets View dropdown filters: query param → sheet column (exact match,
+// case/space-insensitive). BLANK_FILTER matches rows where the cell is empty.
+const EXACT_FILTERS = {
+  handledBy: 'Handled By',
+  place: 'Place',
+  occasionType: 'Occasion Type',
+  enquirySource: 'Enquiry Source',
+  paymentStatus: 'Payment Status',
+  packageSelected: 'Package Selected',
+  fpIssued: 'FP Issued',
+};
+const BLANK_FILTER = '__blank__';
+const normFilterValue = (v) => String(v ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+function matchesFilterValue(cell, want) {
+  if (want === BLANK_FILTER) return normFilterValue(cell) === '';
+  return normFilterValue(cell) === normFilterValue(want);
+}
 
 // Fields to skip in edit history (auto-calculated or too verbose)
 const AUDIT_SKIP_FIELDS = [
@@ -233,6 +253,8 @@ router.get(
     query('page').optional().isInt({ min: 1 }).withMessage('Page must be positive integer'),
     query('limit').optional().isInt({ min: 1, max: 500 }).withMessage('Limit must be 1-500'),
     query('pendingDues').optional().isIn(['true', 'false', '1', '0']).withMessage('pendingDues must be true/false'),
+    query('searchAll').optional().isIn(['true', 'false', '1', '0']),
+    ...Object.keys(EXACT_FILTERS).map((p) => query(p).optional().isString().isLength({ max: 300 })),
   ],
   async (req, res) => {
     try {
@@ -241,7 +263,7 @@ router.get(
         return res.status(400).json({ success: false, errors: errors.array() });
       }
 
-      const { status, dateFrom, dateTo, search, partyType, page = 1, limit = 50, order = 'asc', pendingDues } = req.query;
+      const { status, dateFrom, dateTo, search, partyType, page = 1, limit = 50, order = 'asc', pendingDues, searchAll } = req.query;
 
       let rows = await sheetsService.getAllRows();
 
@@ -277,16 +299,29 @@ router.get(
         });
       }
 
+      // Exact-match column filters (Sheets View). Absent param = no-op.
+      Object.entries(EXACT_FILTERS).forEach(([param, col]) => {
+        const want = req.query[param];
+        if (want === undefined || want === '') return;
+        rows = rows.filter((r) => matchesFilterValue(r[col], want));
+      });
+
       if (search) {
         const s = search.toLowerCase();
-        rows = rows.filter(
-          (r) =>
-            (r['Host Name'] || '').toLowerCase().includes(s) ||
-            (r['Phone Number'] || '').toLowerCase().includes(s) ||
-            (r['Company'] || '').toLowerCase().includes(s) ||
-            (r['Place'] || '').toLowerCase().includes(s) ||
-            (r['Unique ID'] || '').toLowerCase().includes(s)
-        );
+        // searchAll=true (Sheets View) looks in every column; other pages keep
+        // the original 5-column search.
+        if (searchAll === 'true' || searchAll === '1') {
+          rows = rows.filter((r) => Object.entries(r).some(([k, v]) => k !== '_rowIndex' && String(v ?? '').toLowerCase().includes(s)));
+        } else {
+          rows = rows.filter(
+            (r) =>
+              (r['Host Name'] || '').toLowerCase().includes(s) ||
+              (r['Phone Number'] || '').toLowerCase().includes(s) ||
+              (r['Company'] || '').toLowerCase().includes(s) ||
+              (r['Place'] || '').toLowerCase().includes(s) ||
+              (r['Unique ID'] || '').toLowerCase().includes(s)
+          );
+        }
       }
 
       if (partyType) {
@@ -588,6 +623,72 @@ router.get(
     } catch (err) {
       console.error('Pending followups error:', err);
       res.status(500).json({ success: false, message: 'Failed to fetch pending follow-ups.' });
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// GET /api/parties/filter-options - distinct values for Sheets View filters
+// { handledBy: [{ value, count }], place: [...], ..., blank: '__blank__' }
+// Same row visibility as GET /api/parties (CASHIER/ACCOUNTS: Confirmed only).
+// ---------------------------------------------------------------------------
+router.get('/filter-options', async (req, res) => {
+  try {
+    let rows = await sheetsService.getAllRows();
+    const userRole = req.user?.role?.toUpperCase();
+    if (userRole === 'CASHIER' || userRole === 'ACCOUNTS') {
+      rows = rows.filter((r) => r['Status'] === 'Confirmed');
+    }
+    const options = {};
+    Object.entries(EXACT_FILTERS).forEach(([param, col]) => {
+      // Group case/space variants; show the most common spelling
+      const groups = new Map();
+      let blanks = 0;
+      rows.forEach((r) => {
+        const raw = String(r[col] ?? '').replace(/\s+/g, ' ').trim();
+        if (!raw) { blanks++; return; }
+        const key = raw.toLowerCase();
+        if (!groups.has(key)) groups.set(key, { count: 0, spellings: new Map() });
+        const g = groups.get(key);
+        g.count++;
+        g.spellings.set(raw, (g.spellings.get(raw) || 0) + 1);
+      });
+      options[param] = [...groups.values()]
+        .map((g) => ({ value: [...g.spellings.entries()].sort((a, b) => b[1] - a[1])[0][0], count: g.count }))
+        .sort((a, b) => a.value.localeCompare(b.value))
+        .slice(0, 300);
+      options[`${param}Blank`] = blanks;
+    });
+    res.json({ success: true, blank: BLANK_FILTER, options });
+  } catch (err) {
+    console.error('Filter options error:', err);
+    res.status(500).json({ success: false, message: 'Failed to load filter options.' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/parties/daily-summary - WhatsApp-ready daily digest
+// Logic lives in services/dailySummaryService.js (pure, testable).
+// ---------------------------------------------------------------------------
+router.get(
+  '/daily-summary',
+  roleCheck(ROLES.SALES, ROLES.MANAGER, ROLES.VIEWER),
+  async (req, res) => {
+    try {
+      const [rows, history] = await Promise.all([
+        sheetsService.getAllRows(),
+        sheetsService.getAllEditHistory(),
+      ]);
+      const settings = loadDailySummarySettings();
+      res.json({
+        success: true,
+        generatedAt: new Date().toISOString(),
+        settings,
+        ...buildDailySummary(rows, history, Date.now(), settings),
+      });
+    } catch (err) {
+      console.error('Daily summary error:', err);
+      res.status(500).json({ success: false, message: 'Failed to build daily summary.' });
     }
   }
 );

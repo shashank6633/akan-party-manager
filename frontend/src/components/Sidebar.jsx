@@ -16,6 +16,7 @@ import {
   UserPlus,
   QrCode,
   ChefHat,
+  ClipboardList,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -30,6 +31,7 @@ const navItems = [
   { to: '/pre-tasting', icon: ChefHat, label: 'Pre-Tasting', hideFor: ['CASHIER', 'ACCOUNTS', 'VIEWER'] },
   { to: '/feedback', icon: MessageSquare, label: 'Feedback', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS', 'VIEWER'] },
   { to: '/checkin-dashboard', icon: QrCode, label: 'Guest Check-In', hideFor: ['CASHIER', 'ACCOUNTS', 'VIEWER', 'FEEDBACK'] },
+  { to: '/daily-summary', icon: ClipboardList, label: 'Daily Summary', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS', 'FEEDBACK'] },
   { to: '/reports', icon: BarChart3, label: 'Reports', hideFor: ['GRE', 'CASHIER', 'ACCOUNTS', 'FEEDBACK'] },
   { to: '/settings', icon: Settings, label: 'Settings', hideFor: ['GRE', 'SALES', 'MANAGER', 'CASHIER', 'ACCOUNTS', 'VIEWER', 'FEEDBACK'] },
 ];

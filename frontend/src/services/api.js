@@ -60,6 +60,8 @@ const withUidCheck = (data) => {
 export const settingsAPI = {
   getEnquirySources: () => api.get('/settings/enquiry-sources'),
   updateEnquirySources: (sources) => api.put('/settings/enquiry-sources', { sources }),
+  getDailySummarySettings: () => api.get('/settings/daily-summary'),
+  updateDailySummarySettings: (settings) => api.put('/settings/daily-summary', settings),
 };
 
 export const partyAPI = {
@@ -76,6 +78,8 @@ export const partyAPI = {
   getPayments: (id) => api.get(`/parties/${id}/payments`),
   addFollowUp: (id, data) => api.put(`/parties/${id}/followup`, withUidCheck(data)),
   getPendingFollowUps: () => api.get('/parties/pending-followups'),
+  getDailySummary: () => api.get('/parties/daily-summary'),
+  getFilterOptions: () => api.get('/parties/filter-options'),
   sendPaymentReminder: (id, expectedUniqueId) =>
     api.post(`/parties/${id}/send-payment-reminder`, expectedUniqueId ? { expectedUniqueId } : undefined),
   getReminderLog: () => api.get('/parties/reminder-log'),
