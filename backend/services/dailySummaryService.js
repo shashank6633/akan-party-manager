@@ -30,7 +30,6 @@ const HIDDEN_STATUSES = new Set(['Confirmed', 'Cancelled', 'Ala Carte']);
 // Daily Summary). key is what settings store; label is what the summary shows.
 const FIELD_CATALOG = [
   { key: 'uniqueId', label: 'ID', name: 'Unique ID', col: 'Unique ID' },
-  { key: 'expectedPax', label: 'Pax', name: 'Expected Pax', col: 'Expected Pax' },
   { key: 'confirmedPax', label: 'Confirmed Pax', name: 'Confirmed Pax', col: 'Confirmed Pax' },
   { key: 'partyTime', label: 'Time', name: 'Party Time', col: 'Party Time' },
   { key: 'place', label: 'Place', name: 'Place / Area', col: 'Place' },
@@ -146,7 +145,7 @@ function summaryParty(r, todayIso, extraFields) {
     company: r['Company'] || '',
     date: iso || String(r['Date'] || ''), // ISO when exact, else raw (e.g. "TBC: May 2026")
     status: (r['Status'] || '').trim(),
-    expectedPax: r['Expected Pax'] || '',
+    expectedPax: String(r['Expected Pax'] || '').replace(/\s+/g, ' ').trim(),
     place: r['Place'] || '',
     partyTime: r['Party Time'] || '',
     handledBy: r['Handled By'] || '',

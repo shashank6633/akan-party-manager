@@ -4,7 +4,7 @@
  *
  * Kept deliberately short: 3 lines per party
  *   1. *Host* – Company
- *   📅 Date · Status · 📞 Phone
+ *   📅 Date · 👥 Pax · Status · 📞 Phone
  *   📝 Who: latest note
  */
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -79,11 +79,20 @@ function whenLabel(p) {
   return '';
 }
 
-// Line 2: 📅 16 Oct (Fri) · Today · Enquiry · 📞 98765…
+// "40" → "40 pax"; "40-50" → "40-50 pax"; "50 pax" stays as is
+export function paxLabel(p) {
+  const v = String(p.expectedPax || '').trim();
+  if (!v) return '';
+  return /pax/i.test(v) ? v : `${v} pax`;
+}
+
+// Line 2: 📅 16 Oct (Fri) · Today · 👥 40 pax · Enquiry · 📞 98765…
 function detailLine(p) {
   const bits = [`📅 ${fmtDate(p.date)}`];
   const w = whenLabel(p);
   if (w) bits.push(w);
+  const pax = paxLabel(p);
+  if (pax) bits.push(`👥 ${pax}`);
   if (p.status) bits.push(p.status);
   if (p.phoneNumber) bits.push(`📞 ${p.phoneNumber}`);
   return bits.join(' · ');

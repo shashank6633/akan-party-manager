@@ -8,7 +8,7 @@ import { copyToClipboard } from '../utils/helpers';
 import { useAuth } from '../context/AuthContext';
 
 import {
-  TITLES, fmtDate, todayNote, upcomingNote, extrasLine, whatsappShareUrl,
+  TITLES, fmtDate, todayNote, upcomingNote, extrasLine, whatsappShareUrl, paxLabel,
   buildTodayText, buildNext7Text, buildNext30Text, buildFullText,
 } from '../utils/dailySummaryText';
 
@@ -61,6 +61,7 @@ function PartyCard({ p, note, onOpen }) {
       <p className="text-[11px] text-gray-500 mt-0.5">
         📅 {fmtDate(p.date)}
         {when && <> · <span className="font-semibold text-[#af4408]">{when}</span></>}
+        {paxLabel(p) && <> · 👥 <span className="font-semibold text-gray-700">{paxLabel(p)}</span></>}
         {p.phoneNumber && <> · 📞 {p.phoneNumber}</>}
       </p>
       {p.extras?.length > 0 && (

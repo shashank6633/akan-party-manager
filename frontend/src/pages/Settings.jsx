@@ -1633,7 +1633,7 @@ export default function Settings() {
     <div className="border-t border-gray-200 pt-4">
      <h4 className="text-sm font-semibold text-gray-800">Extra details per party</h4>
      <p className="text-xs text-gray-500 mt-0.5 mb-3">
-      Name, company, date, status, phone and the latest follow-up are always shown. Ticked details are added as one extra line (ℹ️) under each party; empty values are skipped.
+      Name, company, event date, pax, status, phone and the latest follow-up are always shown. Ticked details are added as one extra line (ℹ️) under each party; empty values are skipped.
      </p>
      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
       {dsMeta.fields.map((f) => (
