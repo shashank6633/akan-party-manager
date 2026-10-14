@@ -8,7 +8,7 @@ import { copyToClipboard } from '../utils/helpers';
 import { useAuth } from '../context/AuthContext';
 
 import {
-  TITLES, fmtDate, todayNote, upcomingNote, extrasLine, whatsappShareUrl, paxLabel,
+  TITLES, fmtDate, todayNote, upcomingNote, extrasLine, whatsappShareUrl, paxLabel, contactLine,
   buildTodayText, buildNext7Text, buildNext30Text, buildFullText,
 } from '../utils/dailySummaryText';
 
@@ -59,17 +59,22 @@ function PartyCard({ p, note, onOpen }) {
         )}
       </div>
       <p className="text-[11px] text-gray-500 mt-0.5">
-        📅 {fmtDate(p.date)}
+        📅 Event: {fmtDate(p.date)}
         {when && <> · <span className="font-semibold text-[#af4408]">{when}</span></>}
         {paxLabel(p) && <> · 👥 <span className="font-semibold text-gray-700">{paxLabel(p)}</span></>}
         {p.phoneNumber && <> · 📞 {p.phoneNumber}</>}
       </p>
+      {contactLine(p) && (
+        <p className={`text-[11px] mt-0.5 ${p.lastContacted ? 'text-gray-600' : 'text-amber-600 italic'}`}>☎️ {contactLine(p)}</p>
+      )}
       {p.extras?.length > 0 && (
         <p className="text-[11px] text-gray-500 mt-0.5">ℹ️ {extrasLine(p)}</p>
       )}
-      <p className={`mt-1 text-[11px] ${note === 'No follow-up yet' ? 'text-amber-600 italic' : 'text-gray-600'}`}>
-        📝 {note || '—'}
-      </p>
+      {note && (
+        <p className={`mt-1 text-[11px] ${note === 'No follow-up yet' ? 'text-amber-600 italic' : 'text-gray-600'}`}>
+          📝 {note}
+        </p>
+      )}
     </div>
   );
 }

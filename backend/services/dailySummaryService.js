@@ -135,8 +135,32 @@ function latestFollowUp(r) {
   return notes.split('\n').map((l) => l.trim()).find(Boolean) || '';
 }
 
+// "[29 Sept, 03:18 pm - Mahesh] …" → IST date of that note. The prefix has no
+// year, so take the most recent such date that is not after today.
+function noteDateIso(note, todayIso) {
+  const m = String(note || '').match(/^\[(\d{1,2})\s+([A-Za-z]{3})/);
+  if (!m) return '';
+  const mi = MONTHS_SHORT.indexOf(m[2].toLowerCase());
+  if (mi === -1) return '';
+  const year = Number(todayIso.slice(0, 4));
+  const mmdd = `${String(mi + 1).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  const iso = `${year}-${mmdd}`;
+  return iso > todayIso ? `${year - 1}-${mmdd}` : iso;
+}
+
+// Last time the team contacted the guest: the later of the latest note's IST
+// date and 'Last Follow Up Date' (written as a UTC date, so it can lag a day
+// for notes added 00:00–05:30 IST).
+function lastContactedIso(r, latestNote, todayIso) {
+  const fromNote = noteDateIso(latestNote, todayIso);
+  const fromCol = partyIsoDate(r['Last Follow Up Date']);
+  return [fromNote, fromCol].filter(Boolean).sort().pop() || '';
+}
+
 function summaryParty(r, todayIso, extraFields) {
   const iso = partyIsoDate(r['Date']);
+  const latest = latestFollowUp(r);
+  const lastContacted = lastContactedIso(r, latest, todayIso);
   return {
     rowIndex: r._rowIndex,
     uniqueId: r['Unique ID'] || '',
@@ -151,7 +175,10 @@ function summaryParty(r, todayIso, extraFields) {
     handledBy: r['Handled By'] || '',
     occasionType: r['Occasion Type'] || '',
     lastFollowUpDate: r['Last Follow Up Date'] || '',
-    latestFollowUp: latestFollowUp(r),
+    latestFollowUp: latest,
+    lastNoteDate: noteDateIso(latest, todayIso),
+    lastContacted,
+    contactedDaysAgo: lastContacted ? Math.round((Date.parse(todayIso) - Date.parse(lastContacted)) / DAY_MS) : null,
     daysAway: iso ? Math.round((Date.parse(iso) - Date.parse(todayIso)) / DAY_MS) : null,
     extras: partyExtras(r, extraFields),
   };
@@ -235,6 +262,8 @@ module.exports = {
   cleanSummary,
   fmtMoney,
   partyExtras,
+  noteDateIso,
+  lastContactedIso,
   partyIsoDate,
   istDateStr,
 };

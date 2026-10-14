@@ -2,9 +2,10 @@
  * Daily Summary — WhatsApp text builders (pure, no React).
  * Output uses WhatsApp markup: *bold*, _italic_.
  *
- * Kept deliberately short: 3 lines per party
+ * Kept deliberately short: 4 lines per party
  *   1. *Host* – Company
- *   📅 Date · 👥 Pax · Status · 📞 Phone
+ *   📅 Event: Date · 👥 Pax · Status · 📞 Phone
+ *   ☎️ Last contacted: Date (N days ago)
  *   📝 Who: latest note
  */
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -86,9 +87,24 @@ export function paxLabel(p) {
   return /pax/i.test(v) ? v : `${v} pax`;
 }
 
-// Line 2: 📅 16 Oct (Fri) · Today · 👥 40 pax · Enquiry · 📞 98765…
+// "2026-09-29" → "29 Sep"
+function fmtDayMonth(iso) {
+  const m = String(iso || '').match(/^\d{4}-(\d{2})-(\d{2})$/);
+  return m ? `${Number(m[2])} ${MONTHS[Number(m[1]) - 1]}` : '';
+}
+
+// Line 3: ☎️ Last contacted: 29 Sep (15 days ago) — '' if the backend didn't send it
+export function contactLine(p) {
+  if (p.lastContacted === undefined) return '';
+  if (!p.lastContacted) return 'Not contacted yet';
+  const d = p.contactedDaysAgo;
+  const ago = d === 0 ? 'today' : d === 1 ? 'yesterday' : d > 1 ? `${d} days ago` : '';
+  return `Last contacted: ${fmtDayMonth(p.lastContacted)}${ago ? ` (${ago})` : ''}`;
+}
+
+// Line 2: 📅 Event: 16 Oct (Fri) · Today · 👥 40 pax · Enquiry · 📞 98765…
 function detailLine(p) {
-  const bits = [`📅 ${fmtDate(p.date)}`];
+  const bits = [`📅 Event: ${fmtDate(p.date)}`];
   const w = whenLabel(p);
   if (w) bits.push(w);
   const pax = paxLabel(p);
@@ -110,11 +126,13 @@ export function todayNote(p, todayIso) {
   return n.text ? trunc(n.text, 100) : '';
 }
 
-// Line 3 for upcoming: latest follow-up with its date, or a nudge
+// Note line for upcoming: latest follow-up. Its date is already on the
+// "Last contacted" line, so it's repeated only when the two differ.
 export function upcomingNote(p) {
   const n = parseNote(p.latestFollowUp);
-  if (!n.text) return 'No follow-up yet';
-  const head = [n.when, n.who].filter(Boolean).join(' · ');
+  if (!n.text) return p.lastContacted === undefined ? 'No follow-up yet' : '';
+  const showDate = n.when && (p.lastContacted === undefined || p.lastNoteDate !== p.lastContacted);
+  const head = [showDate ? n.when : '', n.who].filter(Boolean).join(' · ');
   return `${head ? `${head}: ` : ''}${trunc(n.text, 100)}`;
 }
 
@@ -130,6 +148,8 @@ function partyBlock(p, i, note) {
   const co = String(p.company || '').replace(/\s+/g, ' ').trim();
   const company = co ? ` – ${co}` : '';
   const lines = [`${i + 1}. *${host}*${company}`, detailLine(p)];
+  const contact = contactLine(p);
+  if (contact) lines.push(`☎️ ${contact}`);
   const extras = extrasLine(p);
   if (extras) lines.push(`ℹ️ ${extras}`);
   if (note) lines.push(`📝 ${note}`);
