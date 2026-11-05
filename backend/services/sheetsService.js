@@ -216,21 +216,38 @@ async function getRow(rowIndex) {
   });
 }
 
+// Row inserts/deletes shift every row below them, and appendRow picks its
+// row from a fresh read. Run them one at a time (single node process) so two
+// saves can't compute the same row.
+let _rowShapeChain = Promise.resolve();
+function withRowShapeLock(fn) {
+  const run = _rowShapeChain.then(fn, fn);
+  _rowShapeChain = run.catch(() => {});
+  return run;
+}
+
 /**
  * Append a new row to the Party Bookings sheet in date-sorted order.
  * If the date is a real date (YYYY-MM-DD), inserts at the correct position.
  * TBC dates go to the end.
+ *
+ * Always writes an explicit A:AP range. values.append is NOT used: it guesses
+ * the target "table" from nearby cells, and from 2026-10-15 it wrote every
+ * TBC party starting at column AP (41 columns right), hiding them from the app.
  * @param {object} data - Object keyed by column name
  * @returns {object} The appended data with _rowIndex
  */
 async function appendRow(data) {
-  return withRetry(async () => {
+  // Each API call retries on its own: retrying the whole flow after the row
+  // insert succeeded would insert a second blank row.
+  return withRowShapeLock(async () => {
     const sheets = getSheetsClient();
 
     // Auto-generate Unique ID if not provided
     if (!data['Unique ID']) {
       data['Unique ID'] = generateUniqueId();
     }
+    const uid = String(data['Unique ID']).trim();
 
     const values = COLUMNS.map((col) => {
       let val = data[col];
@@ -238,85 +255,74 @@ async function appendRow(data) {
       return val !== undefined && val !== null ? String(val) : '';
     });
 
-    const newDate = data['Date'] || '';
-    const isTBC = newDate.toString().startsWith('TBC:');
+    const newDate = String(data['Date'] || '');
+    const isDated = /^\d{4}-\d{2}-\d{2}$/.test(newDate);
 
-    // If it's a real date, find the right position to insert
-    if (!isTBC && /^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
-      try {
-        const allRows = await getAllRows();
-        let insertIdx = allRows.length; // default: end
-
-        for (let i = 0; i < allRows.length; i++) {
-          const rowDate = allRows[i]['Date'] || '';
-          if (rowDate.startsWith('TBC:')) continue; // TBC dates stay at end
-          if (/^\d{4}-\d{2}-\d{2}$/.test(rowDate) && rowDate > newDate) {
-            insertIdx = i;
-            break;
-          }
+    // Position must come from a fresh read, not the 30s cache
+    invalidateRowsCache();
+    const allRows = await getAllRows();
+    let insertIdx = allRows.length; // default: end (TBC and unsortable dates)
+    if (isDated) {
+      for (let i = 0; i < allRows.length; i++) {
+        const rowDate = allRows[i]['Date'] || '';
+        if (rowDate.startsWith('TBC:')) continue; // TBC dates stay at end
+        if (/^\d{4}-\d{2}-\d{2}$/.test(rowDate) && rowDate > newDate) {
+          insertIdx = i;
+          break;
         }
-
-        // insertIdx is 0-based among data rows; sheet row = insertIdx + 2 (header=1)
-        const sheetRowIndex = insertIdx + 2;
-
-        // Get sheetId for batchUpdate
-        const meta = await sheets.spreadsheets.get({
-          spreadsheetId: getSpreadsheetId(),
-          fields: 'sheets.properties',
-        });
-        const sheet = meta.data.sheets.find(
-          (s) => s.properties.title === SHEET_NAMES.PARTY_BOOKINGS
-        );
-        if (sheet) {
-          // Insert a blank row at the position
-          await sheets.spreadsheets.batchUpdate({
-            spreadsheetId: getSpreadsheetId(),
-            requestBody: {
-              requests: [{
-                insertDimension: {
-                  range: {
-                    sheetId: sheet.properties.sheetId,
-                    dimension: 'ROWS',
-                    startIndex: sheetRowIndex - 1, // 0-based
-                    endIndex: sheetRowIndex,
-                  },
-                  inheritFromBefore: false,
-                },
-              }],
-            },
-          });
-
-          // Write data into the new row
-          await sheets.spreadsheets.values.update({
-            spreadsheetId: getSpreadsheetId(),
-            range: `${SHEET_NAMES.PARTY_BOOKINGS}!A${sheetRowIndex}:${LAST_COL}${sheetRowIndex}`,
-            valueInputOption: 'USER_ENTERED',
-            requestBody: { values: [values] },
-          });
-
-          invalidateRowsCache();
-          return { ...data, _rowIndex: sheetRowIndex };
-        }
-      } catch (err) {
-        console.warn('Date-sorted insert failed, falling back to append:', err.message);
       }
     }
 
-    // Fallback: simple append (for TBC dates or if sorted insert fails)
-    const res = await sheets.spreadsheets.values.append({
+    // insertIdx is 0-based among data rows; sheet row = insertIdx + 2 (header=1)
+    const sheetRowIndex = insertIdx + 2;
+
+    const meta = await withRetry(() => sheets.spreadsheets.get({
       spreadsheetId: getSpreadsheetId(),
-      range: `${SHEET_NAMES.PARTY_BOOKINGS}!A:${LAST_COL}`,
+      fields: 'sheets.properties',
+    }));
+    const sheet = meta.data.sheets.find(
+      (s) => s.properties.title === SHEET_NAMES.PARTY_BOOKINGS
+    );
+    if (!sheet) throw new Error('Party Bookings sheet not found');
+    const { sheetId, gridProperties } = sheet.properties;
+
+    // Make room for the row: insert a blank row there, or grow the grid if
+    // the sheet is already full to its last row
+    const request = sheetRowIndex - 1 < gridProperties.rowCount
+      ? {
+        insertDimension: {
+          range: { sheetId, dimension: 'ROWS', startIndex: sheetRowIndex - 1, endIndex: sheetRowIndex },
+          inheritFromBefore: false,
+        },
+      }
+      : { appendDimension: { sheetId, dimension: 'ROWS', length: sheetRowIndex - gridProperties.rowCount } };
+    await withRetry(() => sheets.spreadsheets.batchUpdate({
+      spreadsheetId: getSpreadsheetId(),
+      requestBody: { requests: [request] },
+    }));
+
+    await withRetry(() => sheets.spreadsheets.values.update({
+      spreadsheetId: getSpreadsheetId(),
+      range: `${SHEET_NAMES.PARTY_BOOKINGS}!A${sheetRowIndex}:${LAST_COL}${sheetRowIndex}`,
       valueInputOption: 'USER_ENTERED',
-      insertDataOption: 'INSERT_ROWS',
       requestBody: { values: [values] },
-    });
-
-    const updatedRange = res.data.updates.updatedRange || '';
-    const match = updatedRange.match(/!A(\d+):/);
-    const rowIndex = match ? parseInt(match[1], 10) : null;
-
+    }));
     invalidateRowsCache();
-    return { ...data, _rowIndex: rowIndex };
+
+    // Read back: column A of that row must now hold this party's Unique ID
+    const check = await withRetry(() => sheets.spreadsheets.values.get({
+      spreadsheetId: getSpreadsheetId(),
+      range: `${SHEET_NAMES.PARTY_BOOKINGS}!A${sheetRowIndex}:A${sheetRowIndex}`,
+    }));
+    const atRow = String(((check.data.values || [])[0] || [])[0] || '').trim();
+    if (atRow === uid) return { ...data, _rowIndex: sheetRowIndex };
+
+    // Something shifted the sheet meanwhile (e.g. a manual edit) — find it
+    const placed = (await getAllRows()).find((r) => String(r['Unique ID'] || '').trim() === uid);
+    if (placed) return { ...data, _rowIndex: placed._rowIndex };
+    const err = new Error(`New party ${uid} was not found in column A after saving (row ${sheetRowIndex})`);
+    err.code = 'PARTY_ROW_NOT_VERIFIED';
+    throw err;
   });
 }
 
@@ -365,7 +371,7 @@ async function updateRow(rowIndex, data) {
  * @param {number} rowIndex - 1-based sheet row index
  */
 async function deleteRow(rowIndex) {
-  return withRetry(async () => {
+  return withRowShapeLock(() => withRetry(async () => {
     const sheets = getSheetsClient();
 
     // We need the sheetId (numeric) for the Party Bookings tab
@@ -398,7 +404,7 @@ async function deleteRow(rowIndex) {
 
     invalidateRowsCache();
     return true;
-  });
+  }));
 }
 
 /**
