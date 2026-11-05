@@ -1,5 +1,9 @@
 const { google } = require('googleapis');
 
+// No Google call may hang forever: party creates/deletes run one at a time,
+// so a single stuck request would otherwise block every save behind it.
+google.options({ timeout: 30000 });
+
 // Sheet tab names
 const SHEET_NAMES = {
   PARTY_BOOKINGS: 'Party Bookings',

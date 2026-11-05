@@ -115,8 +115,12 @@ async function withRetry(fn, retries = MAX_RETRIES) {
 const ROWS_CACHE_TTL_MS = parseInt(process.env.PARTY_ROWS_CACHE_TTL_MS || '30000', 10);
 let _rowsCache = { data: null, expiresAt: 0 };
 let _rowsInFlight = null;
+// Bumped on every invalidate so a read that started before a write can't
+// put its (stale) result back into the cache after it lands.
+let _rowsGen = 0;
 
 function invalidateRowsCache() {
+  _rowsGen++;
   _rowsCache = { data: null, expiresAt: 0 };
   _rowsInFlight = null;
 }
@@ -160,7 +164,8 @@ async function getAllRows() {
   // Dedupe concurrent misses — all callers share one network round-trip
   if (_rowsInFlight) return _rowsInFlight;
 
-  _rowsInFlight = withRetry(async () => {
+  const gen = _rowsGen;
+  const inFlight = withRetry(async () => {
     const sheets = getSheetsClient();
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: getSpreadsheetId(),
@@ -180,16 +185,17 @@ async function getAllRows() {
     });
   })
     .then((data) => {
-      _rowsCache = { data, expiresAt: Date.now() + ROWS_CACHE_TTL_MS };
-      _rowsInFlight = null;
+      if (gen === _rowsGen) _rowsCache = { data, expiresAt: Date.now() + ROWS_CACHE_TTL_MS };
+      if (_rowsInFlight === inFlight) _rowsInFlight = null;
       return data;
     })
     .catch((err) => {
-      _rowsInFlight = null;
+      if (_rowsInFlight === inFlight) _rowsInFlight = null;
       throw err;
     });
 
-  return _rowsInFlight;
+  _rowsInFlight = inFlight;
+  return inFlight;
 }
 
 /**
@@ -276,15 +282,7 @@ async function appendRow(data) {
     // insertIdx is 0-based among data rows; sheet row = insertIdx + 2 (header=1)
     const sheetRowIndex = insertIdx + 2;
 
-    const meta = await withRetry(() => sheets.spreadsheets.get({
-      spreadsheetId: getSpreadsheetId(),
-      fields: 'sheets.properties',
-    }));
-    const sheet = meta.data.sheets.find(
-      (s) => s.properties.title === SHEET_NAMES.PARTY_BOOKINGS
-    );
-    if (!sheet) throw new Error('Party Bookings sheet not found');
-    const { sheetId, gridProperties } = sheet.properties;
+    const { sheetId, gridProperties } = await withRetry(() => partyBookingsProps(sheets));
 
     // Make room for the row: insert a blank row there, or grow the grid if
     // the sheet is already full to its last row
@@ -296,10 +294,21 @@ async function appendRow(data) {
         },
       }
       : { appendDimension: { sheetId, dimension: 'ROWS', length: sheetRowIndex - gridProperties.rowCount } };
-    await withRetry(() => sheets.spreadsheets.batchUpdate({
-      spreadsheetId: getSpreadsheetId(),
-      requestBody: { requests: [request] },
-    }));
+    // Retry the insert only if it didn't land: a lost reply to a successful
+    // insert must not add a second blank row
+    const rowsBefore = gridProperties.rowCount;
+    let insertTried = false;
+    await withRetry(async () => {
+      if (insertTried) {
+        const now = await partyBookingsProps(sheets);
+        if (now.gridProperties.rowCount > rowsBefore) return; // already inserted
+      }
+      insertTried = true;
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: getSpreadsheetId(),
+        requestBody: { requests: [request] },
+      });
+    });
 
     await withRetry(() => sheets.spreadsheets.values.update({
       spreadsheetId: getSpreadsheetId(),
@@ -318,6 +327,7 @@ async function appendRow(data) {
     if (atRow === uid) return { ...data, _rowIndex: sheetRowIndex };
 
     // Something shifted the sheet meanwhile (e.g. a manual edit) — find it
+    invalidateRowsCache();
     const placed = (await getAllRows()).find((r) => String(r['Unique ID'] || '').trim() === uid);
     if (placed) return { ...data, _rowIndex: placed._rowIndex };
     const err = new Error(`New party ${uid} was not found in column A after saving (row ${sheetRowIndex})`);
@@ -366,45 +376,75 @@ async function updateRow(rowIndex, data) {
 }
 
 /**
- * Delete a row from the Party Bookings sheet by clearing its contents.
- * Uses batchUpdate to actually delete the row so subsequent indices shift.
- * @param {number} rowIndex - 1-based sheet row index
+ * Delete a party's row from the Party Bookings sheet (rows below shift up).
+ * @param {number} rowIndex - 1-based sheet row index the caller loaded
+ * @param {string} [expectedUid] - that party's Unique ID. Re-checked inside the
+ *   lock: a create queued ahead of this delete can shift the party down a row,
+ *   so the row is re-found by ID rather than deleting whatever is there now.
  */
-async function deleteRow(rowIndex) {
-  return withRowShapeLock(() => withRetry(async () => {
+async function deleteRow(rowIndex, expectedUid) {
+  return withRowShapeLock(async () => {
     const sheets = getSheetsClient();
+    const uid = String(expectedUid || '').trim();
+    const uidAt = async (r) => {
+      const res = await withRetry(() => sheets.spreadsheets.values.get({
+        spreadsheetId: getSpreadsheetId(),
+        range: `${SHEET_NAMES.PARTY_BOOKINGS}!A${r}:A${r}`,
+      }));
+      return String(((res.data.values || [])[0] || [])[0] || '').trim();
+    };
+    const findRow = async () => {
+      invalidateRowsCache();
+      const hit = (await getAllRows()).find((r) => String(r['Unique ID'] || '').trim() === uid);
+      return hit ? hit._rowIndex : null;
+    };
 
-    // We need the sheetId (numeric) for the Party Bookings tab
-    const meta = await sheets.spreadsheets.get({
-      spreadsheetId: getSpreadsheetId(),
-      fields: 'sheets.properties',
-    });
-    const sheet = meta.data.sheets.find(
-      (s) => s.properties.title === SHEET_NAMES.PARTY_BOOKINGS
-    );
-    if (!sheet) throw new Error('Party Bookings sheet not found');
+    let target = rowIndex;
+    if (uid && (await uidAt(target)) !== uid) {
+      target = await findRow();
+      if (!target) {
+        const err = new Error(`Party ${uid} is no longer in the sheet`);
+        err.code = 'PARTY_ROW_MOVED';
+        throw err;
+      }
+    }
 
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: getSpreadsheetId(),
-      requestBody: {
-        requests: [
-          {
+    const { sheetId } = await withRetry(() => partyBookingsProps(sheets));
+    // Retry only while the party is still there: a lost reply to a successful
+    // delete must not delete the next row too
+    let deleteTried = false;
+    await withRetry(async () => {
+      if (deleteTried && uid && (await uidAt(target)) !== uid) {
+        target = await findRow();
+        if (!target) return; // already deleted
+      }
+      deleteTried = true;
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: getSpreadsheetId(),
+        requestBody: {
+          requests: [{
             deleteDimension: {
-              range: {
-                sheetId: sheet.properties.sheetId,
-                dimension: 'ROWS',
-                startIndex: rowIndex - 1, // 0-based
-                endIndex: rowIndex,
-              },
+              range: { sheetId, dimension: 'ROWS', startIndex: target - 1, endIndex: target },
             },
-          },
-        ],
-      },
+          }],
+        },
+      });
     });
 
     invalidateRowsCache();
     return true;
-  }));
+  });
+}
+
+// sheetId + gridProperties of the Party Bookings tab
+async function partyBookingsProps(sheets) {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: getSpreadsheetId(),
+    fields: 'sheets.properties',
+  });
+  const sheet = meta.data.sheets.find((s) => s.properties.title === SHEET_NAMES.PARTY_BOOKINGS);
+  if (!sheet) throw new Error('Party Bookings sheet not found');
+  return sheet.properties;
 }
 
 /**

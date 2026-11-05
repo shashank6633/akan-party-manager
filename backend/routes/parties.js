@@ -1021,13 +1021,16 @@ router.delete(
       const { existing, error } = await loadRowVerified(rowIndex, expectedUid);
       if (error) return res.status(error.status).json({ success: false, ...error });
 
-      await sheetsService.deleteRow(rowIndex);
+      await sheetsService.deleteRow(rowIndex, existing['Unique ID']);
 
       res.json({
         success: true,
         message: 'Party deleted successfully.',
       });
     } catch (err) {
+      if (err.code === 'PARTY_ROW_MOVED') {
+        return res.status(409).json({ success: false, message: 'This party was moved or removed by another change. Please reload and try again.' });
+      }
       console.error('Delete party error:', err);
       res.status(500).json({ success: false, message: 'Failed to delete party.' });
     }

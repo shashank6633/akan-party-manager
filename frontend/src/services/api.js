@@ -15,7 +15,8 @@ api.interceptors.request.use((config) => {
 });
 
 // Automatic retry for transient network / server errors (502, 503, 504, timeouts).
-// Only retries GET requests (safe to repeat) and POST/PUT on explicit 5xx (server-side).
+// GET only: a create / edit / payment that timed out may still have been saved,
+// so re-sending it could add a duplicate party, note or payment.
 // Max 2 retries with 1.5s delay between attempts.
 api.interceptors.response.use(
   (res) => res,
@@ -25,8 +26,9 @@ api.interceptors.response.use(
 
     config._retryCount = config._retryCount || 0;
     const isRetryable =
-      !err.response ||                           // network error / timeout
-      [502, 503, 504].includes(err.response?.status); // gateway / server errors
+      String(config.method || 'get').toLowerCase() === 'get' &&
+      (!err.response ||                           // network error / timeout
+        [502, 503, 504].includes(err.response?.status)); // gateway / server errors
 
     if (isRetryable && config._retryCount < 2) {
       config._retryCount += 1;
